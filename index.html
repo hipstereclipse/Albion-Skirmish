@@ -25,7 +25,9 @@
     font-family:"Palatino Linotype", "Book Antiqua", Georgia, serif; color:var(--ink);
     user-select:none; -webkit-user-select:none;
   }
-  #game-canvas { position:absolute; inset:0; display:block; touch-action:none; }
+  #game-canvas { position:absolute; inset:0; z-index:0; display:block; touch-action:none; }
+  #pixi-layer { position:absolute; inset:0; z-index:1; pointer-events:none; overflow:hidden; }
+  #pixi-layer canvas { display:block; width:100% !important; height:100% !important; }
   .hidden { display:none !important; }
   .hud { position:absolute; background:var(--panel-bg); border:0 solid var(--panel-line); z-index:10;
     box-shadow:0 0 0 1px var(--panel-glow), 0 10px 28px rgba(0,0,0,.4); backdrop-filter:blur(9px) saturate(1.08); }
@@ -161,6 +163,7 @@
 </head>
 <body>
 <canvas id="game-canvas"></canvas>
+<div id="pixi-layer" aria-hidden="true"></div>
 
 <!-- ============================== UI OVERLAY (HTML/CSS) ============================== -->
 <div id="top-bar" class="hud hidden">
@@ -249,13 +252,13 @@
 const CONFIG = {
   TICK_RATE: 30,                       // fixed logic updates per second
 
-  MAP: { COLS: 48, ROWS: 48, TILE: 40 },
+  MAP: { COLS: 72, ROWS: 72, TILE: 40 },
 
   CAMERA: { KEY_SPEED: 720, EDGE_SPEED: 720, EDGE_MARGIN: 22 },
 
   START: { FOOD: 200, WOOD: 200, GOLD: 100, VILLAGERS: 3 },
 
-  POP_MAX: 40,                         // absolute population ceiling
+  POP_MAX: 60,                         // absolute population ceiling
 
   // Per-resource economy numbers. nodeAmount = finite stock per map node.
   RESOURCES: {
@@ -273,6 +276,9 @@ const CONFIG = {
     archer:   { name:'Guild Archer',   hp:42, damage:6,  range:5.0, attackCooldown:1.6, moveSpeed:105,
                 aggroRange:6.5, popCost:1, cost:{wood:40,gold:30},  trainTime:14, radius:10, ageReq:1,
                 projectileSpeed:440 },
+    ship:     { name:'Guild Ferry', hp:140, damage:4, range:3.2, attackCooldown:1.8, moveSpeed:118,
+          aggroRange:4.5, popCost:2, cost:{wood:140,gold:45}, trainTime:18, radius:15, ageReq:1,
+          projectileSpeed:360, naval:true, capacity:6 },
   },
 
   BUILDINGS: {
@@ -285,6 +291,8 @@ const CONFIG = {
                   dropoff:true, ageReq:0, buildable:true },
     barracks:   { name:'Training Yard',    hp:700,  size:3, cost:{wood:150}, buildTime:22,
                   trains:['militia','archer'], ageReq:1, buildable:true },
+    shipyard:   { name:'Albion Dock',       hp:520,  size:3, cost:{wood:180}, buildTime:24,
+            trains:['ship'], ageReq:1, buildable:true, shore:true },
   },
 
   // Index = age. Multipliers are absolute (not cumulative). hp/dmg apply to military units.
@@ -372,6 +380,7 @@ const DOM = {
   age: $('age-display'), time: $('time-display'),
   notifications: $('notifications'),
   selPanel: $('selection-panel'), actionsPanel: $('actions-panel'),
+  pixiLayer: $('pixi-layer'),
   screenStart: $('screen-start'), screenEnd: $('screen-end'),
   endTitle: $('end-title'), endSub: $('end-sub'),
   pauseOverlay: $('pause-overlay'),
@@ -403,12 +412,14 @@ const THEME = {
       villager: ['Guild Apprentice', 'Bandit Forager', 'Hobbe Scavenger', 'Grave Thrall'],
       militia: ['Guild Guard', 'Bandit Raider', 'Hobbe Bruiser', 'Hollow Guard'],
       archer: ['Guild Archer', 'Bandit Archer', 'Hobbe Slinger', 'Bone Archer'],
+      ship: ['Guild Ferry', 'Bandit Skiff', 'Hobbe Raft', 'Bone Barge'],
     },
     buildings: {
       towncenter: ['Guild Hall', 'Bandit War Camp', 'Hobbe Den', 'Necropolis'],
       house: ['Albion Cottage', 'Bandit Lodge', 'Hobbe Burrow', 'Crypt'],
       storehouse: ['Guild Storehouse', 'Supply Cache', 'Loot Pile', 'Bone Cache'],
       barracks: ['Training Yard', 'Bandit Drill Camp', 'Brawl Pit', 'Grave Muster'],
+      shipyard: ['Albion Dock', 'Bandit Jetty', 'Hobbe Wharf', 'Bone Quay'],
     },
   },
 };
@@ -475,7 +486,11 @@ function screenToWorld(sx, sy) { const z = worldZoom(); return { x: game.camera.
 function tIdx(tx, ty) { return ty * COLS + tx; }
 function inBounds(tx, ty) { return tx >= 0 && ty >= 0 && tx < COLS && ty < ROWS; }
 function tileCenter(t) { return (t + 0.5) * T; }
+function scaleMapX(tile) { return tile * COLS / 48; }
+function scaleMapY(tile) { return tile * ROWS / 48; }
 function isMilitary(type) { return type !== 'villager'; }
+function unitMovesOnWaterType(type) { return !!(CONFIG.UNITS[type] && CONFIG.UNITS[type].naval); }
+function unitMovesOnWater(unit) { return unit && unitMovesOnWaterType(unit.type); }
 function unitDisplayName(type, owner) {
   return (THEME.NAMES.units[type] && THEME.NAMES.units[type][owner]) || CONFIG.UNITS[type].name;
 }
@@ -512,6 +527,96 @@ function costHtml(cost) {
   return Object.keys(cost).map(k =>
     '<span class="c-' + k + '">' + cost[k] + RES_EMOJI[k] + '</span>').join(' ');
 }
+
+/* ================================================================================
+ * OPTIONAL JS RENDER FRAMEWORK — PixiJS overlay, HTML HUD and Canvas game remain live
+ * ================================================================================ */
+const PIXI_CDN = 'https://cdn.jsdelivr.net/npm/pixi.js@7.4.2/dist/pixi.min.js';
+const AlbionFramework = (() => {
+  let app = null, graphics = null, loading = false, ready = false;
+
+  function load() {
+    if (ready) return true;
+    if (window.PIXI) return init();
+    if (loading) return false;
+    loading = true;
+    const script = document.createElement('script');
+    script.src = PIXI_CDN;
+    script.async = true;
+    script.onload = () => { loading = false; init(); };
+    script.onerror = () => { loading = false; console.warn('PixiJS failed to load; using Canvas renderer only.'); };
+    document.head.appendChild(script);
+    return false;
+  }
+
+  function init() {
+    if (ready || !window.PIXI || !DOM.pixiLayer) return ready;
+    try {
+      app = new PIXI.Application({
+        width: Math.max(1, viewW), height: Math.max(1, viewH),
+        backgroundAlpha: 0, antialias: true, autoDensity: true,
+        resolution: Math.max(1, Math.min(dpr || 1, THEME.RENDER.MAX_DPR)), autoStart: false,
+      });
+      app.view.className = 'pixi-view';
+      DOM.pixiLayer.innerHTML = '';
+      DOM.pixiLayer.appendChild(app.view);
+      graphics = new PIXI.Graphics();
+      app.stage.addChild(graphics);
+      ready = true;
+      resize();
+    } catch (err) {
+      console.warn('PixiJS init failed; using Canvas renderer only.', err);
+      ready = false;
+    }
+    return ready;
+  }
+
+  function resize() {
+    if (!ready || !app) return;
+    app.renderer.resize(Math.max(1, viewW), Math.max(1, viewH));
+    app.view.style.width = viewW + 'px';
+    app.view.style.height = viewH + 'px';
+  }
+
+  function render(delta) {
+    if (!ready || !app || !graphics || !game || appState === 'menu') return;
+    graphics.clear();
+    drawWaterAndAtmosphere(delta || 0);
+    app.renderer.render(app.stage);
+  }
+
+  function drawWaterAndAtmosphere(delta) {
+    const cam = game.camera;
+    const z = worldZoom();
+    const decor = game.decor || { streams: [], ponds: [] };
+    const t = game.time + delta;
+    for (const pond of decor.ponds || []) {
+      const sx = (pond.x - cam.x) * z;
+      const sy = (pond.y - cam.y) * z;
+      const rx = pond.rx * z, ry = pond.ry * z;
+      if (sx + rx < -40 || sx - rx > viewW + 40 || sy + ry < -40 || sy - ry > viewH + 40) continue;
+      graphics.lineStyle(Math.max(1, 1.4 * z), 0xb9f8ff, pond.large ? 0.22 : 0.14);
+      graphics.drawEllipse(sx, sy, rx * (0.82 + Math.sin(t * 0.8 + pond.a) * 0.025), ry * 0.78);
+      graphics.lineStyle(Math.max(1, 0.8 * z), 0xffffff, pond.large ? 0.18 : 0.1);
+      graphics.moveTo(sx - rx * 0.38, sy - ry * 0.22);
+      graphics.quadraticCurveTo(sx, sy - ry * 0.36 - Math.sin(t + pond.a) * 4, sx + rx * 0.42, sy - ry * 0.18);
+    }
+    for (const stream of decor.streams || []) {
+      for (let i = 0; i < stream.length - 1; i += 3) {
+        const a = stream[i], b = stream[i + 1];
+        const ax = (a.x - cam.x) * z, ay = (a.y - cam.y) * z;
+        const bx = (b.x - cam.x) * z, by = (b.y - cam.y) * z;
+        if ((ax < -60 && bx < -60) || (ax > viewW + 60 && bx > viewW + 60) || (ay < -60 && by < -60) || (ay > viewH + 60 && by > viewH + 60)) continue;
+        const alpha = 0.12 + Math.sin(t * 1.6 + i * 0.37) * 0.04;
+        graphics.lineStyle(Math.max(1, 1.2 * z), 0xb9f8ff, alpha);
+        graphics.moveTo(ax, ay);
+        graphics.lineTo(bx, by);
+      }
+    }
+  }
+
+  return { load, init, resize, render, get ready() { return ready; } };
+})();
 
 /* ================================================================================
  * GAME STATE — everything lives in one object so Restart is a clean rebuild
@@ -555,6 +660,8 @@ function newGame(options) {
     units: [], buildings: [], nodes: [], projectiles: [], effects: [], pings: [],
     deadList: [],
     blocked: new Uint8Array(NTILES),     // 1 = impassable (buildings + resource nodes)
+    water: new Uint8Array(NTILES),       // 1 = deep water; land units need bridges, ships need water
+    bridges: new Uint8Array(NTILES),     // 1 = bridge deck over water
     nodeGrid: new Array(NTILES).fill(null),
     players,
     camera: { x: 0, y: 0 },
@@ -584,7 +691,7 @@ function placeCluster(type, cx, cy, n, reserved) {
     const ty = Math.round(cy + rand(-spread, spread));
     if (tx < 1 || ty < 1 || tx > COLS - 2 || ty > ROWS - 2) continue;
     const i = tIdx(tx, ty);
-    if (game.nodeGrid[i] || reserved[i]) continue;
+    if (game.nodeGrid[i] || reserved[i] || tileBlockedFor(tx, ty, 'land')) continue;
     createNode(type, tx, ty);
     placed++;
   }
@@ -604,9 +711,11 @@ function generateWorld() {
     allTcs.push(createBuilding('towncenter', i + 1, spot.tx, spot.ty, true));
   }
   g.decor = makeMapDecor(allTcs, preset);
+  buildWaterGrid(allTcs);
 
   // Keep an open ring around each TC free of resources
   const reserved = new Uint8Array(NTILES);
+  for (let i = 0; i < NTILES; i++) if (g.water[i] && !g.bridges[i]) reserved[i] = 1;
   for (const b of g.buildings) {
     for (let ty = b.ty - 3; ty < b.ty + b.size + 3; ty++)
       for (let tx = b.tx - 3; tx < b.tx + b.size + 3; tx++)
@@ -660,8 +769,8 @@ function placeBaseResources(tc, preset, reserved) {
 
 function placeProceduralCluster(c, i, reserved) {
   const jitter = 3.2 + game.options.enemyFactions * 0.55;
-  const cx = clamp(c.cx + (hash01(game.seed, i, 11) - 0.5) * jitter * 2, 4, COLS - 5);
-  const cy = clamp(c.cy + (hash01(game.seed, i, 17) - 0.5) * jitter * 2, 4, ROWS - 5);
+  const cx = clamp(scaleMapX(c.cx) + (hash01(game.seed, i, 11) - 0.5) * jitter * 2, 4, COLS - 5);
+  const cy = clamp(scaleMapY(c.cy) + (hash01(game.seed, i, 17) - 0.5) * jitter * 2, 4, ROWS - 5);
   const amount = Math.max(4, Math.round(c.n * (0.72 + hash01(game.seed, i, 23) * 0.62)));
   placeCluster(c.type, cx, cy, amount, reserved);
 }
@@ -699,27 +808,31 @@ function makeMapDecor(tcs, preset) {
     if (i > 0) decor.trails.push(makeWavyPath([centers[0], center, c], i));
   }
   decor.trails.push(makeWavyPath([
-    { x: T * 5.5, y: T * (16 + hash01(seed, 2, 77) * 7) },
+    { x: T * scaleMapX(5.5), y: T * scaleMapY(16 + hash01(seed, 2, 77) * 7) },
     { x: center.x + T * 2.3, y: center.y - T * 1.6 },
-    { x: T * 42, y: T * (29 + hash01(seed, 5, 79) * 6) },
+    { x: T * scaleMapX(42), y: T * scaleMapY(29 + hash01(seed, 5, 79) * 6) },
   ], 9));
 
   const streamCount = preset.name.indexOf('Marsh') >= 0 ? 3 : 1 + Math.floor(hash01(seed, 7, 81) * 2);
   for (let i = 0; i < streamCount; i++) {
-    decor.streams.push(makeWavyPath([
-      { x: T * (1 + hash01(seed, i, 83) * 5), y: T * (8 + hash01(seed, i, 89) * 26) },
-      { x: T * (20 + hash01(seed, i, 97) * 8), y: T * (10 + hash01(seed, i, 101) * 28) },
-      { x: T * (42 + hash01(seed, i, 103) * 5), y: T * (8 + hash01(seed, i, 107) * 28) },
-    ], 20 + i));
+    const stream = makeWavyPath([
+      { x: T * scaleMapX(1 + hash01(seed, i, 83) * 5), y: T * scaleMapY(8 + hash01(seed, i, 89) * 26) },
+      { x: T * scaleMapX(20 + hash01(seed, i, 97) * 8), y: T * scaleMapY(10 + hash01(seed, i, 101) * 28) },
+      { x: T * scaleMapX(42 + hash01(seed, i, 103) * 5), y: T * scaleMapY(8 + hash01(seed, i, 107) * 28) },
+    ], 20 + i);
+    stream.width = T * (preset.name.indexOf('Marsh') >= 0 ? 0.92 : 0.72) * (i === 0 ? 1.28 : 1);
+    decor.streams.push(stream);
   }
   const pondCount = Math.round((preset.name.indexOf('Marsh') >= 0 ? 6 : 2 + game.options.enemyFactions) * resTune.decor);
   for (let i = 0; i < pondCount; i++) {
+    const large = i < Math.max(1, game.options.enemyFactions);
     decor.ponds.push({
-      x: T * (7 + hash01(seed, i, 109) * 34),
-      y: T * (7 + hash01(seed, i, 113) * 34),
-      rx: T * (0.75 + hash01(seed, i, 127) * 1.3),
-      ry: T * (0.42 + hash01(seed, i, 131) * 0.9),
+      x: T * scaleMapX(7 + hash01(seed, i, 109) * 34),
+      y: T * scaleMapY(7 + hash01(seed, i, 113) * 34),
+      rx: T * (large ? 3.2 + hash01(seed, i, 127) * 2.8 : 1.1 + hash01(seed, i, 127) * 1.8),
+      ry: T * (large ? 1.8 + hash01(seed, i, 131) * 2.2 : 0.7 + hash01(seed, i, 131) * 1.2),
       a: hash01(seed, i, 137) * Math.PI,
+      large,
     });
   }
   const ruinCount = Math.round((4 + game.options.enemyFactions * 2) * resTune.decor);
@@ -801,25 +914,117 @@ function rebuildBlocked() {
   }
   g.mmDirty = true;
 }
-function isBlockedTile(tx, ty) { return !inBounds(tx, ty) || game.blocked[tIdx(tx, ty)] === 1; }
-function blockedAtWorld(x, y) { return isBlockedTile(Math.floor(x / T), Math.floor(y / T)); }
+function movementModeForType(type) { return unitMovesOnWaterType(type) ? 'water' : 'land'; }
+function tileBlockedFor(tx, ty, mode) {
+  if (!inBounds(tx, ty)) return true;
+  const i = tIdx(tx, ty);
+  if (game.blocked[i] === 1) return true;
+  const water = game.water && game.water[i] === 1;
+  const bridge = game.bridges && game.bridges[i] === 1;
+  if (mode === 'water') return !water || bridge;
+  return water && !bridge;
+}
+function isBlockedTile(tx, ty) { return tileBlockedFor(tx, ty, 'land'); }
+function blockedAtWorld(x, y) { return blockedAtWorldFor(x, y, 'land'); }
+function blockedAtWorldFor(x, y, typeOrMode) {
+  const mode = typeOrMode === 'water' || typeOrMode === 'land' ? typeOrMode : movementModeForType(typeOrMode);
+  return tileBlockedFor(Math.floor(x / T), Math.floor(y / T), mode);
+}
 function hasWalkableNeighbor(tx, ty) {
   for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
     if (!dx && !dy) continue;
-    if (inBounds(tx + dx, ty + dy) && !game.blocked[tIdx(tx + dx, ty + dy)]) return true;
+    if (!tileBlockedFor(tx + dx, ty + dy, 'land')) return true;
   }
   return false;
 }
-function nearestWalkableTile(tx, ty, maxR) {
-  if (!isBlockedTile(tx, ty)) return { tx, ty };
+function nearestPassableTile(tx, ty, maxR, mode) {
+  if (!tileBlockedFor(tx, ty, mode)) return { tx, ty };
   maxR = maxR || 8;
   for (let r = 1; r <= maxR; r++) {
     for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
       if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
-      if (!isBlockedTile(tx + dx, ty + dy)) return { tx: tx + dx, ty: ty + dy };
+      if (!tileBlockedFor(tx + dx, ty + dy, mode)) return { tx: tx + dx, ty: ty + dy };
     }
   }
   return null;
+}
+function nearestWalkableTile(tx, ty, maxR) { return nearestPassableTile(tx, ty, maxR, 'land'); }
+
+function markBridgeTile(tx, ty, radius) {
+  radius = radius || 1;
+  for (let yy = ty - radius; yy <= ty + radius; yy++) {
+    for (let xx = tx - radius; xx <= tx + radius; xx++) {
+      if (!inBounds(xx, yy)) continue;
+      const i = tIdx(xx, yy);
+      if (game.water[i]) game.bridges[i] = 1;
+    }
+  }
+}
+
+function pointInLargePond(wx, wy) {
+  const decor = game.decor || { ponds: [] };
+  for (const pond of decor.ponds || []) {
+    if (!pond.large) continue;
+    const ca = Math.cos(-pond.a), sa = Math.sin(-pond.a);
+    const dx = wx - pond.x, dy = wy - pond.y;
+    const lx = dx * ca - dy * sa, ly = dx * sa + dy * ca;
+    if ((lx * lx) / (pond.rx * pond.rx) + (ly * ly) / (pond.ry * pond.ry) <= 1) return true;
+  }
+  return false;
+}
+
+function distanceToSegment(px, py, ax, ay, bx, by) {
+  const vx = bx - ax, vy = by - ay;
+  const len2 = vx * vx + vy * vy || 1;
+  const t = clamp(((px - ax) * vx + (py - ay) * vy) / len2, 0, 1);
+  const x = ax + vx * t, y = ay + vy * t;
+  return dist(px, py, x, y);
+}
+
+function buildWaterGrid(tcs) {
+  const g = game;
+  g.water.fill(0);
+  g.bridges.fill(0);
+  const decor = g.decor || { streams: [], ponds: [], trails: [] };
+  for (let ty = 0; ty < ROWS; ty++) {
+    for (let tx = 0; tx < COLS; tx++) {
+      const wx = tileCenter(tx), wy = tileCenter(ty);
+      let wet = false;
+      for (const pond of decor.ponds || []) {
+        const ca = Math.cos(-pond.a), sa = Math.sin(-pond.a);
+        const dx = wx - pond.x, dy = wy - pond.y;
+        const lx = dx * ca - dy * sa, ly = dx * sa + dy * ca;
+        if ((lx * lx) / (pond.rx * pond.rx) + (ly * ly) / (pond.ry * pond.ry) <= 1) { wet = true; break; }
+      }
+      if (!wet) {
+        for (const stream of decor.streams || []) {
+          const width = stream.width || T * 0.5;
+          for (let i = 0; i < stream.length - 1; i++) {
+            if (distanceToSegment(wx, wy, stream[i].x, stream[i].y, stream[i + 1].x, stream[i + 1].y) <= width) { wet = true; break; }
+          }
+          if (wet) break;
+        }
+      }
+      if (wet) g.water[tIdx(tx, ty)] = 1;
+    }
+  }
+  for (const trail of decor.trails || []) {
+    for (const p of trail) {
+      if (pointInLargePond(p.x, p.y)) continue;
+      const tx = Math.floor(p.x / T), ty = Math.floor(p.y / T);
+      if (inBounds(tx, ty) && g.water[tIdx(tx, ty)]) markBridgeTile(tx, ty, 1);
+    }
+  }
+  for (const tc of tcs) {
+    for (let ty = tc.ty - 4; ty < tc.ty + tc.size + 4; ty++) {
+      for (let tx = tc.tx - 4; tx < tc.tx + tc.size + 4; tx++) {
+        if (!inBounds(tx, ty)) continue;
+        const i = tIdx(tx, ty);
+        g.water[i] = 0;
+        g.bridges[i] = 0;
+      }
+    }
+  }
 }
 
 /* ================================================================================
@@ -861,12 +1066,12 @@ function pfHeapPop() {
   return top;
 }
 // Returns a list of {tx,ty} steps (start tile excluded), [] if already at goal, or null.
-function findPathTiles(sx, sy, goalTest, hx, hy) {
+function findPathTiles(sx, sy, goalTest, hx, hy, mode) {
   if (goalTest(sx, sy)) return [];
+  mode = mode || 'land';
   PF.gen += 2;
   const OPEN = PF.gen, CLOSED = PF.gen + 1;
   PF.heap.length = 0;
-  const blocked = game.blocked;
   const oct = (x, y) => {
     const dx = Math.abs(x - hx), dy = Math.abs(y - hy);
     return Math.max(dx, dy) + 0.4142 * Math.min(dx, dy);
@@ -887,9 +1092,9 @@ function findPathTiles(sx, sy, goalTest, hx, hy) {
       const nx = cx + dx, ny = cy + dy;
       if (!inBounds(nx, ny)) continue;
       const ni = ny * COLS + nx;
-      if (blocked[ni]) continue;
+      if (tileBlockedFor(nx, ny, mode)) continue;
       // no cutting corners around blocked tiles
-      if (dx && dy && (blocked[cy * COLS + nx] || blocked[ny * COLS + cx])) continue;
+      if (dx && dy && (tileBlockedFor(nx, cy, mode) || tileBlockedFor(cx, ny, mode))) continue;
       const ng = PF.g[cur] + (dx && dy ? 1.4142 : 1);
       const st = PF.state[ni];
       if (st === CLOSED) continue;
@@ -914,12 +1119,13 @@ function findPathTiles(sx, sy, goalTest, hx, hy) {
 function computePath(u, spec) {
   const sx = clamp(Math.floor(u.x / T), 0, COLS - 1);
   const sy = clamp(Math.floor(u.y / T), 0, ROWS - 1);
+  const mode = movementModeForType(u.type);
   let goalTest, hx, hy, exactEnd = null;
   if (spec.kind === 'point') {
     let ttx = clamp(Math.floor(spec.x / T), 0, COLS - 1);
     let tty = clamp(Math.floor(spec.y / T), 0, ROWS - 1);
-    if (isBlockedTile(ttx, tty)) {
-      const nw = nearestWalkableTile(ttx, tty);
+    if (tileBlockedFor(ttx, tty, mode)) {
+      const nw = nearestPassableTile(ttx, tty, 12, mode);
       if (!nw) return false;
       ttx = nw.tx; tty = nw.ty;
     } else {
@@ -930,10 +1136,10 @@ function computePath(u, spec) {
     hx = ttx; hy = tty;
   } else {
     const rtx = spec.tx, rty = spec.ty, rw = spec.w, rh = spec.h;
-    goalTest = (x, y) => x >= rtx - 1 && x <= rtx + rw && y >= rty - 1 && y <= rty + rh;
+    goalTest = (x, y) => x >= rtx - 1 && x <= rtx + rw && y >= rty - 1 && y <= rty + rh && !tileBlockedFor(x, y, mode);
     hx = Math.floor(rtx + rw / 2); hy = Math.floor(rty + rh / 2);
   }
-  const tiles = findPathTiles(sx, sy, goalTest, hx, hy);
+  const tiles = findPathTiles(sx, sy, goalTest, hx, hy, mode);
   if (!tiles) return false;
   u.path = tiles.map(t => ({ x: tileCenter(t.tx), y: tileCenter(t.ty) }));
   if (exactEnd) {
@@ -952,7 +1158,7 @@ function followPath(u, dt) {
   let repathed = false;
   while (u.pathIdx < u.path.length && remaining > 1e-6) {
     const wp = u.path[u.pathIdx];
-    if (blockedAtWorld(wp.x, wp.y)) {          // e.g. a foundation was just placed on the route
+    if (blockedAtWorldFor(wp.x, wp.y, u.type)) {          // e.g. a foundation was just placed on the route
       const spec = u.pathSpec;
       if (repathed || !spec || !computePath(u, spec)) { u.path = null; return 'blocked'; }
       repathed = true;
@@ -2416,6 +2622,7 @@ function sizeCanvas() {
   mmCanvas.style.width = mmSize + 'px';
   mmCanvas.style.height = mmSize + 'px';
   mmCtx.imageSmoothingEnabled = true;
+  AlbionFramework.resize();
   if (game) { game.mmDirty = true; clampCamera(); }
 }
 function computeMinimapSize() {
@@ -3916,6 +4123,7 @@ function frame(now) {
   }
   if (game && game.placement) updatePlacement();
   render();
+  AlbionFramework.render(delta);
   uiSync();
   updateTouchToolbar();
 }
@@ -3923,6 +4131,7 @@ function frame(now) {
 // ---- boot
 initInput();
 sizeCanvas();
+AlbionFramework.load();
 requestAnimationFrame(frame);
 
 </script>
