@@ -33,7 +33,7 @@
     box-shadow:0 0 0 1px var(--panel-glow), 0 10px 28px rgba(0,0,0,.4); backdrop-filter:blur(9px) saturate(1.08); }
 
   /* ---- top bar ---- */
-  #top-bar { top:0; left:0; right:0; min-height:var(--top-h); display:flex; align-items:center; gap:clamp(7px, 2vw, 22px);
+  drawBridgeDecksOn(c);
     padding:4px clamp(8px, 2vw, 16px); border-bottom-width:1px; font-size:calc(13px * var(--ui-scale)); white-space:nowrap; }
   #top-bar .res { display:flex; align-items:center; gap:5px; min-width:clamp(52px, 8vw, 80px); font-weight:700; }
   #top-bar .res > span:first-child { filter:drop-shadow(0 1px 2px rgba(0,0,0,.55)); }
@@ -105,6 +105,8 @@
   .queue-icon.unit-militia::after { width:3px; height:23px; right:5px; top:1px; border-radius:2px; background:#f2ead8; transform:rotate(38deg); box-shadow:0 0 0 1px #5b5145; }
   .queue-icon.unit-archer::before { width:15px; height:19px; right:4px; top:3px; border:2px solid #5a3d24; border-left:0; border-radius:0 14px 14px 0; }
   .queue-icon.unit-archer::after { width:20px; height:2px; left:3px; top:12px; background:#eadfc8; transform:rotate(42deg); box-shadow:0 0 0 1px rgba(44,28,17,.55); }
+  .queue-icon.unit-ship::before { width:20px; height:9px; left:3px; bottom:4px; border-radius:0 0 10px 10px; background:#6e4c2b; box-shadow:inset 0 -2px #3b2414; }
+  .queue-icon.unit-ship::after { width:0; height:0; left:10px; top:3px; border-left:9px solid #eadfc8; border-top:6px solid transparent; border-bottom:6px solid transparent; }
   .queue-icon.queue-age { font-size:8px; letter-spacing:.2px; text-transform:uppercase; }
   .queue-icon.queue-age::before { inset:4px; border:1px solid rgba(36,25,15,.55); border-radius:4px; }
   .queue-icon.queue-age::after { content:"Age"; position:relative; color:#24190f; font-size:8px; line-height:1; }
@@ -291,8 +293,21 @@ const CONFIG = {
                   dropoff:true, ageReq:0, buildable:true },
     barracks:   { name:'Training Yard',    hp:700,  size:3, cost:{wood:150}, buildTime:22,
                   trains:['militia','archer'], ageReq:1, buildable:true },
+    blacksmith: { name:'Guild Blacksmith',  hp:560,  size:3, cost:{wood:160,gold:80}, buildTime:24,
+                  ageReq:1, buildable:true },
     shipyard:   { name:'Albion Dock',       hp:520,  size:3, cost:{wood:180}, buildTime:24,
             trains:['ship'], ageReq:1, buildable:true, shore:true },
+  },
+
+  FORGE: {
+    weapons: [
+      { name:'Iron Weapons', cost:{food:80,gold:120}, dmgBonus:2, ageReq:1 },
+      { name:'Masterwork Weapons', cost:{food:140,gold:220}, dmgBonus:4, ageReq:2 },
+    ],
+    armor: [
+      { name:'Studded Armor', cost:{wood:80,gold:110}, hpBonus:14, ageReq:1 },
+      { name:'Plate Armor', cost:{wood:140,gold:220}, hpBonus:28, ageReq:2 },
+    ],
   },
 
   // Index = age. Multipliers are absolute (not cumulative). hp/dmg apply to military units.
@@ -419,6 +434,7 @@ const THEME = {
       house: ['Albion Cottage', 'Bandit Lodge', 'Hobbe Burrow', 'Crypt'],
       storehouse: ['Guild Storehouse', 'Supply Cache', 'Loot Pile', 'Bone Cache'],
       barracks: ['Training Yard', 'Bandit Drill Camp', 'Brawl Pit', 'Grave Muster'],
+      blacksmith: ['Guild Blacksmith', 'Bandit Forge', 'Hobbe Smithy', 'Bone Furnace'],
       shipyard: ['Albion Dock', 'Bandit Jetty', 'Hobbe Wharf', 'Bone Quay'],
     },
   },
@@ -491,6 +507,31 @@ function scaleMapY(tile) { return tile * ROWS / 48; }
 function isMilitary(type) { return type !== 'villager'; }
 function unitMovesOnWaterType(type) { return !!(CONFIG.UNITS[type] && CONFIG.UNITS[type].naval); }
 function unitMovesOnWater(unit) { return unit && unitMovesOnWaterType(unit.type); }
+function upgradeLevel(owner, kind) {
+  const p = game && game.players && game.players[owner];
+  return p && p.forge ? p.forge[kind] || 0 : 0;
+}
+function unitHpBonus(owner) {
+  let bonus = 0;
+  for (let i = 0; i < upgradeLevel(owner, 'armor'); i++) bonus += CONFIG.FORGE.armor[i].hpBonus || 0;
+  return bonus;
+}
+function unitDmgBonus(owner) {
+  let bonus = 0;
+  for (let i = 0; i < upgradeLevel(owner, 'weapons'); i++) bonus += CONFIG.FORGE.weapons[i].dmgBonus || 0;
+  return bonus;
+}
+function unitMaxHp(type, owner) {
+  const s = CONFIG.UNITS[type];
+  const hpMult = isMilitary(type) ? CONFIG.AGES[game.players[owner].age].hpMult : 1;
+  const bonus = isMilitary(type) ? unitHpBonus(owner) : 0;
+  return Math.round((s.hp + bonus) * hpMult);
+}
+function unitDamageValue(type, owner) {
+  const s = CONFIG.UNITS[type];
+  const base = s.damage + (isMilitary(type) ? unitDmgBonus(owner) : 0);
+  return base * (isMilitary(type) ? CONFIG.AGES[game.players[owner].age].dmgMult : 1);
+}
 function unitDisplayName(type, owner) {
   return (THEME.NAMES.units[type] && THEME.NAMES.units[type][owner]) || CONFIG.UNITS[type].name;
 }
@@ -626,6 +667,7 @@ function makePlayer(id) {
     id,
     resources: { food: CONFIG.START.FOOD, wood: CONFIG.START.WOOD, gold: CONFIG.START.GOLD },
     age: 0,
+    forge: { weapons: 0, armor: 0 },
     popCap: 0,                 // recomputed from completed buildings
     threat: null,              // {x, y, t} — last attack on this player's assets (AI defense)
   };
@@ -1191,11 +1233,11 @@ function getAlive(id) {
 }
 function createUnit(type, owner, x, y) {
   const s = CONFIG.UNITS[type];
-  const hpMult = isMilitary(type) ? CONFIG.AGES[game.players[owner].age].hpMult : 1;
+  const maxHp = unitMaxHp(type, owner);
   const u = {
     id: game.nextId++, kind: 'unit', type, owner,
     x, y, radius: s.radius,
-    hp: Math.round(s.hp * hpMult), maxHp: Math.round(s.hp * hpMult),
+    hp: maxHp, maxHp,
     state: 'idle',
     path: null, pathIdx: 0, pathSpec: null,
     targetId: 0, resumeX: null, resumeY: null,
@@ -1206,6 +1248,8 @@ function createUnit(type, owner, x, y) {
     cooldown: 0, aggroTimer: rand(0, CONFIG.COMBAT.AGGRO_SCAN_INTERVAL),
     repathTimer: 0, stuckTimer: 0, unstuckAttempts: 0, lastPX: x, lastPY: y,
     autoNeeds: false,
+    transportId: 0,
+    cargo: s.naval ? [] : null,
     flash: 0, dead: false,
   };
   game.units.push(u);
@@ -1293,6 +1337,17 @@ function damageEntity(target, amount, attacker) {
 function destroyEntity(e) {
   game.byId.delete(e.id);
   if (e.kind === 'unit') {
+    if (e.transportId) {
+      const ship = getAlive(e.transportId);
+      if (ship && ship.cargo) arrRemove(ship.cargo, e.id);
+    }
+    if (e.cargo) {
+      for (const id of e.cargo.slice()) {
+        const passenger = getAlive(id);
+        if (passenger) { passenger.transportId = 0; markDead(passenger); }
+      }
+      e.cargo.length = 0;
+    }
     arrRemove(game.units, e);
     game.effects.push({ type: 'fade', x: e.x, y: e.y, r: e.radius + 4, t: 0, ttl: 0.7, owner: e.owner });
   } else if (e.kind === 'building') {
@@ -1410,6 +1465,92 @@ function orderDeposit(u, b) {              // right-click a friendly drop-off wh
   if (!u.gatherResType) u.gatherResType = u.carryType;
 }
 
+function orderBoard(u, ship) {
+  if (!u || !ship || unitMovesOnWater(u) || !ship.cargo || ship.owner !== u.owner) return;
+  clearOrder(u);
+  u.state = 'board';
+  u.targetId = ship.id;
+  u.repathTimer = 0;
+}
+
+function boardUnit(u, ship) {
+  const capacity = CONFIG.UNITS[ship.type].capacity || 0;
+  if (!capacity || ship.cargo.length >= capacity) {
+    if (u.owner === 0) notify('Ferry is full', 'warn');
+    u.state = 'idle';
+    return;
+  }
+  clearOrder(u);
+  u.state = 'garrisoned';
+  u.transportId = ship.id;
+  u.x = ship.x;
+  u.y = ship.y;
+  ship.cargo.push(u.id);
+  if (u.owner === 0) {
+    arrRemove(game.selection, u.id);
+    game.selectionVersion++;
+  }
+}
+
+function updateBoard(u, dt) {
+  const ship = getAlive(u.targetId);
+  if (!ship || !ship.cargo || ship.owner !== u.owner) { u.state = 'idle'; u.targetId = 0; return; }
+  if (inRangeOfEnt(u, ship, CONFIG.INTERACT_RANGE + 0.7)) { boardUnit(u, ship); return; }
+  u.repathTimer -= dt;
+  if (!u.path || u.repathTimer <= 0) {
+    u.repathTimer = 0.45;
+    if (!computePath(u, { kind: 'point', x: ship.x, y: ship.y })) { u.state = 'idle'; return; }
+  }
+  followPath(u, dt);
+}
+
+function landTileTouchesWater(tx, ty) {
+  for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+    if (!dx && !dy) continue;
+    const x = tx + dx, y = ty + dy;
+    if (!inBounds(x, y)) continue;
+    const i = tIdx(x, y);
+    if (game.water[i] && !game.bridges[i]) return true;
+  }
+  return false;
+}
+
+function unloadShip(ship, wx, wy) {
+  if (!ship.cargo || !ship.cargo.length) return false;
+  const tiles = [];
+  const tx0 = clamp(Math.floor(wx / T), 0, COLS - 1), ty0 = clamp(Math.floor(wy / T), 0, ROWS - 1);
+  for (let r = 0; r <= 8 && tiles.length < ship.cargo.length; r++) {
+    for (let ty = ty0 - r; ty <= ty0 + r; ty++) for (let tx = tx0 - r; tx <= tx0 + r; tx++) {
+      if (Math.max(Math.abs(tx - tx0), Math.abs(ty - ty0)) !== r) continue;
+      if (tileBlockedFor(tx, ty, 'land') || !landTileTouchesWater(tx, ty)) continue;
+      if (dist(tileCenter(tx), tileCenter(ty), ship.x, ship.y) > T * 7.5) continue;
+      tiles.push({ tx, ty });
+      if (tiles.length >= ship.cargo.length) break;
+    }
+  }
+  if (!tiles.length) {
+    if (ship.owner === 0) notify('Move the ferry closer to a shoreline to unload', 'warn');
+    return false;
+  }
+  const ids = ship.cargo.slice();
+  ship.cargo.length = 0;
+  for (let i = 0; i < ids.length; i++) {
+    const u = getAlive(ids[i]);
+    if (!u) continue;
+    const tile = tiles[i % tiles.length];
+    u.transportId = 0;
+    u.state = 'idle';
+    u.targetId = 0;
+    u.x = tileCenter(tile.tx) + rand(-8, 8);
+    u.y = tileCenter(tile.ty) + rand(-8, 8);
+  }
+  if (ship.owner === 0) {
+    notify('Ferry unloaded at shore', 'good');
+    game.selectionVersion++;
+  }
+  return true;
+}
+
 /* ================================================================================
  * SPATIAL QUERIES
  * ================================================================================ */
@@ -1468,6 +1609,28 @@ function findSpawnTile(b) {
   return null;
 }
 
+function findSpawnTileForType(b, type) {
+  if (unitMovesOnWaterType(type)) return findWaterSpawnTile(b);
+  return findSpawnTile(b);
+}
+
+function findWaterSpawnTile(b) {
+  for (let r = 1; r <= 8; r++) {
+    const options = [];
+    for (let ty = b.ty - r; ty < b.ty + b.size + r; ty++) {
+      for (let tx = b.tx - r; tx < b.tx + b.size + r; tx++) {
+        if (chebToRect(tx, ty, b) !== r) continue;
+        if (!tileBlockedFor(tx, ty, 'water')) options.push({ tx, ty });
+      }
+    }
+    if (options.length) {
+      const t = options[Math.floor(Math.random() * options.length)];
+      return { x: tileCenter(t.tx) + rand(-5, 5), y: tileCenter(t.ty) + rand(-5, 5) };
+    }
+  }
+  return null;
+}
+
 // __CHUNK_B_END__
 
 /* ================================================================================
@@ -1477,7 +1640,7 @@ function findSpawnTile(b) {
 function update(dt) {
   game.time += dt;
   updateTrainQueues(dt);
-  for (const u of game.units) if (!u.dead) updateUnit(u, dt);
+  for (const u of game.units) if (!u.dead && !u.transportId) updateUnit(u, dt);
   applySeparation();
   updateProjectiles(dt);
   updateEffects(dt);
@@ -1545,10 +1708,17 @@ function updateUnit(u, dt) {
     case 'attack': updateAttack(u, dt); break;
     case 'gather': updateGather(u, dt); break;
     case 'build':  updateBuild(u, dt);  break;
+    case 'board':  updateBoard(u, dt);  break;
   }
 
   u.x = clamp(u.x, u.radius, MAPW - u.radius);
   u.y = clamp(u.y, u.radius, MAPH - u.radius);
+  if (u.cargo && u.cargo.length) {
+    for (const id of u.cargo) {
+      const passenger = getAlive(id);
+      if (passenger) { passenger.x = u.x; passenger.y = u.y; }
+    }
+  }
 }
 
 function recoverStuckUnit(u) {
@@ -1607,7 +1777,7 @@ function updateAttack(u, dt) {
 
 function performAttack(u, t) {
   const s = CONFIG.UNITS[u.type];
-  const dmg = s.damage * (isMilitary(u.type) ? CONFIG.AGES[game.players[u.owner].age].dmgMult : 1);
+  const dmg = unitDamageValue(u.type, u.owner);
   if (s.projectileSpeed) {
     const c = entCenter(t);
     game.projectiles.push({
@@ -1627,7 +1797,7 @@ function findAggroTarget(u) {
   if (range <= 0) return null;
   let best = null, bd = Infinity;
   for (const e of game.units) {
-    if (e.dead || e.owner === u.owner) continue;
+    if (e.dead || e.transportId || e.owner === u.owner) continue;
     const d = dist(u.x, u.y, e.x, e.y) - e.radius;
     if (d <= range && d < bd) { bd = d; best = e; }
   }
@@ -1748,7 +1918,7 @@ function updateTrainQueues(dt) {
     q.remaining -= dt;
     if (q.remaining > 0) continue;
     if (q.kind === 'unit') {
-      const t = findSpawnTile(b);
+      const t = findSpawnTileForType(b, q.type);
       if (!t) { q.remaining = 0.5; continue; }   // exit blocked — retry shortly
       const u = createUnit(q.type, b.owner, t.x, t.y);
       applyRallyOrder(b, u);
@@ -1854,6 +2024,38 @@ function tryQueueAge(b) {
   return { ok: true };
 }
 
+function canForgeUpgrade(owner, kind) {
+  const p = game.players[owner];
+  const list = CONFIG.FORGE[kind];
+  const level = p.forge[kind] || 0;
+  if (level >= list.length) return { ok: false, reason: 'All ' + kind + ' upgrades forged' };
+  const next = list[level];
+  if (p.age < next.ageReq) return { ok: false, reason: 'Requires the ' + ageDisplayName(next.ageReq) };
+  const lack = lackText(p, next.cost);
+  if (lack) return { ok: false, reason: lack };
+  return { ok: true, upgrade: next };
+}
+function tryForgeUpgrade(owner, kind) {
+  const c = canForgeUpgrade(owner, kind);
+  if (!c.ok) return c;
+  const p = game.players[owner];
+  payCost(p, c.upgrade.cost);
+  p.forge[kind]++;
+  if (kind === 'armor') {
+    for (const u of game.units) {
+      if (u.dead || u.owner !== owner || !isMilitary(u.type)) continue;
+      const oldMax = u.maxHp;
+      u.maxHp = unitMaxHp(u.type, owner);
+      u.hp = Math.min(u.maxHp, u.hp + Math.max(0, u.maxHp - oldMax));
+    }
+  }
+  if (owner === 0) {
+    notify(c.upgrade.name + ' forged for your fighters.', 'good');
+    game.selectionVersion++;
+  }
+  return { ok: true };
+}
+
 /* ------------------------------- projectiles & effects ------------------------------- */
 function updateProjectiles(dt) {
   const arr = game.projectiles;
@@ -1897,10 +2099,10 @@ function applySeparation() {
   const CHECK = CONFIG.SEPARATION.CHECK_DIST, RELAX = CONFIG.SEPARATION.RELAX, BIAS = CONFIG.SEPARATION.MOVING_BIAS;
   for (let i = 0; i < units.length; i++) {
     const a = units[i];
-    if (a.dead) continue;
+    if (a.dead || a.transportId) continue;
     for (let j = i + 1; j < units.length; j++) {
       const b = units[j];
-      if (b.dead) continue;
+      if (b.dead || b.transportId) continue;
       let dx = b.x - a.x, dy = b.y - a.y;
       if (dx > CHECK || dx < -CHECK || dy > CHECK || dy < -CHECK) continue;
       const minD = a.radius + b.radius;
@@ -1915,26 +2117,40 @@ function applySeparation() {
       const aShare = aMoving && !bMoving ? 1 - BIAS : (!aMoving && bMoving ? BIAS : 0.5);
       const bShare = 1 - aShare;
       const ax = a.x - nx * push * aShare, ay = a.y - ny * push * aShare;
-      if (!blockedAtWorld(ax, ay)) { a.x = ax; a.y = ay; }
+      if (!blockedAtWorldFor(ax, ay, a.type)) { a.x = ax; a.y = ay; }
       const bx = b.x + nx * push * bShare, by = b.y + ny * push * bShare;
-      if (!blockedAtWorld(bx, by)) { b.x = bx; b.y = by; }
+      if (!blockedAtWorldFor(bx, by, b.type)) { b.x = bx; b.y = by; }
     }
   }
 }
 
 /* ------------------------------- building placement validity ------------------------------- */
 function canPlaceBuilding(type, tx, ty) {
-  const size = CONFIG.BUILDINGS[type].size;
+  const def = CONFIG.BUILDINGS[type];
+  const size = def.size;
   if (tx < 0 || ty < 0 || tx + size > COLS || ty + size > ROWS) return false;
   for (let y = ty; y < ty + size; y++)
     for (let x = tx; x < tx + size; x++)
-      if (game.blocked[tIdx(x, y)]) return false;   // covers buildings + resource nodes
+      if (tileBlockedFor(x, y, 'land')) return false;   // covers buildings, resources, and deep water
+  if (def.shore && !hasAdjacentWaterRect(tx, ty, size)) return false;
   const rx = tx * T, ry = ty * T, rw = size * T;
   for (const u of game.units) {                     // nobody standing in the footprint
     if (u.dead) continue;
     if (u.x > rx && u.x < rx + rw && u.y > ry && u.y < ry + rw) return false;
   }
   return true;
+}
+
+function hasAdjacentWaterRect(tx, ty, size) {
+  for (let y = ty - 1; y <= ty + size; y++) {
+    for (let x = tx - 1; x <= tx + size; x++) {
+      if (x >= tx && x < tx + size && y >= ty && y < ty + size) continue;
+      if (!inBounds(x, y)) continue;
+      const i = tIdx(x, y);
+      if (game.water[i] && !game.bridges[i]) return true;
+    }
+  }
+  return false;
 }
 
 /* ================================================================================
@@ -1999,7 +2215,7 @@ function updateAIPlayer(dt, owner) {
 
   const villagers = [], military = [];
   for (const u of game.units) {
-    if (u.dead || u.owner !== owner) continue;
+    if (u.dead || u.transportId || u.owner !== owner) continue;
     (u.type === 'villager' ? villagers : military).push(u);
   }
   const myBuildings = game.buildings.filter(b => !b.dead && b.owner === owner);
@@ -2441,7 +2657,7 @@ function onKeyDown(e) {
 function pickEntity(wx, wy) {
   let best = null, bd = Infinity;
   for (const u of game.units) {
-    if (u.dead) continue;
+    if (u.dead || u.transportId) continue;
     const d = dist(wx, wy, u.x, u.y);
     if (d <= u.radius + 4 && d < bd) { bd = d; best = u; }
   }
@@ -2513,6 +2729,16 @@ function setRallyForBuildings(buildings, target, wx, wy) {
 }
 
 function issueContextCommand(sel, target, wx, wy) {
+  if (target && target.kind === 'unit' && target.owner === 0 && target.cargo) {
+    let ordered = 0;
+    for (const u of sel) {
+      if (!unitMovesOnWater(u)) { orderBoard(u, target); ordered++; }
+    }
+    if (ordered) {
+      addClickFx(target.x, target.y, 'move');
+      return;
+    }
+  }
   // resource node → villagers gather, others walk over
   if (target && target.kind === 'resource') {
     for (const u of sel) {
@@ -2541,7 +2767,17 @@ function issueContextCommand(sel, target, wx, wy) {
   }
   // empty ground (or own unit) → move in a loose formation
   const positions = formationPositions(wx, wy, sel.length);
-  for (let i = 0; i < sel.length; i++) orderMove(sel[i], positions[i].x, positions[i].y);
+  const clickedTx = clamp(Math.floor(wx / T), 0, COLS - 1);
+  const clickedTy = clamp(Math.floor(wy / T), 0, ROWS - 1);
+  const clickedLand = !tileBlockedFor(clickedTx, clickedTy, 'land');
+  for (let i = 0; i < sel.length; i++) {
+    if (unitMovesOnWater(sel[i])) {
+      if (clickedLand && sel[i].cargo && sel[i].cargo.length && unloadShip(sel[i], wx, wy)) continue;
+      orderMove(sel[i], wx, wy);
+    } else {
+      orderMove(sel[i], positions[i].x, positions[i].y);
+    }
+  }
   addClickFx(wx, wy, 'move');
 }
 
@@ -2839,6 +3075,44 @@ function drawTerrainStream(c, points, width) {
   c.restore();
 }
 
+function drawBridgeDecksOn(c) {
+  if (!game || !game.bridges) return;
+  c.save();
+  for (let ty = 0; ty < ROWS; ty++) {
+    for (let tx = 0; tx < COLS; tx++) {
+      const i = tIdx(tx, ty);
+      if (!game.bridges[i]) continue;
+      const x = tx * T, y = ty * T;
+      const horizontal = (inBounds(tx - 1, ty) && game.bridges[tIdx(tx - 1, ty)]) || (inBounds(tx + 1, ty) && game.bridges[tIdx(tx + 1, ty)]);
+      c.fillStyle = 'rgba(55,34,18,0.62)';
+      c.fillRect(x + T * 0.08, y + T * 0.18, T * 0.84, T * 0.64);
+      c.fillStyle = '#7b4f2b';
+      c.strokeStyle = '#2b1b10';
+      c.lineWidth = 1.2;
+      if (horizontal) {
+        for (let n = 0; n < 4; n++) {
+          const yy = y + T * (0.24 + n * 0.14);
+          c.fillRect(x + T * 0.05, yy, T * 0.9, T * 0.08);
+          c.strokeRect(x + T * 0.05, yy, T * 0.9, T * 0.08);
+        }
+        c.fillStyle = '#4b2d17';
+        c.fillRect(x + T * 0.16, y + T * 0.15, T * 0.08, T * 0.7);
+        c.fillRect(x + T * 0.76, y + T * 0.15, T * 0.08, T * 0.7);
+      } else {
+        for (let n = 0; n < 4; n++) {
+          const xx = x + T * (0.24 + n * 0.14);
+          c.fillRect(xx, y + T * 0.05, T * 0.08, T * 0.9);
+          c.strokeRect(xx, y + T * 0.05, T * 0.08, T * 0.9);
+        }
+        c.fillStyle = '#4b2d17';
+        c.fillRect(x + T * 0.15, y + T * 0.16, T * 0.7, T * 0.08);
+        c.fillRect(x + T * 0.15, y + T * 0.76, T * 0.7, T * 0.08);
+      }
+    }
+  }
+  c.restore();
+}
+
 function buildTerrainBackdrop() {
   terrainCanvas.width = MAPW;
   terrainCanvas.height = MAPH;
@@ -3046,7 +3320,7 @@ function render() {
   // pseudo-depth: draw everything sorted by its bottom edge
   const ents = [];
   for (const b of game.buildings) if (!b.dead) ents.push(b);
-  for (const u of game.units) if (!u.dead) ents.push(u);
+  for (const u of game.units) if (!u.dead && !u.transportId) ents.push(u);
   ents.sort((a, b) => {
     const ba = a.kind === 'unit' ? a.y + a.radius : (a.ty + a.size) * T;
     const bb = b.kind === 'unit' ? b.y + b.radius : (b.ty + b.size) * T;
@@ -3140,7 +3414,7 @@ function drawWorldPathAccents(cam) {
 }
 
 function drawSelectedPaths() {
-  const selectedUnits = game.selection.map(getAlive).filter(e => e && e.kind === 'unit' && e.owner === 0 && e.path && e.path.length);
+  const selectedUnits = game.selection.map(getAlive).filter(e => e && e.kind === 'unit' && e.owner === 0 && !e.transportId && e.path && e.path.length);
   if (!selectedUnits.length) return;
   ctx.save();
   ctx.lineCap = 'round';
@@ -3476,6 +3750,11 @@ function drawUnit(u) {
     ctx.restore();
   }
   const angle = unitFacingAngle(u);
+  const moving = !!(u.path && u.pathIdx < u.path.length) || u.state === 'gather' || u.state === 'build' || u.state === 'board';
+  const phase = game.time * (moving ? 9 : 2.1) + u.id * 0.73;
+  const stride = moving ? Math.sin(phase) : Math.sin(phase) * 0.12;
+  const bob = moving ? Math.sin(phase * 2) * 1.35 : Math.sin(phase) * 0.45;
+  const swing = u.state === 'attack' ? Math.sin((CONFIG.UNITS[u.type].attackCooldown - Math.max(0, u.cooldown)) * 11) : stride;
   drawShadow(u.x, u.y + r * 0.75, r * 1.05, r * 0.38, 0.32);
   ctx.save();
   ctx.globalAlpha = u.owner === 0 ? 0.22 : 0.18;
@@ -3483,8 +3762,28 @@ function drawUnit(u) {
   ctx.lineWidth = 1.5;
   ctx.beginPath(); ctx.ellipse(u.x, u.y + r * 0.64, r * 1.24, r * 0.52, 0, 0, Math.PI * 2); ctx.stroke();
   ctx.restore();
+  if (unitMovesOnWater(u)) {
+    drawShipSprite(u, r, angle, fac);
+    if (u.flash > 0) {
+      ctx.globalAlpha = clamp(u.flash / 0.13, 0, 1) * 0.65;
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath(); ctx.ellipse(u.x, u.y, r * 1.35, r * 0.85, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+    if (u.cargo && u.cargo.length) {
+      ctx.fillStyle = '#f0c766';
+      ctx.strokeStyle = 'rgba(0,0,0,0.72)';
+      ctx.lineWidth = 1.4;
+      for (let i = 0; i < u.cargo.length; i++) {
+        ctx.beginPath(); ctx.arc(u.x - r * 0.72 + i * 5, u.y - r * 0.92, 2.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      }
+    }
+    if (u.hp < u.maxHp || selected) drawBar(u.x - r, u.y - r - 9, r * 2, 4, u.hp / u.maxHp, hpColor(u.hp / u.maxHp));
+    drawTaskBadge(u, selected);
+    return;
+  }
   ctx.save();
-  ctx.translate(u.x, u.y);
+  ctx.translate(u.x, u.y + bob);
   ctx.rotate(angle + Math.PI / 2);
   ctx.shadowColor = 'rgba(15,9,5,0.35)';
   ctx.shadowBlur = 4;
@@ -3494,19 +3793,34 @@ function drawUnit(u) {
   const skin = u.owner === 3 ? '#b9c1c8' : (u.owner === 2 ? '#b9a564' : '#d7aa78');
   const leather = u.owner > 0 ? '#3a2115' : '#6e4c2b';
   const metal = u.owner === 3 ? '#b7c4cf' : '#c4b79c';
+  const armorLevel = upgradeLevel(u.owner, 'armor');
+  const weaponLevel = upgradeLevel(u.owner, 'weapons');
   ctx.strokeStyle = 'rgba(19,12,8,0.82)';
   ctx.lineWidth = 2;
   fillPoly([[-r*.42,r*.52],[-r*.18,r*.92],[0,r*.54],[r*.18,r*.92],[r*.42,r*.52]], '#2a1b12');
   if (u.type === 'villager') {
-    fillPoly([[-r*.62,-r*.08],[-r*.38,r*.66],[0,r*.92],[r*.42,r*.66],[r*.58,-r*.08],[0,-r*.34]], u.owner > 0 ? '#7b4b27' : '#c9ad7d');
-    strokePoly([[-r*.62,-r*.08],[-r*.38,r*.66],[0,r*.92],[r*.42,r*.66],[r*.58,-r*.08],[0,-r*.34]], 'rgba(19,12,8,0.82)', 1.5);
-    fillPoly([[-r*.5,-r*.12],[-r*.18,r*.16],[r*.5,-r*.08],[r*.22,r*.28]], fac.fill);
-    ctx.fillStyle = skin; ctx.beginPath(); ctx.ellipse(0, -r*.72, r*.36, r*.42, 0, 0, Math.PI*2); ctx.fill();
-    ctx.fillStyle = leather; ctx.beginPath(); ctx.ellipse(0, -r*.96, r*.42, r*.2, 0, Math.PI, 0); ctx.fill();
+    if (u.owner === 0) {
+      fillPoly([[-r*.62,-r*.08],[-r*.38,r*.68],[0,r*.96],[r*.42,r*.68],[r*.58,-r*.08],[0,-r*.36]], '#d9d8d0');
+      fillPoly([[-r*.54,-r*.08],[-r*.32,r*.62],[0,r*.84],[r*.34,r*.62],[r*.5,-r*.08],[0,-r*.28]], '#f1f0e6');
+      strokePoly([[-r*.62,-r*.08],[-r*.38,r*.68],[0,r*.96],[r*.42,r*.68],[r*.58,-r*.08],[0,-r*.36]], 'rgba(19,12,8,0.82)', 1.5);
+      fillPoly([[-r*.5,-r*.12],[-r*.18,r*.16],[r*.5,-r*.08],[r*.22,r*.28]], '#2f6aa3');
+      ctx.fillStyle = '#f4f1e5'; ctx.beginPath(); ctx.ellipse(0, -r*.8, r*.44, r*.48, 0, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = skin; ctx.beginPath(); ctx.ellipse(0, -r*.72, r*.27, r*.3, 0, 0, Math.PI*2); ctx.fill();
+      ctx.strokeStyle = '#2f6aa3'; ctx.lineWidth = 1.7;
+      ctx.beginPath(); ctx.moveTo(-r*.38, r*.04); ctx.lineTo(-r*.23, r*.63); ctx.moveTo(r*.36, r*.02); ctx.lineTo(r*.2, r*.63); ctx.stroke();
+      ctx.strokeStyle = '#6e4c2b'; ctx.lineWidth = 2.1; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(r*.24, r*.66); ctx.lineTo(r*(.42 + .12*stride), r*.9); ctx.moveTo(-r*.2, r*.66); ctx.lineTo(-r*(.36 + .12*stride), r*.88); ctx.stroke();
+    } else {
+      fillPoly([[-r*.62,-r*.08],[-r*.38,r*.66],[0,r*.92],[r*.42,r*.66],[r*.58,-r*.08],[0,-r*.34]], '#7b4b27');
+      strokePoly([[-r*.62,-r*.08],[-r*.38,r*.66],[0,r*.92],[r*.42,r*.66],[r*.58,-r*.08],[0,-r*.34]], 'rgba(19,12,8,0.82)', 1.5);
+      fillPoly([[-r*.5,-r*.12],[-r*.18,r*.16],[r*.5,-r*.08],[r*.22,r*.28]], fac.fill);
+      ctx.fillStyle = skin; ctx.beginPath(); ctx.ellipse(0, -r*.72, r*.36, r*.42, 0, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = leather; ctx.beginPath(); ctx.ellipse(0, -r*.96, r*.42, r*.2, 0, Math.PI, 0); ctx.fill();
+      ctx.strokeStyle = 'rgba(44,28,17,0.9)'; ctx.lineWidth = 1.6;
+      ctx.beginPath(); ctx.moveTo(r*.24, r*.36); ctx.lineTo(r*(.42 + .12*stride), r*.88); ctx.moveTo(-r*.2, r*.34); ctx.lineTo(-r*(.36 + .12*stride), r*.86); ctx.stroke();
+    }
     ctx.strokeStyle = leather; ctx.lineWidth = 2.4; ctx.lineCap = 'round';
     ctx.beginPath(); ctx.moveTo(-r*.54, -r*.06); ctx.lineTo(-r*1.08, r*.58); ctx.stroke();
-    ctx.strokeStyle = 'rgba(44,28,17,0.9)'; ctx.lineWidth = 1.6;
-    ctx.beginPath(); ctx.moveTo(r*.24, r*.36); ctx.lineTo(r*.42, r*.88); ctx.moveTo(-r*.2, r*.34); ctx.lineTo(-r*.36, r*.86); ctx.stroke();
     ctx.fillStyle = '#8b5a2b'; ctx.fillRect(r*.28, r*.13, r*.46, r*.36);
     drawWoodGrain(r*.28, r*.13, r*.46, r*.36, '#d1a36c');
   } else if (u.type === 'militia') {
@@ -3516,12 +3830,12 @@ function drawUnit(u) {
     ctx.fillStyle = metal; ctx.beginPath(); ctx.ellipse(0, -r*.82, r*.4, r*.32, 0, Math.PI, 0); ctx.fill();
     ctx.fillStyle = skin; ctx.beginPath(); ctx.ellipse(0, -r*.69, r*.3, r*.27, 0, 0, Math.PI*2); ctx.fill();
     ctx.strokeStyle = u.owner > 0 ? '#2b170d' : '#f2ead8'; ctx.lineWidth = 2.8; ctx.lineCap = 'round';
-    ctx.beginPath(); ctx.moveTo(r*.28, r*.35); ctx.lineTo(r*1.1, -r*.82); ctx.stroke();
-    fillPoly([[r*1.08,-r*.9],[r*1.22,-r*.62],[r*.94,-r*.73]], '#e8e3d8');
+    ctx.beginPath(); ctx.moveTo(r*.28, r*.35); ctx.lineTo(r*(1.1 + .16*swing), -r*(.82 + .1*Math.abs(swing))); ctx.stroke();
+    fillPoly([[r*(1.08 + .16*swing),-r*(.9 + .1*Math.abs(swing))],[r*(1.22 + .16*swing),-r*(.62 + .1*Math.abs(swing))],[r*(.94 + .16*swing),-r*(.73 + .1*Math.abs(swing))]], '#e8e3d8');
     ctx.fillStyle = u.owner > 0 ? '#3a1d15' : '#4b6c9a';
     ctx.beginPath(); ctx.ellipse(-r*.64, r*.06, r*.36, r*.55, 0.15, 0, Math.PI*2); ctx.fill(); ctx.stroke();
     ctx.strokeStyle = 'rgba(44,28,17,0.9)'; ctx.lineWidth = 1.7;
-    ctx.beginPath(); ctx.moveTo(r*.24, r*.46); ctx.lineTo(r*.38, r*.93); ctx.moveTo(-r*.2, r*.48); ctx.lineTo(-r*.38, r*.9); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(r*.24, r*.46); ctx.lineTo(r*(.38 + .12*stride), r*.93); ctx.moveTo(-r*.2, r*.48); ctx.lineTo(-r*(.38 + .12*stride), r*.9); ctx.stroke();
   } else {          // archer
     fillPoly([[0,-r*1.1],[-r*.76,r*.75],[-r*.18,r*.98],[r*.7,r*.72]], u.owner > 0 ? '#5b3022' : '#305d77');
     strokePoly([[0,-r*1.1],[-r*.76,r*.75],[-r*.18,r*.98],[r*.7,r*.72]], 'rgba(18,12,9,0.88)', 1.7);
@@ -3535,7 +3849,24 @@ function drawUnit(u) {
     ctx.strokeStyle = '#eadfc8'; ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(r*.28,-r*.78); ctx.lineTo(r*1.24,r*.34); ctx.stroke();
     ctx.strokeStyle = 'rgba(44,28,17,0.9)'; ctx.lineWidth = 1.5;
-    ctx.beginPath(); ctx.moveTo(r*.18, r*.38); ctx.lineTo(r*.34, r*.88); ctx.moveTo(-r*.18, r*.4); ctx.lineTo(-r*.42, r*.84); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(r*.18, r*.38); ctx.lineTo(r*(.34 + .1*stride), r*.88); ctx.moveTo(-r*.18, r*.4); ctx.lineTo(-r*(.42 + .1*stride), r*.84); ctx.stroke();
+  }
+  if (isMilitary(u.type) && armorLevel > 0) {
+    ctx.save();
+    ctx.globalAlpha = armorLevel > 1 ? 0.62 : 0.42;
+    fillPoly([[-r*.38,-r*.1],[-r*.24,r*.36],[0,r*.5],[r*.24,r*.36],[r*.38,-r*.1],[0,-r*.32]], armorLevel > 1 ? '#d8d0b4' : '#aeb8b7');
+    ctx.strokeStyle = armorLevel > 1 ? '#f0c766' : '#e8e3d8';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.moveTo(-r*.3, r*.14); ctx.lineTo(r*.3, r*.14); ctx.moveTo(0, -r*.26); ctx.lineTo(0, r*.44); ctx.stroke();
+    ctx.restore();
+  }
+  if (isMilitary(u.type) && weaponLevel > 0) {
+    ctx.save();
+    ctx.globalAlpha = weaponLevel > 1 ? 0.78 : 0.5;
+    ctx.strokeStyle = weaponLevel > 1 ? '#fff0a8' : '#d7edf0';
+    ctx.lineWidth = 1.4;
+    ctx.beginPath(); ctx.moveTo(r*.7, -r*.55); ctx.lineTo(r*1.16, -r*.95); ctx.stroke();
+    ctx.restore();
   }
   ctx.restore();
   if (u.flash > 0) {
@@ -3555,6 +3886,35 @@ function drawUnit(u) {
     drawBar(u.x - r, u.y - r - 9, r * 2, 4, u.hp / u.maxHp, hpColor(u.hp / u.maxHp));
   }
   drawTaskBadge(u, selected);
+}
+
+function drawShipSprite(u, r, angle, fac) {
+  const wake = Math.sin(game.time * 3 + u.id) * 2;
+  ctx.save();
+  ctx.translate(u.x, u.y + wake * 0.25);
+  ctx.rotate(angle + Math.PI / 2);
+  ctx.shadowColor = 'rgba(15,9,5,0.35)';
+  ctx.shadowBlur = 5;
+  ctx.shadowOffsetY = 2;
+  fillPoly([[-r*1.28,r*.34],[-r*.78,r*.86],[r*.78,r*.86],[r*1.28,r*.34],[r*.88,r*.6],[-r*.88,r*.6]], '#3b2414');
+  fillPoly([[-r*1.15,r*.12],[-r*.68,r*.58],[r*.68,r*.58],[r*1.15,r*.12],[r*.78,r*.38],[-r*.78,r*.38]], fac.wood || '#6e4c2b');
+  ctx.strokeStyle = '#20140c';
+  ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(-r*1.05, r*.2); ctx.lineTo(r*1.05, r*.2); ctx.stroke();
+  ctx.strokeStyle = '#2b1b10';
+  ctx.lineWidth = 2.4;
+  ctx.beginPath(); ctx.moveTo(0, r*.48); ctx.lineTo(0, -r*.95); ctx.stroke();
+  fillPoly([[0,-r*.9],[r*.72,-r*.28],[0,-r*.1]], u.owner === 0 ? '#eadfc8' : '#c7b68f');
+  fillPoly([[0,-r*.88],[-r*.58,-r*.34],[0,-r*.12]], fac.fill);
+  ctx.strokeStyle = 'rgba(255,255,255,0.28)';
+  ctx.lineWidth = 1.2;
+  ctx.beginPath(); ctx.moveTo(-r*.82, r*.47); ctx.lineTo(r*.82, r*.47); ctx.stroke();
+  ctx.strokeStyle = 'rgba(185,248,255,0.42)';
+  ctx.lineWidth = 1.6;
+  for (const side of [-1, 1]) {
+    ctx.beginPath(); ctx.moveTo(side*r*.58, r*.78); ctx.lineTo(side*r*.9, r*.98 + wake); ctx.stroke();
+  }
+  ctx.restore();
 }
 
 function drawTaskBadge(u, selected) {
@@ -3701,6 +4061,13 @@ function rebuildMinimapTerrain() {
     c.fillStyle = 'rgba(64,164,187,0.72)';
     c.beginPath(); c.ellipse(pond.x * sc, pond.y * sc, Math.max(1, pond.rx * sc), Math.max(1, pond.ry * sc), pond.a, 0, Math.PI * 2); c.fill();
   }
+  if (game.bridges) {
+    c.fillStyle = '#7b4f2b';
+    const pxBridge = Math.max(1, Math.ceil(T * sc));
+    for (let ty = 0; ty < ROWS; ty++) for (let tx = 0; tx < COLS; tx++) {
+      if (game.bridges[tIdx(tx, ty)]) c.fillRect(Math.floor(tx * T * sc), Math.floor(ty * T * sc), pxBridge, pxBridge);
+    }
+  }
   const px = Math.ceil(T * sc);
   for (const n of game.nodes) {
     if (n.dead) continue;
@@ -3722,7 +4089,7 @@ function renderMinimap() {
     mmCtx.fillRect(b.tx * T * sc, b.ty * T * sc, s, s);
   }
   for (const u of game.units) {
-    if (u.dead) continue;
+    if (u.dead || u.transportId) continue;
     mmCtx.fillStyle = FACTION[u.owner].light;
     mmCtx.fillRect(u.x * sc - 1.5, u.y * sc - 1.5, 3, 3);
   }
@@ -3796,7 +4163,7 @@ function computeSelSignature() {
   for (const id of game.selection) {
     const e = getAlive(id);
     if (e && e.kind === 'building') sig += e.id + ':' + (e.complete ? 1 : 0) + ':' + e.queue.length + ';';
-    else if (e && e.kind === 'unit') sig += e.id + ':a' + (e.autoNeeds ? 1 : 0) + ';';
+    else if (e && e.kind === 'unit') sig += e.id + ':a' + (e.autoNeeds ? 1 : 0) + ':c' + (e.cargo ? e.cargo.length : 0) + ';';
   }
   return sig;
 }
@@ -3832,10 +4199,11 @@ function buildSingleSelection(e) {
   html += '<div class="statline" id="sel-hp-text"></div>';
   if (e.kind === 'unit') {
     const s = CONFIG.UNITS[e.type];
-    const dmg = Math.round(s.damage *
-      (isMilitary(e.type) ? CONFIG.AGES[game.players[e.owner].age].dmgMult : 1));
+    const dmg = Math.round(unitDamageValue(e.type, e.owner));
     html += '<div class="statline">Attack <b>' + dmg + '</b> · Range <b>' + s.range +
             '</b> · Speed <b>' + s.moveSpeed + '</b></div>';
+    if (isMilitary(e.type)) html += '<div class="statline">Equipment <b>W' + upgradeLevel(e.owner, 'weapons') + '</b> · Armor <b>A' + upgradeLevel(e.owner, 'armor') + '</b></div>';
+    if (unitMovesOnWater(e)) html += '<div class="statline" id="sel-cargo"></div>';
         if (e.type === 'villager') html += '<div class="statline" id="sel-carry"></div><div class="statline" id="sel-auto"></div>';
   } else if (!e.complete) {
     html += '<div class="statline" id="sel-buildprog"></div>';
@@ -3865,6 +4233,13 @@ function buildSingleSelection(e) {
         ? 'Carrying ' + Math.floor(e.carryAmount) + ' ' + e.carryType
         : (e.state === 'gather' ? 'Gathering ' + (e.gatherResType || '') : '');
       autoEl.innerHTML = e.autoNeeds ? 'Auto Needs: <b>active</b>' : '';
+    });
+  }
+  if (e.kind === 'unit' && unitMovesOnWater(e)) {
+    const cargoEl = $('sel-cargo');
+    uiUpdaters.push(() => {
+      if (e.dead) return;
+      cargoEl.textContent = 'Cargo ' + (e.cargo ? e.cargo.length : 0) + ' / ' + (CONFIG.UNITS[e.type].capacity || 0);
     });
   }
   if (e.kind === 'building' && !e.complete) {
@@ -3994,6 +4369,7 @@ function addActionQueue(building) {
 function buildBuildingButtons(b) {
   const def = CONFIG.BUILDINGS[b.type];
   if (def.trains) addActionQueue(b);
+  if (b.type === 'blacksmith') buildBlacksmithButtons(b);
   if (def.trains) {
     for (const ut of def.trains) {
       const us = CONFIG.UNITS[ut];
@@ -4018,6 +4394,17 @@ function buildBuildingButtons(b) {
   }
 }
 
+function buildBlacksmithButtons(b) {
+  for (const kind of ['weapons', 'armor']) {
+    const level = game.players[b.owner].forge[kind] || 0;
+    const next = CONFIG.FORGE[kind][level];
+    const title = next ? 'Forge ' + next.name : (kind === 'weapons' ? 'Weapons complete' : 'Armor complete');
+    makeBtn(title, next && next.cost,
+      () => canForgeUpgrade(b.owner, kind),
+      () => { tryForgeUpgrade(b.owner, kind); });
+  }
+}
+
 function buildVillagerButtons() {
   const selectedVills = game.selection.map(getAlive).filter(e => e && e.kind === 'unit' && e.owner === 0 && e.type === 'villager');
   const allAuto = selectedVills.length > 0 && selectedVills.every(v => v.autoNeeds);
@@ -4039,7 +4426,7 @@ function buildVillagerButtons() {
       if (!res.ok) notify('Auto Needs enabled; waiting for reachable work', 'info');
       else notify('Auto Needs enabled for ' + vills.length + ' apprentice' + (vills.length === 1 ? '' : 's'), 'good');
     });
-  for (const bt of ['house', 'storehouse', 'barracks']) {
+  for (const bt of ['house', 'storehouse', 'barracks', 'blacksmith', 'shipyard']) {
     const def = CONFIG.BUILDINGS[bt];
     if (!def.buildable) continue;
     makeBtn('Build ' + buildingDisplayName(bt, 0), def.cost,
