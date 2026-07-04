@@ -91,12 +91,20 @@
   .work-grid { display:grid; grid-template-columns:1fr 1fr; gap:4px 10px; margin-top:7px; font-size:calc(12.5px * var(--ui-scale)); color:var(--muted); }
   .work-grid b { color:#eadfc8; }
   .queue-row { width:100%; display:flex; flex-direction:column; gap:4px; margin-top:2px; }
-  .action-queue { width:100%; max-width:420px; flex:1 1 320px; padding:7px 9px; border:1px solid rgba(144,108,55,.7); border-radius:6px;
+  .action-queue { width:auto; max-width:190px; flex:0 1 190px; padding:6px 7px; border:1px solid rgba(144,108,55,.7); border-radius:6px;
     background:linear-gradient(180deg, rgba(34,27,20,.9), rgba(20,16,12,.9)); box-shadow:inset 0 1px rgba(255,233,180,.08); }
-  .queue-title { margin-top:8px; color:#f2d386; font-size:calc(11px * var(--ui-scale)); font-weight:800; text-transform:uppercase; letter-spacing:.8px; }
-  .action-queue .queue-title { margin-top:0; }
-  .queue-list { display:flex; flex-direction:column; gap:5px; }
-  .queue-item { display:grid; grid-template-columns:28px 1fr; gap:7px; align-items:center; font-size:calc(12px * var(--ui-scale)); color:var(--muted); background:rgba(27,22,17,.85); border:1px solid rgba(123,90,45,.72); border-radius:5px; padding:5px 7px; }
+  .queue-title { margin-top:8px; color:#f2d386; font-size:calc(10px * var(--ui-scale)); font-weight:800; text-transform:uppercase; letter-spacing:.8px; }
+  .action-queue .queue-title { margin:0 0 4px; }
+  .queue-list { display:flex; flex-direction:row; flex-wrap:wrap; gap:5px; align-items:center; }
+  .queue-item { width:38px; height:38px; position:relative; display:flex; align-items:center; justify-content:center; padding:2px; cursor:pointer; border:1px solid rgba(123,90,45,.82); border-radius:6px; font-family:inherit;
+    color:var(--muted); background:conic-gradient(#f0c766 calc(var(--pct, 0) * 1%), rgba(27,22,17,.92) 0); box-shadow:inset 0 1px rgba(255,233,180,.12), 0 1px 5px rgba(0,0,0,.28); }
+  .queue-item::before { content:""; position:absolute; inset:3px; border-radius:4px; background:linear-gradient(180deg, rgba(41,31,22,.95), rgba(22,17,13,.96)); }
+  .queue-item:hover { border-color:#e0b263; }
+  .queue-item.queued { background:linear-gradient(180deg, rgba(48,38,29,.94), rgba(24,19,15,.96)); opacity:.82; }
+  .queue-item .queue-icon { z-index:1; }
+  .queue-pct { position:absolute; right:2px; bottom:1px; z-index:2; min-width:13px; color:#fff2bd; font:800 8px Georgia, serif; text-align:right; text-shadow:0 1px 2px #000; }
+  .queue-cancel { position:absolute; top:1px; right:3px; z-index:3; opacity:0; color:#ff8a8a; font:900 9px Georgia, serif; text-shadow:0 1px 2px #000; }
+  .queue-item:hover .queue-cancel { opacity:1; }
   .queue-icon { width:26px; height:26px; position:relative; overflow:hidden; display:flex; align-items:center; justify-content:center; border-radius:6px; color:#24190f; background:linear-gradient(#f3d87b,#bb812c); font-size:0; font-weight:900; box-shadow:inset 0 1px rgba(255,255,255,.32), 0 1px 4px rgba(0,0,0,.36); }
   .queue-icon::before, .queue-icon::after { content:""; position:absolute; display:block; }
   .queue-icon.unit-villager::before { width:9px; height:9px; top:4px; border-radius:50%; background:#f0c08a; box-shadow:0 8px 0 3px #2f6aa3; }
@@ -110,7 +118,7 @@
   .queue-icon.queue-age { font-size:8px; letter-spacing:.2px; text-transform:uppercase; }
   .queue-icon.queue-age::before { inset:4px; border:1px solid rgba(36,25,15,.55); border-radius:4px; }
   .queue-icon.queue-age::after { content:"Age"; position:relative; color:#24190f; font-size:8px; line-height:1; }
-  .queue-meta { min-width:0; }
+  .queue-meta { min-width:0; display:none; }
   .queue-name { color:#eadfc8; font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .queue-empty { color:#81745f; font-size:calc(12px * var(--ui-scale)); padding:4px 0; }
   .qbar { height:5px; background:#130e0a; border-radius:2px; margin-top:3px; overflow:hidden; }
@@ -732,10 +740,40 @@ function placeCluster(type, cx, cy, n, reserved) {
     const tx = Math.round(cx + rand(-spread, spread));
     const ty = Math.round(cy + rand(-spread, spread));
     if (tx < 1 || ty < 1 || tx > COLS - 2 || ty > ROWS - 2) continue;
-    const i = tIdx(tx, ty);
-    if (game.nodeGrid[i] || reserved[i] || tileBlockedFor(tx, ty, 'land')) continue;
+    if (!resourceTileIsClear(tx, ty, reserved)) continue;
     createNode(type, tx, ty);
     placed++;
+  }
+}
+
+function resourceTouchesWater(tx, ty) {
+  for (let dy = -1; dy <= 1; dy++) {
+    for (let dx = -1; dx <= 1; dx++) {
+      const x = tx + dx, y = ty + dy;
+      if (!inBounds(x, y)) continue;
+      const i = tIdx(x, y);
+      if (game.water[i] && !game.bridges[i]) return true;
+    }
+  }
+  return false;
+}
+
+function resourceTileIsClear(tx, ty, reserved) {
+  if (tx < 1 || ty < 1 || tx > COLS - 2 || ty > ROWS - 2) return false;
+  const i = tIdx(tx, ty);
+  if (game.nodeGrid[i] || (reserved && reserved[i]) || game.bridges[i]) return false;
+  if (tileBlockedFor(tx, ty, 'land') || resourceTouchesWater(tx, ty)) return false;
+  return true;
+}
+
+function cleanupWaterResources() {
+  for (let i = game.nodes.length - 1; i >= 0; i--) {
+    const n = game.nodes[i];
+    if (!n.dead && (game.bridges[tIdx(n.tx, n.ty)] || resourceTouchesWater(n.tx, n.ty))) {
+      game.byId.delete(n.id);
+      game.nodeGrid[tIdx(n.tx, n.ty)] = null;
+      game.nodes.splice(i, 1);
+    }
   }
 }
 
@@ -768,13 +806,15 @@ function generateWorld() {
   for (let i = 0; i < preset.neutral.length; i++) placeProceduralCluster(preset.neutral[i], i, reserved);
   placeProceduralWilds(preset, reserved);
   if (game.options.enemyFactions > 1) {
-    placeCluster('gold', 24 + rand(-3, 3), 8 + rand(-2, 4), 5 + Math.floor(rand(0, 4)), reserved);
-    placeCluster('food', 8 + rand(-2, 4), 24 + rand(-3, 3), 5 + Math.floor(rand(0, 4)), reserved);
+    placeCluster('gold', scaleMapX(24) + rand(-3, 3), scaleMapY(8) + rand(-2, 4), 5 + Math.floor(rand(0, 4)), reserved);
+    placeCluster('food', scaleMapX(8) + rand(-2, 4), scaleMapY(24) + rand(-3, 3), 5 + Math.floor(rand(0, 4)), reserved);
   }
   if (game.options.enemyFactions > 2) {
-    placeCluster('wood', 39 + rand(-4, 2), 25 + rand(-4, 4), 12 + Math.floor(rand(0, 6)), reserved);
-    placeCluster('gold', 24 + rand(-4, 4), 39 + rand(-3, 2), 5 + Math.floor(rand(0, 4)), reserved);
+    placeCluster('wood', scaleMapX(39) + rand(-4, 2), scaleMapY(25) + rand(-4, 4), 12 + Math.floor(rand(0, 6)), reserved);
+    placeCluster('gold', scaleMapX(24) + rand(-4, 4), scaleMapY(39) + rand(-3, 2), 5 + Math.floor(rand(0, 4)), reserved);
   }
+
+  cleanupWaterResources();
 
   rebuildBlocked();
 
@@ -880,8 +920,8 @@ function makeMapDecor(tcs, preset) {
   const ruinCount = Math.round((4 + game.options.enemyFactions * 2) * resTune.decor);
   for (let i = 0; i < ruinCount; i++) {
     decor.ruins.push({
-      x: T * (8 + hash01(seed, i, 139) * 32),
-      y: T * (8 + hash01(seed, i, 149) * 32),
+      x: T * scaleMapX(8 + hash01(seed, i, 139) * 32),
+      y: T * scaleMapY(8 + hash01(seed, i, 149) * 32),
       s: 0.65 + hash01(seed, i, 151) * 0.8,
       a: (hash01(seed, i, 157) - 0.5) * 0.8,
     });
@@ -914,9 +954,9 @@ function makeMapDecor(tcs, preset) {
   }
   for (let i = 0; i < Math.round(8 * resTune.decor); i++) {
     decor.ridges.push(makeWavyPath([
-      { x: T * (5 + hash01(seed, i, 239) * 12), y: T * (6 + hash01(seed, i, 241) * 36) },
-      { x: T * (20 + hash01(seed, i, 251) * 10), y: T * (5 + hash01(seed, i, 257) * 38) },
-      { x: T * (34 + hash01(seed, i, 263) * 10), y: T * (6 + hash01(seed, i, 269) * 36) },
+      { x: T * scaleMapX(5 + hash01(seed, i, 239) * 12), y: T * scaleMapY(6 + hash01(seed, i, 241) * 36) },
+      { x: T * scaleMapX(20 + hash01(seed, i, 251) * 10), y: T * scaleMapY(5 + hash01(seed, i, 257) * 38) },
+      { x: T * scaleMapX(34 + hash01(seed, i, 263) * 10), y: T * scaleMapY(6 + hash01(seed, i, 269) * 36) },
     ], 80 + i));
   }
   return decor;
@@ -3267,7 +3307,8 @@ function buildTerrainBackdrop() {
     c.beginPath(); c.ellipse(pond.rx * 0.18, -pond.ry * 0.18, pond.rx * 0.54, pond.ry * 0.28, 0, 0, Math.PI * 2); c.stroke();
     c.restore();
   }
-  for (const stream of decor.streams) drawTerrainStream(c, stream, T * 0.18);
+  for (const stream of decor.streams) drawTerrainStream(c, stream, stream.width || T * 0.18);
+  drawBridgeDecksOn(c);
 
   for (const stone of decor.stones) {
     const x = stone.x, y = stone.y;
@@ -4047,9 +4088,9 @@ function rebuildMinimapTerrain() {
     }
     c.stroke();
   }
-  c.strokeStyle = 'rgba(64,164,187,0.78)';
-  c.lineWidth = Math.max(1, S * 0.012);
   for (const stream of decor.streams) {
+    c.strokeStyle = 'rgba(64,164,187,0.78)';
+    c.lineWidth = Math.max(1, (stream.width || T * 0.18) * sc);
     c.beginPath();
     for (let i = 0; i < stream.length; i++) {
       const x = stream[i].x * sc, y = stream[i].y * sc;
@@ -4262,6 +4303,7 @@ function buildSingleSelection(e) {
   if (e.kind === 'building' && isOwn) {
     const qEl = $('sel-queue');
     const rallyEl = $('sel-rally');
+    if (qEl) qEl.addEventListener('click', ev => handleQueueClick(e, ev));
     if (rallyEl) {
       uiUpdaters.push(() => {
         if (e.dead) return;
@@ -4349,15 +4391,40 @@ function productionQueueHtml(building) {
       : 'Advancing to ' + ageDisplayName(queueItem.targetAge);
     const pct = queueIndex === 0 ? Math.floor((1 - queueItem.remaining / queueItem.total) * 100) : 0;
     const iconClass = queueItem.kind === 'age' ? 'queue-age' : 'unit-' + queueItem.type;
-    html += '<div class="queue-item"><div class="queue-icon ' + iconClass + '" title="' + name + '"></div><div class="queue-meta"><div class="queue-name">' + name + '</div>' +
-            '<div>' + (queueIndex === 0 ? pct + '% complete' : 'Queued') + '</div><div class="qbar"><div style="width:' + pct + '%"></div></div></div></div>';
+    const label = queueIndex === 0 ? pct + '%' : String(queueIndex + 1);
+    html += '<button type="button" class="queue-item ' + (queueIndex === 0 ? 'active' : 'queued') + '" data-queue-index="' + queueIndex + '" style="--pct:' + pct + '" title="' + name + ' - click to cancel">' +
+            '<div class="queue-icon ' + iconClass + '"></div><span class="queue-pct">' + label + '</span><span class="queue-cancel">X</span></button>';
   }
   return html + '</div>';
+}
+
+function refundQueueItem(owner, item) {
+  const p = game.players[owner];
+  if (item.kind === 'unit') refundCost(p, CONFIG.UNITS[item.type].cost);
+  else if (item.kind === 'age') refundCost(p, CONFIG.AGES[item.targetAge].cost);
+}
+
+function cancelQueueItem(building, queueIndex) {
+  if (!building || building.dead || building.owner !== 0 || queueIndex < 0 || queueIndex >= building.queue.length) return false;
+  const item = building.queue.splice(queueIndex, 1)[0];
+  refundQueueItem(building.owner, item);
+  const name = item.kind === 'unit' ? unitDisplayName(item.type, building.owner) : ageDisplayName(item.targetAge);
+  notify('Canceled ' + name + ' and refunded resources', 'info');
+  game.selectionVersion++;
+  return true;
+}
+
+function handleQueueClick(building, ev) {
+  const tile = ev.target.closest && ev.target.closest('.queue-item');
+  if (!tile) return;
+  ev.preventDefault();
+  cancelQueueItem(building, parseInt(tile.dataset.queueIndex, 10));
 }
 
 function addActionQueue(building) {
   const wrap = document.createElement('div');
   wrap.className = 'action-queue';
+  wrap.addEventListener('click', ev => handleQueueClick(building, ev));
   DOM.actionsPanel.appendChild(wrap);
   uiUpdaters.push(() => {
     if (building.dead) return;

@@ -14,6 +14,8 @@ This checkpoint added framework support, gameplay systems, screenshots, and docu
 
 - The map is now 72 x 72 tiles.
 - Generated water is tracked in a tile grid separate from static blockers.
+- Visible stream width now uses the same generated width as the movement water grid.
+- Resource placement rejects tiles that touch unbridged water or bridges, and generation prunes any remaining overlaps before play starts.
 - Land units treat unbridged water as impassable.
 - Ferry units treat water as passable and bridges/land as blocked.
 - Trail-water intersections create bridge tiles, and large ponds remain ferry-relevant.
@@ -28,6 +30,13 @@ This checkpoint added framework support, gameplay systems, screenshots, and docu
 - Armor upgrades increase military max HP and update existing units.
 - Military sprites show equipment overlays after forging.
 
+## Production Queue
+
+- Production queues are compact square tiles rather than full-width rows.
+- The active queue tile shows percentage progress with a conic progress ring.
+- Queued items show their queue position.
+- Clicking a queue tile cancels that item and refunds its cost.
+
 ## Validation
 
-Validated with a headless browser DOM load check against [index.html](../index.html) and regenerated screenshots with Playwright.
+Validated with a headless browser DOM load check against [index.html](../index.html), an in-page generation audit confirming zero resources touching unbridged water, a queue cancel/refund audit, and regenerated screenshots with Playwright.

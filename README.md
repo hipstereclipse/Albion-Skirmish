@@ -6,6 +6,8 @@ Albion Skirmish is a browser-playable RTS prototype inspired by Fable: The Lost 
 
 ![In-game view](docs/screenshots/in-game.png)
 
+![Compact production queue](docs/screenshots/production-queue.png)
+
 ## Running
 
 Open [index.html](index.html) in a modern browser. The game is self-contained and does not require a build step.
@@ -16,8 +18,9 @@ Open [index.html](index.html) in a modern browser. The game is self-contained an
 - Optional PixiJS overlay loaded from CDN for richer water/atmosphere effects while the Canvas renderer remains the fallback.
 - Larger 72 x 72 tile battlefield with generated streams, ponds, bridges, and water-aware pathfinding.
 - Land units cannot cross deep water except at bridges; larger bodies of water require ferries from an Albion Dock.
+- Resource placement rejects water and shoreline-overlap tiles, so nodes no longer spawn inside visible water.
 - Guild Apprentices wear white/gray hooded robes with blue accents and brown leather boots.
-- Production buildings show icon-based unit queues when selected.
+- Production buildings show compact square queue tiles with progress and click-to-cancel refunds.
 - Blacksmith forging upgrades weapons and armor for military units, with visible equipment overlays and stat changes.
 - Animated vector sprites with walk bob, leg stride, attack swing, ferry wake, and cargo pips.
 
@@ -27,6 +30,7 @@ Screenshots are generated from the current local build and stored in [docs/scree
 
 - [Start menu](docs/screenshots/start-menu.png)
 - [In-game view](docs/screenshots/in-game.png)
+- [Compact production queue](docs/screenshots/production-queue.png)
 
 ## Notes
 
