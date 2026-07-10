@@ -33,9 +33,9 @@
     box-shadow:0 0 0 1px var(--panel-glow), 0 10px 28px rgba(0,0,0,.4); backdrop-filter:blur(9px) saturate(1.08); }
 
   /* ---- top bar ---- */
-  drawBridgeDecksOn(c);
+  #top-bar { left:0; right:0; top:0; height:var(--top-h); display:flex; align-items:center; gap:clamp(7px, 1.6vw, 14px);
     padding:4px clamp(8px, 2vw, 16px); border-bottom-width:1px; font-size:calc(13px * var(--ui-scale)); white-space:nowrap; }
-  #top-bar .res { display:flex; align-items:center; gap:5px; min-width:clamp(52px, 8vw, 80px); font-weight:700; }
+  #top-bar .res { display:flex; align-items:center; gap:5px; min-width:clamp(42px, 6.6vw, 72px); font-weight:700; }
   #top-bar .res > span:first-child { filter:drop-shadow(0 1px 2px rgba(0,0,0,.55)); }
   .res-icon { width:calc(21px * var(--ui-scale)); height:calc(21px * var(--ui-scale)); min-width:16px; min-height:16px;
     position:relative; display:inline-block; border-radius:50%; box-shadow:inset 0 1px rgba(255,255,255,.42), inset 0 -2px rgba(0,0,0,.24), 0 1px 5px rgba(0,0,0,.42); }
@@ -45,6 +45,12 @@
   .res-icon.wood::after { content:""; position:absolute; inset:17% 18%; border-radius:50%; border:1px solid rgba(255,224,164,.42); }
   .res-icon.gold { background:radial-gradient(circle at 36% 30%, #fff2a8 0 12%, #f1c24d 13% 68%, #9c6824 100%); }
   .res-icon.gold::after { content:""; position:absolute; inset:24%; border-radius:50%; border:1px solid rgba(93,55,15,.45); }
+  .res-icon.stone { border-radius:35%; background:linear-gradient(135deg, #b7b1a0 0 26%, #7f786b 27% 68%, #514b43 100%); }
+  .res-icon.stone::after { content:""; position:absolute; left:18%; top:21%; width:48%; height:13%; border-radius:999px; background:rgba(255,255,255,.22); transform:rotate(-28deg); }
+  .res-icon.iron { border-radius:34%; background:linear-gradient(135deg, #d5d8d5 0 18%, #6f7d82 19% 62%, #2d3b42 100%); }
+  .res-icon.iron::after { content:""; position:absolute; inset:24% 18%; border-radius:2px; background:rgba(20,25,28,.38); transform:rotate(-16deg); }
+  .res-icon.fish { background:radial-gradient(circle at 40% 36%, #d8fbff 0 10%, #4ab7c8 11% 62%, #1d6171 100%); }
+  .res-icon.fish::after { content:""; position:absolute; right:7%; top:34%; width:0; height:0; border-top:5px solid transparent; border-bottom:5px solid transparent; border-left:8px solid rgba(215,251,255,.9); }
   .res-icon.pop { background:transparent; box-shadow:none; }
   .res-icon.pop::before, .res-icon.pop::after { content:""; position:absolute; bottom:12%; width:54%; height:58%; border-radius:50% 50% 42% 42%; background:linear-gradient(#7448b5, #3a246f); box-shadow:inset 0 1px rgba(255,255,255,.24), 0 1px 4px rgba(0,0,0,.42); }
   .res-icon.pop::before { left:1%; transform:scale(.86); opacity:.82; }
@@ -88,9 +94,11 @@
   .action-btn .bt { font-size:calc(12.5px * var(--ui-scale)); font-weight:800; display:block; line-height:1.12; }
   .action-btn .bc { font-size:calc(11.5px * var(--ui-scale)); margin-top:3px; display:block; color:var(--muted); }
   .c-food { color:#ff8a8a; } .c-wood { color:#d3a06b; } .c-gold { color:#ffd75e; }
+  .c-stone { color:#c9c0ad; } .c-iron { color:#b7c6c9; } .c-fish { color:#7de2ec; }
   .work-grid { display:grid; grid-template-columns:1fr 1fr; gap:4px 10px; margin-top:7px; font-size:calc(12.5px * var(--ui-scale)); color:var(--muted); }
   .work-grid b { color:#eadfc8; }
   .queue-row { width:100%; display:flex; flex-direction:column; gap:4px; margin-top:2px; }
+  .queue-row.queue-top { margin:0 0 7px; }
   .action-queue { width:auto; max-width:190px; flex:0 1 190px; padding:6px 7px; border:1px solid rgba(144,108,55,.7); border-radius:6px;
     background:linear-gradient(180deg, rgba(34,27,20,.9), rgba(20,16,12,.9)); box-shadow:inset 0 1px rgba(255,233,180,.08); }
   .queue-title { margin-top:8px; color:#f2d386; font-size:calc(10px * var(--ui-scale)); font-weight:800; text-transform:uppercase; letter-spacing:.8px; }
@@ -99,12 +107,12 @@
   .queue-item { width:38px; height:38px; position:relative; display:flex; align-items:center; justify-content:center; padding:2px; cursor:pointer; border:1px solid rgba(123,90,45,.82); border-radius:6px; font-family:inherit;
     color:var(--muted); background:conic-gradient(#f0c766 calc(var(--pct, 0) * 1%), rgba(27,22,17,.92) 0); box-shadow:inset 0 1px rgba(255,233,180,.12), 0 1px 5px rgba(0,0,0,.28); }
   .queue-item::before { content:""; position:absolute; inset:3px; border-radius:4px; background:linear-gradient(180deg, rgba(41,31,22,.95), rgba(22,17,13,.96)); }
-  .queue-item:hover { border-color:#e0b263; }
+  .queue-item:hover { border-color:#e0b263; box-shadow:inset 0 1px rgba(255,233,180,.12), 0 1px 5px rgba(0,0,0,.28); }
   .queue-item.queued { background:linear-gradient(180deg, rgba(48,38,29,.94), rgba(24,19,15,.96)); opacity:.82; }
+  .queue-item * { pointer-events:none; }
   .queue-item .queue-icon { z-index:1; }
   .queue-pct { position:absolute; right:2px; bottom:1px; z-index:2; min-width:13px; color:#fff2bd; font:800 8px Georgia, serif; text-align:right; text-shadow:0 1px 2px #000; }
-  .queue-cancel { position:absolute; top:1px; right:3px; z-index:3; opacity:0; color:#ff8a8a; font:900 9px Georgia, serif; text-shadow:0 1px 2px #000; }
-  .queue-item:hover .queue-cancel { opacity:1; }
+  .queue-cancel { display:none; }
   .queue-icon { width:26px; height:26px; position:relative; overflow:hidden; display:flex; align-items:center; justify-content:center; border-radius:6px; color:#24190f; background:linear-gradient(#f3d87b,#bb812c); font-size:0; font-weight:900; box-shadow:inset 0 1px rgba(255,255,255,.32), 0 1px 4px rgba(0,0,0,.36); }
   .queue-icon::before, .queue-icon::after { content:""; position:absolute; display:block; }
   .queue-icon.unit-villager::before { width:9px; height:9px; top:4px; border-radius:50%; background:#f0c08a; box-shadow:0 8px 0 3px #2f6aa3; }
@@ -113,6 +121,12 @@
   .queue-icon.unit-militia::after { width:3px; height:23px; right:5px; top:1px; border-radius:2px; background:#f2ead8; transform:rotate(38deg); box-shadow:0 0 0 1px #5b5145; }
   .queue-icon.unit-archer::before { width:15px; height:19px; right:4px; top:3px; border:2px solid #5a3d24; border-left:0; border-radius:0 14px 14px 0; }
   .queue-icon.unit-archer::after { width:20px; height:2px; left:3px; top:12px; background:#eadfc8; transform:rotate(42deg); box-shadow:0 0 0 1px rgba(44,28,17,.55); }
+  .queue-icon.unit-spearman::before { width:10px; height:14px; left:4px; top:8px; border-radius:5px 5px 3px 3px; background:#5f7c69; box-shadow:inset 0 0 0 2px #26392f; }
+  .queue-icon.unit-spearman::after { width:3px; height:26px; right:6px; top:-1px; border-radius:2px; background:#e9dcc2; transform:rotate(19deg); box-shadow:0 0 0 1px #5b4a34; }
+  .queue-icon.unit-knight::before { width:18px; height:12px; left:4px; bottom:5px; border-radius:9px 10px 5px 5px; background:#7a6e5e; box-shadow:inset 0 -3px #433a32; }
+  .queue-icon.unit-knight::after { width:8px; height:10px; right:5px; top:4px; border-radius:50% 50% 35% 35%; background:#d6d1c4; box-shadow:-8px 5px 0 #687d8a; }
+  .queue-icon.unit-mage::before { width:12px; height:18px; left:7px; top:5px; border-radius:8px 8px 4px 4px; background:#5b3d8a; box-shadow:inset 0 0 0 2px #2b1b44; }
+  .queue-icon.unit-mage::after { width:4px; height:23px; right:4px; top:2px; border-radius:2px; background:#6e4c2b; transform:rotate(-24deg); box-shadow:0 -3px 0 1px #50c7ff; }
   .queue-icon.unit-ship::before { width:20px; height:9px; left:3px; bottom:4px; border-radius:0 0 10px 10px; background:#6e4c2b; box-shadow:inset 0 -2px #3b2414; }
   .queue-icon.unit-ship::after { width:0; height:0; left:10px; top:3px; border-left:9px solid #eadfc8; border-top:6px solid transparent; border-bottom:6px solid transparent; }
   .queue-icon.queue-age { font-size:8px; letter-spacing:.2px; text-transform:uppercase; }
@@ -128,22 +142,35 @@
 
   /* ---- full-screen screens ---- */
   .screen { position:absolute; inset:0; z-index:50; display:flex; flex-direction:column; align-items:center;
-    justify-content:center; background:radial-gradient(circle at 50% 28%, rgba(63,48,27,.92), rgba(15,12,8,.96)); text-align:center; }
+    justify-content:center; padding:24px; background:radial-gradient(circle at 50% 28%, rgba(63,48,27,.92), rgba(15,12,8,.96)); text-align:center; }
+  .screen::before { content:""; position:absolute; inset:0; pointer-events:none;
+    background:linear-gradient(90deg, rgba(255,230,169,.05) 1px, transparent 1px), linear-gradient(rgba(255,230,169,.035) 1px, transparent 1px); background-size:36px 36px; opacity:.32; }
+  .menu-card { position:relative; width:min(980px, 94vw); max-height:92vh; overflow:auto; padding:22px clamp(18px, 4vw, 36px); border:1px solid rgba(231,196,125,.34); border-radius:8px;
+    background:linear-gradient(180deg, rgba(33,27,20,.9), rgba(17,14,10,.94)); box-shadow:0 18px 55px rgba(0,0,0,.48), inset 0 1px rgba(255,233,180,.08); }
   .screen h1 { font-size:52px; margin:0 0 6px; letter-spacing:3px; color:#f0c766; text-shadow:0 3px 14px rgba(0,0,0,.8); }
   .screen h1.defeat { color:#ff6b6b; }
   .screen .subtitle { color:#c7b68f; font-size:16px; margin:0 0 26px; }
   .screen .controls { color:#aa9875; font-size:13.5px; line-height:1.9; margin-bottom:30px; }
   .screen .controls b { color:#eadfc8; }
-  .launch-options { display:flex; flex-wrap:wrap; justify-content:center; gap:14px; margin:0 0 26px; }
+  .launch-options { display:grid; grid-template-columns:repeat(3, minmax(190px, 1fr)); gap:14px; margin:0 auto 24px; max-width:760px; }
   .launch-field { display:flex; flex-direction:column; align-items:flex-start; gap:6px; color:#c7b68f; font-size:12px; text-transform:uppercase; letter-spacing:.8px; }
-  .launch-field select { min-width:220px; height:42px; padding:0 12px; color:#eadfc8; background:#241a11; border:1px solid #8c6837; border-radius:6px; font:700 15px Georgia, "Times New Roman", Cambria, serif; }
+  .launch-field select, .launch-field input { width:100%; min-width:0; height:42px; padding:0 12px; color:#eadfc8; background:#241a11; border:1px solid #8c6837; border-radius:6px; font:700 15px Georgia, "Times New Roman", Cambria, serif; }
+  .seed-row { width:100%; display:flex; gap:7px; }
+  .seed-row input { flex:1; }
+  .seed-btn { width:42px; height:42px; border-radius:6px; border:1px solid #8c6837; color:#20170f; background:linear-gradient(#f0c766,#b9832e); font:900 18px Georgia, serif; cursor:pointer; }
   .big-btn { font-family:inherit; font-size:19px; font-weight:700; letter-spacing:1px; padding:13px 54px; cursor:pointer;
     color:#20170f; background:linear-gradient(#ffd95e,#d6a32a); border:1px solid #8c6837; border-radius:8px; }
   .big-btn:hover { background:linear-gradient(#ffe37e,#e6b338); }
-  #pause-overlay { position:absolute; top:46%; left:50%; transform:translate(-50%,-50%); z-index:40;
-    font-size:34px; font-weight:800; letter-spacing:4px; color:#ffd75e; text-shadow:0 3px 12px #000;
-    pointer-events:none; }
-  #pause-overlay small { display:block; font-size:14px; letter-spacing:1px; color:#c7b68f; margin-top:6px; }
+  #pause-overlay { position:absolute; inset:0; z-index:40; display:flex; align-items:center; justify-content:center; background:rgba(9,7,5,.38); backdrop-filter:blur(4px); }
+  .pause-card { width:min(460px, 90vw); padding:22px; border:1px solid rgba(231,196,125,.42); border-radius:8px; text-align:center;
+    background:linear-gradient(180deg, rgba(39,31,22,.94), rgba(18,14,10,.96)); box-shadow:0 20px 55px rgba(0,0,0,.5); }
+  .pause-card h2 { margin:0 0 6px; color:#ffd75e; font-size:34px; letter-spacing:4px; text-shadow:0 3px 12px #000; }
+  .pause-card small { display:block; font-size:13px; letter-spacing:1px; color:#c7b68f; margin-bottom:14px; }
+  .pause-stats { display:grid; grid-template-columns:1fr 1fr; gap:8px 12px; margin:0 0 18px; color:#b9a989; font-size:13px; text-align:left; }
+  .pause-stats b { color:#eadfc8; float:right; }
+  .pause-actions { display:flex; flex-wrap:wrap; justify-content:center; gap:10px; }
+  .pause-btn { min-width:132px; height:40px; border-radius:7px; border:1px solid rgba(203,154,75,.75); color:#eadfc8; background:linear-gradient(180deg, rgba(75,54,32,.96), rgba(32,25,18,.98)); font:800 13px Georgia, serif; cursor:pointer; }
+  .pause-btn.primary { color:#20170f; background:linear-gradient(#ffe37e,#d6a32a); }
   #touch-toolbar { right:max(6px, env(safe-area-inset-right)); bottom:calc(var(--bottom-h) + 8px); display:flex; padding:4px; gap:4px; align-items:center; flex-direction:column; border-radius:10px; opacity:.88; }
   #touch-toolbar:hover { opacity:1; }
   .touch-btn { width:40px; min-width:40px; height:34px; padding:0; border-radius:7px; border:1px solid rgba(203,154,75,.72); color:#eadfc8; background:linear-gradient(180deg, rgba(75,54,32,.96), rgba(32,25,18,.98)); font:800 10px "Palatino Linotype", "Book Antiqua", Georgia, serif; letter-spacing:.3px; }
@@ -168,6 +195,8 @@
     #minimap-wrap { padding:4px; }
     #touch-toolbar { right:5px; bottom:calc(var(--bottom-h) + 5px); padding:3px; gap:3px; }
     .touch-btn { width:34px; min-width:34px; height:29px; font-size:8.5px; }
+    .launch-options { grid-template-columns:1fr; }
+    .screen h1 { font-size:38px; }
   }
 </style>
 </head>
@@ -180,8 +209,11 @@
   <span class="res"><span class="res-icon food" aria-hidden="true"></span><span class="num" id="res-food">0</span></span>
   <span class="res"><span class="res-icon wood" aria-hidden="true"></span><span class="num" id="res-wood">0</span></span>
   <span class="res"><span class="res-icon gold" aria-hidden="true"></span><span class="num" id="res-gold">0</span></span>
+  <span class="res"><span class="res-icon stone" aria-hidden="true"></span><span class="num" id="res-stone">0</span></span>
+  <span class="res"><span class="res-icon iron" aria-hidden="true"></span><span class="num" id="res-iron">0</span></span>
+  <span class="res"><span class="res-icon fish" aria-hidden="true"></span><span class="num" id="res-fish">0</span></span>
   <span class="res" id="res-pop-wrap"><span class="res-icon pop" aria-hidden="true"></span><span class="num" id="res-pop">0/0</span></span>
-  <span id="age-display">Guild Training</span>
+  <span id="age-display">Apprentice Years</span>
   <span id="time-display">0:00</span>
   <span id="pause-hint">Space = pause</span>
 </div>
@@ -191,6 +223,8 @@
 <div id="touch-toolbar" class="hud hidden">
   <button class="touch-btn active" id="btn-touch-select" title="Select mode" aria-label="Select mode">SEL</button>
   <button class="touch-btn" id="btn-touch-command" title="Command mode" aria-label="Command mode">CMD</button>
+  <button class="touch-btn" id="btn-touch-zoom-in" title="Zoom in" aria-label="Zoom in">+</button>
+  <button class="touch-btn" id="btn-touch-zoom-out" title="Zoom out" aria-label="Zoom out">-</button>
   <button class="touch-btn" id="btn-touch-pause" title="Pause" aria-label="Pause">||</button>
 </div>
 
@@ -201,13 +235,13 @@
 </div>
 
 <div id="screen-start" class="screen">
+  <div class="menu-card">
   <h1>ALBION SKIRMISH</h1>
   <p class="subtitle">Gather &nbsp;·&nbsp; Build &nbsp;·&nbsp; Train &nbsp;·&nbsp; Defend the Guild</p>
   <p class="controls">
     <b>Left-click / drag</b> select units &nbsp;·&nbsp; <b>Right-click</b> move / gather / build / attack<br>
-    <b>WASD / arrows / screen edge</b> pan camera &nbsp;·&nbsp; <b>Space</b> pause &nbsp;·&nbsp; <b>Esc</b> cancel<br>
-    <b>Shift + 1–9</b> assign control group &nbsp;·&nbsp; <b>1–9</b> recall group<br>
-    Rally Albion's villagers, train Guild fighters, and break the <b style="color:#ff8a8a">enemy strongholds</b> before the Guild Hall falls!
+    <b>WASD / arrows / screen edge</b> pan camera &nbsp;·&nbsp; <b>Mouse wheel / +/- / touch + -</b> zoom &nbsp;·&nbsp; <b>Space</b> pause &nbsp;·&nbsp; <b>Esc</b> cancel<br>
+    <b>Shift + 1–9</b> assign control group &nbsp;·&nbsp; <b>1–9</b> recall group
   </p>
   <div class="launch-options">
     <label class="launch-field">Map
@@ -240,8 +274,20 @@
         <option value="rich">Rich</option>
       </select>
     </label>
+    <label class="launch-field">Starting condition
+      <select id="opt-starting">
+        <option value="standard" selected>Standard Guild party</option>
+        <option value="refugees">Oakvale refugees</option>
+        <option value="patron">Trader patronage</option>
+        <option value="patrol">Guild patrol</option>
+      </select>
+    </label>
+    <label class="launch-field">Map seed
+      <span class="seed-row"><input id="opt-seed" type="text" maxlength="32" placeholder="random"><button type="button" class="seed-btn" id="btn-random-seed" title="Random seed">↻</button></span>
+    </label>
   </div>
   <button class="big-btn" id="btn-start">BEGIN QUEST</button>
+  </div>
 </div>
 
 <div id="screen-end" class="screen hidden">
@@ -250,7 +296,22 @@
   <button class="big-btn" id="btn-restart">TRY AGAIN</button>
 </div>
 
-<div id="pause-overlay" class="hidden">PAUSED<small>press Space to resume</small></div>
+<div id="pause-overlay" class="hidden">
+  <div class="pause-card">
+    <h2>PAUSED</h2>
+    <small>press Space to resume</small>
+    <div class="pause-stats">
+      <span>Time <b id="pause-time">0:00</b></span>
+      <span>Age <b id="pause-age">Apprentice</b></span>
+      <span>Seed <b id="pause-seed">random</b></span>
+      <span>Start <b id="pause-start">Standard</b></span>
+    </div>
+    <div class="pause-actions">
+      <button type="button" class="pause-btn primary" id="btn-resume">Resume</button>
+      <button type="button" class="pause-btn" id="btn-pause-restart">Restart</button>
+    </div>
+  </div>
+</div>
 
 <script>
 'use strict';
@@ -264,9 +325,9 @@ const CONFIG = {
 
   MAP: { COLS: 72, ROWS: 72, TILE: 40 },
 
-  CAMERA: { KEY_SPEED: 720, EDGE_SPEED: 720, EDGE_MARGIN: 22 },
+  CAMERA: { KEY_SPEED: 720, EDGE_SPEED: 720, EDGE_MARGIN: 28, PAN_SMOOTHING: 10, ZOOM_MIN: 0.78, ZOOM_MAX: 2.25, ZOOM_STEP: 1.08, ZOOM_LERP: 14 },
 
-  START: { FOOD: 200, WOOD: 200, GOLD: 100, VILLAGERS: 3 },
+  START: { FOOD: 200, WOOD: 200, GOLD: 100, STONE: 80, IRON: 40, FISH: 0, VILLAGERS: 3 },
 
   POP_MAX: 60,                         // absolute population ceiling
 
@@ -275,57 +336,127 @@ const CONFIG = {
     food: { gatherRate: 0.9, carryCapacity: 10, nodeAmount: 150 },
     wood: { gatherRate: 0.8, carryCapacity: 10, nodeAmount: 110 },
     gold: { gatherRate: 0.7, carryCapacity: 10, nodeAmount: 380 },
+    stone:{ gatherRate: 0.65, carryCapacity: 10, nodeAmount: 300 },
+    iron: { gatherRate: 0.6, carryCapacity: 10, nodeAmount: 260 },
+    fish: { gatherRate: 0.95, carryCapacity: 12, nodeAmount: 190 },
   },
   INTERACT_RANGE: 1.15,                // tiles — reach for gathering / building / depositing
 
   UNITS: {
     villager: { name:'Guild Apprentice', hp:40, damage:3,  range:0.9, attackCooldown:1.5, moveSpeed:100,
-                aggroRange:0,   popCost:1, cost:{food:50},          trainTime:10, radius:10, ageReq:0 },
+                aggroRange:0,   popCost:1, cost:{food:50},          trainTime:10, radius:10, ageReq:0,
+                civilian:true, builder:true },
+    scout:    { name:'Guild Scout', hp:38, damage:3, range:0.95, attackCooldown:1.45, moveSpeed:142,
+                aggroRange:0, popCost:1, cost:{food:45,fish:20}, trainTime:12, radius:9, ageReq:0,
+                researchReq:'scouting', civilian:true },
+    settler:  { name:'Guild Settler', hp:52, damage:4, range:1.0, attackCooldown:1.55, moveSpeed:92,
+                aggroRange:0, popCost:1, cost:{food:80,wood:80,gold:40,fish:40}, trainTime:18, radius:10, ageReq:1,
+                researchReq:'settlementCharters', civilian:true, builder:true, hubBuilder:true },
     militia:  { name:'Guild Guard',  hp:65, damage:8,  range:1.2, attackCooldown:1.3, moveSpeed:95,
-                aggroRange:5.5, popCost:1, cost:{food:60,gold:20},  trainTime:12, radius:11, ageReq:1 },
+                aggroRange:5.5, popCost:1, cost:{food:60,iron:20},  trainTime:12, radius:11, ageReq:1,
+                researchReq:'militiaDrills' },
     archer:   { name:'Guild Archer',   hp:42, damage:6,  range:5.0, attackCooldown:1.6, moveSpeed:105,
-                aggroRange:6.5, popCost:1, cost:{wood:40,gold:30},  trainTime:14, radius:10, ageReq:1,
-                projectileSpeed:440 },
+                aggroRange:6.5, popCost:1, cost:{wood:40,gold:20,iron:10},  trainTime:14, radius:10, ageReq:1,
+                projectileSpeed:440, researchReq:'fletching' },
+    spearman: { name:'Guild Spearman', hp:56, damage:7, range:1.85, attackCooldown:1.35, moveSpeed:92,
+                aggroRange:5.7, popCost:1, cost:{food:45,wood:30,iron:20}, trainTime:13, radius:11, ageReq:1,
+                researchReq:'militiaDrills' },
+    knight:   { name:'Guild Champion', hp:105, damage:13, range:1.25, attackCooldown:1.45, moveSpeed:124,
+                aggroRange:6.2, popCost:2, cost:{food:90,gold:60,iron:70}, trainTime:20, radius:13, ageReq:2,
+                researchReq:'cavalryTraditions' },
+    mage:     { name:'Will Adept', hp:46, damage:10, range:4.6, attackCooldown:2.05, moveSpeed:92,
+                aggroRange:6.7, popCost:1, cost:{food:35,gold:100,iron:40}, trainTime:22, radius:10, ageReq:2,
+                projectileSpeed:340, magic:true, researchReq:'willStudies' },
     ship:     { name:'Guild Ferry', hp:140, damage:4, range:3.2, attackCooldown:1.8, moveSpeed:118,
-          aggroRange:4.5, popCost:2, cost:{wood:140,gold:45}, trainTime:18, radius:15, ageReq:1,
+          aggroRange:4.5, popCost:2, cost:{wood:140,gold:45,fish:30}, trainTime:18, radius:15, ageReq:1,
           projectileSpeed:360, naval:true, capacity:6 },
   },
 
   BUILDINGS: {
     // towncenter.popBonus is the starting population cap (each side begins with one TC).
-    towncenter: { name:'Guild Hall', hp:1600, size:3, cost:{wood:300}, buildTime:60,
-                  dropoff:true, popBonus:5, trains:['villager'], ageReq:0, buildable:false },
+    towncenter: { name:'Guild Hall', hp:1600, size:3, cost:{wood:300,stone:120}, buildTime:60,
+                  dropoff:true, popBonus:5, trains:['villager','scout','settler'],
+                  researches:['scouting','charterStudies','settlementCharters','renownChronicles'],
+                  ageReq:0, buildable:false, research:true },
     house:      { name:'Albion Cottage',       hp:300,  size:2, cost:{wood:60},  buildTime:12,
                   popBonus:5, ageReq:0, buildable:true },
-    storehouse: { name:'Guild Storehouse',  hp:320,  size:2, cost:{wood:80},  buildTime:12,
+    storehouse: { name:'Guild Storehouse',  hp:320,  size:2, cost:{wood:80,stone:20},  buildTime:12,
                   dropoff:true, ageReq:0, buildable:true },
-    barracks:   { name:'Training Yard',    hp:700,  size:3, cost:{wood:150}, buildTime:22,
-                  trains:['militia','archer'], ageReq:1, buildable:true },
-    blacksmith: { name:'Guild Blacksmith',  hp:560,  size:3, cost:{wood:160,gold:80}, buildTime:24,
-                  ageReq:1, buildable:true },
+    barracks:   { name:'Training Yard',    hp:700,  size:3, cost:{wood:150,stone:60,iron:30}, buildTime:22,
+                  trains:['militia','spearman','archer','knight','mage'], ageReq:1, buildable:true },
+    blacksmith: { name:'Guild Blacksmith',  hp:560,  size:3, cost:{wood:160,stone:80,gold:80,iron:60}, buildTime:24,
+                  researches:['ironworking','armorcraft','masterSmithing'], ageReq:1, buildable:true, research:true },
     shipyard:   { name:'Albion Dock',       hp:520,  size:3, cost:{wood:180}, buildTime:24,
             trains:['ship'], ageReq:1, buildable:true, shore:true },
+    tradehub:   { name:'Bowerstone Trade Hub', hp:980, size:4, cost:{wood:180,stone:100,gold:80}, buildTime:36,
+                  dropoff:true, popBonus:5, trains:['villager','scout','settler'],
+                  researches:['fishingNets','marketLedgers','settlementCharters'],
+                  ageReq:1, buildable:true, cityHub:true, research:true, builderTypes:['settler'] },
+    guardhub:   { name:'Knothole Guard Hub', hp:1160, size:4, cost:{wood:160,stone:180,iron:100}, buildTime:40,
+                  trains:['militia','spearman','archer','knight'],
+                  researches:['militiaDrills','fletching','cavalryTraditions','fortifiedHubs'],
+                  ageReq:1, buildable:true, cityHub:true, research:true, builderTypes:['settler'] },
+    willhub:    { name:'Brightwood Will Hub', hp:900, size:4, cost:{wood:130,stone:120,gold:170,iron:60}, buildTime:44,
+                  trains:['mage'], researches:['willStudies','masterSmithing'],
+                  ageReq:2, buildable:true, cityHub:true, research:true, builderTypes:['settler'] },
+    guildspire: { name:'Heroes Guild Spire', hp:2200, size:5, cost:{wood:320,stone:420,iron:240,gold:360,fish:180}, buildTime:80,
+                  popBonus:10, ageReq:2, buildable:true, unique:true,
+                  bonus:{gatherMult:1.12,dmgMult:1.08,researchTimeMult:0.9} },
+    obelisk:    { name:'Old Kingdom Obelisk', hp:2000, size:5, cost:{stone:520,iron:180,gold:420}, buildTime:78,
+                  ageReq:2, buildable:true, unique:true,
+                  bonus:{hpMult:1.08,researchTimeMult:0.78}, revealOnComplete:true },
   },
 
   FORGE: {
     weapons: [
-      { name:'Iron Weapons', cost:{food:80,gold:120}, dmgBonus:2, ageReq:1 },
-      { name:'Masterwork Weapons', cost:{food:140,gold:220}, dmgBonus:4, ageReq:2 },
+      { name:'Iron Weapons', cost:{food:80,iron:120,gold:80}, dmgBonus:2, ageReq:1, researchReq:'ironworking' },
+      { name:'Masterwork Weapons', cost:{food:140,iron:260,gold:180}, dmgBonus:4, ageReq:2, researchReq:'masterSmithing' },
     ],
     armor: [
-      { name:'Studded Armor', cost:{wood:80,gold:110}, hpBonus:14, ageReq:1 },
-      { name:'Plate Armor', cost:{wood:140,gold:220}, hpBonus:28, ageReq:2 },
+      { name:'Studded Armor', cost:{wood:80,iron:100,stone:60}, hpBonus:14, ageReq:1, researchReq:'armorcraft' },
+      { name:'Plate Armor', cost:{stone:120,iron:240,gold:160}, hpBonus:28, ageReq:2, researchReq:'masterSmithing' },
     ],
+  },
+
+  RESEARCH: {
+    scouting: { name:'Scouting Paths', cost:{food:80,wood:60}, researchTime:18, ageReq:0,
+      blurb:'Unlocks Guild Scouts.' },
+    charterStudies: { name:'Charter Studies', cost:{food:180,wood:120}, researchTime:30, ageReq:0,
+      blurb:'Required before advancing to the Guild Charter.' },
+    militiaDrills: { name:'Militia Drills', cost:{food:120,iron:40}, researchTime:24, ageReq:1,
+      blurb:'Unlocks Guild Guards and Guild Spearmen.' },
+    fletching: { name:'Fletching', cost:{wood:110,gold:60,iron:30}, researchTime:26, ageReq:1,
+      blurb:'Unlocks Guild Archers.' },
+    settlementCharters: { name:'Settlement Charters', cost:{wood:160,stone:80,gold:80}, researchTime:34, ageReq:1,
+      blurb:'Unlocks Guild Settlers and themed city hubs.' },
+    fishingNets: { name:'Fishing Nets', cost:{wood:90,fish:80}, researchTime:22, ageReq:1,
+      effects:{fishGatherMult:1.25}, blurb:'+25% fish gathering.' },
+    marketLedgers: { name:'Market Ledgers', cost:{gold:120,fish:80}, researchTime:28, ageReq:1,
+      effects:{gatherMult:1.06}, blurb:'+6% all gathering.' },
+    ironworking: { name:'Ironworking', cost:{food:80,iron:120}, researchTime:30, ageReq:1,
+      blurb:'Unlocks Iron Weapons.' },
+    armorcraft: { name:'Armorcraft', cost:{wood:80,stone:80,iron:100}, researchTime:30, ageReq:1,
+      blurb:'Unlocks Studded Armor.' },
+    renownChronicles: { name:'Renown Chronicles', cost:{food:260,gold:180,stone:120}, researchTime:40, ageReq:1,
+      blurb:'Required before advancing to Albion Renown.' },
+    fortifiedHubs: { name:'Fortified Hubs', cost:{stone:160,iron:120}, researchTime:34, ageReq:1,
+      effects:{hpMult:1.04}, blurb:'+4% unit endurance from stronger support networks.' },
+    cavalryTraditions: { name:'Champion Traditions', cost:{food:220,iron:130,gold:90}, researchTime:36, ageReq:2,
+      blurb:'Unlocks Guild Champions.' },
+    willStudies: { name:'Will Studies', cost:{gold:180,iron:80,fish:120}, researchTime:38, ageReq:2,
+      blurb:'Unlocks Will Adepts.' },
+    masterSmithing: { name:'Master Smithing', cost:{stone:120,iron:220,gold:180}, researchTime:42, ageReq:2,
+      blurb:'Unlocks masterwork weapons and plate armor.' },
   },
 
   // Index = age. Multipliers are absolute (not cumulative). hp/dmg apply to military units.
   AGES: [
-    { name:'Guild Training',   cost:null,                  researchTime:0,  hpMult:1,   dmgMult:1,   gatherMult:1,
+    { name:'Apprentice Years', cost:null,                  researchTime:0,  hpMult:1,   dmgMult:1,   gatherMult:1,
       blurb:'' },
-    { name:'Greatwood Campaign', cost:{food:500},            researchTime:25, hpMult:1,   dmgMult:1,   gatherMult:1.1,
-      blurb:'Unlocks Training Yard, Guild Guard & Guild Archer. +10% gather rate.' },
-    { name:'Heroic Campaign', cost:{food:800, gold:300},  researchTime:35, hpMult:1.3, dmgMult:1.3, gatherMult:1.2,
-      blurb:'+30% military HP & damage. +20% gather rate.' },
+    { name:'Guild Charter', cost:{food:500,wood:200},            researchTime:45, hpMult:1,   dmgMult:1,   gatherMult:1.1,
+      researchReq:'charterStudies', blurb:'Unlocks formal Guild construction. +10% gather rate.' },
+    { name:'Albion Renown', cost:{food:800, gold:300, stone:220, iron:160},  researchTime:70, hpMult:1.3, dmgMult:1.3, gatherMult:1.2,
+      researchReq:'renownChronicles', blurb:'+30% military HP & damage. +20% gather rate.' },
   ],
 
   COMBAT: {
@@ -333,6 +464,14 @@ const CONFIG = {
     CHASE_REPATH_INTERVAL: 0.6,        // seconds between path refreshes while chasing
     LEASH_RANGE: 11,                   // tiles a unit chases beyond where it auto-acquired
     PROJECTILE_LENGTH: 13,             // px, visual arrow length
+  },
+
+  AUTO_COMBAT: {
+    RECHECK_INTERVAL: 0.45,
+    GUARD_RADIUS: 6.5,
+    HOLD_RADIUS: 3,
+    PATROL_RADIUS: 7,
+    HUNT_RADIUS: 12,
   },
 
   AI: {
@@ -350,11 +489,35 @@ const CONFIG = {
     MAX_ARMY: 18,
     GATHER_MULT: 1.25,                 // AI-only gather bonus so its economy never stalls
     DEFEND_MEMORY: 8,                  // seconds the AI remembers an attack on its base
-    GATHER_RATIOS: [                   // villager allocation per age [food, wood, gold]
-      { food:.55, wood:.35, gold:.10 },
-      { food:.40, wood:.30, gold:.30 },
-      { food:.35, wood:.25, gold:.40 },
+    RETREAT_HP_FRACTION: 0.28,          // pull wounded fighters back toward their town center
+    UPGRADE_MIN_ARMY: 4,
+    BLACKSMITH_MIN_ARMY: 3,
+    ARMY_MIX: [
+      { militia:.65, spearman:.20, archer:.15 },
+      { militia:.36, spearman:.24, archer:.40 },
+      { militia:.18, spearman:.20, archer:.28, knight:.22, mage:.12 },
     ],
+    GATHER_RATIOS: [
+      { food:.42, wood:.30, gold:.08, stone:.10, iron:.07, fish:.03 },
+      { food:.30, wood:.23, gold:.18, stone:.12, iron:.12, fish:.05 },
+      { food:.26, wood:.18, gold:.22, stone:.14, iron:.16, fish:.04 },
+    ],
+  },
+
+  SOCIETY_PRIORITIES: {
+    balanced: { label:'Balanced', ratios:{food:.30, wood:.24, gold:.16, stone:.12, iron:.12, fish:.06} },
+    economy:  { label:'Economy',  ratios:{food:.28, wood:.30, gold:.10, stone:.12, iron:.08, fish:.12} },
+    military: { label:'Military', ratios:{food:.28, wood:.16, gold:.20, stone:.10, iron:.22, fish:.04} },
+    research: { label:'Research', ratios:{food:.18, wood:.16, gold:.24, stone:.18, iron:.16, fish:.08} },
+    defense:  { label:'Defense',  ratios:{food:.20, wood:.22, gold:.10, stone:.26, iron:.18, fish:.04} },
+  },
+
+  TROOP_PRIORITIES: {
+    balanced: { label:'Balanced' },
+    assault:  { label:'Assault' },
+    defend:   { label:'Defend' },
+    patrol:   { label:'Patrol' },
+    reserve:  { label:'Reserve' },
   },
 
   UI: {
@@ -385,6 +548,9 @@ const CONFIG = {
 /* ================================================================================
  * GLOBALS, DOM HANDLES & SMALL UTILITIES
  * ================================================================================ */
+const RESOURCE_TYPES = Object.keys(CONFIG.RESOURCES);
+const RES_EMOJI = { food:'F', wood:'W', gold:'G', stone:'S', iron:'Fe', fish:'Fi' };
+const RES_LABELS = { food:'Food', wood:'Wood', gold:'Gold', stone:'Stone', iron:'Iron', fish:'Fish' };
 const T = CONFIG.MAP.TILE, COLS = CONFIG.MAP.COLS, ROWS = CONFIG.MAP.ROWS;
 const NTILES = COLS * ROWS, MAPW = COLS * T, MAPH = ROWS * T;
 
@@ -399,6 +565,7 @@ const terrainCtx = terrainCanvas.getContext('2d');
 const DOM = {
   topBar: $('top-bar'), bottomPanel: $('bottom-panel'),
   resFood: $('res-food'), resWood: $('res-wood'), resGold: $('res-gold'),
+  resStone: $('res-stone'), resIron: $('res-iron'), resFish: $('res-fish'),
   resPop: $('res-pop'), resPopWrap: $('res-pop-wrap'),
   age: $('age-display'), time: $('time-display'),
   notifications: $('notifications'),
@@ -407,8 +574,9 @@ const DOM = {
   screenStart: $('screen-start'), screenEnd: $('screen-end'),
   endTitle: $('end-title'), endSub: $('end-sub'),
   pauseOverlay: $('pause-overlay'),
+  pauseTime: $('pause-time'), pauseAge: $('pause-age'), pauseSeed: $('pause-seed'), pauseStart: $('pause-start'),
   touchToolbar: $('touch-toolbar'), touchSelect: $('btn-touch-select'),
-  touchCommand: $('btn-touch-command'), touchPause: $('btn-touch-pause'),
+  touchCommand: $('btn-touch-command'), touchZoomIn: $('btn-touch-zoom-in'), touchZoomOut: $('btn-touch-zoom-out'), touchPause: $('btn-touch-pause'),
 };
 
 const THEME = {
@@ -421,9 +589,9 @@ const THEME = {
     path: '#7b6240', pathLight: '#9d8055', flower: ['#f0d86a', '#f29a72', '#d9e78c'],
     stone: '#8a8170', water: '#2f7c8f', ruin: '#807867',
   },
-  RESOURCE_COLORS: { food: '#d84a3f', wood: '#8b5a2b', gold: '#f0c766' },
-  NODE_NAMES: { food: 'Orchard Bush', wood: 'Greatwood Oak', gold: 'Old Kingdom Ore' },
-  AGE_NAMES: ['Guild Training', 'Greatwood Campaign', 'Heroic Campaign'],
+  RESOURCE_COLORS: { food: '#d84a3f', wood: '#8b5a2b', gold: '#f0c766', stone:'#9a9487', iron:'#8fa1a7', fish:'#4ab7c8' },
+  NODE_NAMES: { food: 'Orchard Bush', wood: 'Greatwood Oak', gold: 'Old Kingdom Ore', stone:'Quarry Stone', iron:'Iron Vein', fish:'Fish Shoal' },
+  AGE_NAMES: ['Apprentice Years', 'Guild Charter', 'Albion Renown'],
   FACTIONS: [
     { name: 'Guild', fill:'#2f6aa3', dark:'#17345a', light:'#8ec5ff', trim:'#f0c766', cloth:'#2f6aa3', wood:'#6e4c2b' },
     { name: 'Bandits', fill:'#a13a2a', dark:'#4d1b16', light:'#f08b65', trim:'#2a1910', cloth:'#8e2f25', wood:'#4a2c18' },
@@ -433,8 +601,13 @@ const THEME = {
   NAMES: {
     units: {
       villager: ['Guild Apprentice', 'Bandit Forager', 'Hobbe Scavenger', 'Grave Thrall'],
+      scout: ['Guild Scout', 'Bandit Scout', 'Hobbe Sneak', 'Grave Runner'],
+      settler: ['Guild Settler', 'Bandit Pioneer', 'Hobbe Burrower', 'Crypt Founder'],
       militia: ['Guild Guard', 'Bandit Raider', 'Hobbe Bruiser', 'Hollow Guard'],
       archer: ['Guild Archer', 'Bandit Archer', 'Hobbe Slinger', 'Bone Archer'],
+      spearman: ['Guild Spearman', 'Bandit Skewer', 'Hobbe Pokestick', 'Crypt Lancer'],
+      knight: ['Guild Champion', 'Bandit Cutthroat', 'Hobbe Warboss', 'Grave Knight'],
+      mage: ['Will Adept', 'Bandit Hexer', 'Hobbe Shaman', 'Wraith Binder'],
       ship: ['Guild Ferry', 'Bandit Skiff', 'Hobbe Raft', 'Bone Barge'],
     },
     buildings: {
@@ -444,6 +617,11 @@ const THEME = {
       barracks: ['Training Yard', 'Bandit Drill Camp', 'Brawl Pit', 'Grave Muster'],
       blacksmith: ['Guild Blacksmith', 'Bandit Forge', 'Hobbe Smithy', 'Bone Furnace'],
       shipyard: ['Albion Dock', 'Bandit Jetty', 'Hobbe Wharf', 'Bone Quay'],
+      tradehub: ['Bowerstone Trade Hub', 'Bandit Market Camp', 'Hobbe Swap Burrow', 'Crypt Exchange'],
+      guardhub: ['Knothole Guard Hub', 'Bandit Fort Camp', 'Hobbe Guard Warren', 'Grave Bastion'],
+      willhub: ['Brightwood Will Hub', 'Bandit Hex Circle', 'Hobbe Totem Den', 'Wraith Spire'],
+      guildspire: ['Heroes Guild Spire', 'Bandit King Trophy', 'Hobbe Idol Heap', 'Bone Crown Spire'],
+      obelisk: ['Old Kingdom Obelisk', 'Bandit War Monument', 'Hobbe Standing Stone', 'Necromancer Obelisk'],
     },
   },
 };
@@ -451,31 +629,34 @@ const MAP_PRESETS = {
   greatwood: {
     name: 'Greatwood Crossing',
     colors: ['#4f7f3e', '#5f9148', '#6c9a53', '#3f6e36'],
-    base: { food: 6, wood: 18, gold: 5 },
+    base: { food: 6, wood: 18, gold: 5, stone:4, iron:3 },
     neutral: [
       { type:'food', cx:24, cy:24, n:8 }, { type:'wood', cx:24, cy:15, n:18 },
       { type:'wood', cx:31, cy:30, n:16 }, { type:'gold', cx:18, cy:27, n:7 },
-      { type:'gold', cx:30, cy:20, n:6 },
+      { type:'gold', cx:30, cy:20, n:6 }, { type:'stone', cx:33, cy:24, n:7 },
+      { type:'iron', cx:16, cy:18, n:5 },
     ],
   },
   darkwood: {
     name: 'Darkwood Marsh',
     colors: ['#345b36', '#42633d', '#4f7042', '#293f2d'],
-    base: { food: 5, wood: 24, gold: 4 },
+    base: { food: 5, wood: 24, gold: 4, stone:4, iron:3 },
     neutral: [
       { type:'wood', cx:22, cy:18, n:28 }, { type:'wood', cx:29, cy:31, n:24 },
       { type:'food', cx:18, cy:31, n:7 }, { type:'gold', cx:25, cy:24, n:10 },
       { type:'gold', cx:36, cy:16, n:6 }, { type:'food', cx:12, cy:21, n:5 },
+      { type:'stone', cx:31, cy:22, n:8 }, { type:'iron', cx:15, cy:35, n:5 },
     ],
   },
   barrowfields: {
     name: 'Barrow Fields',
     colors: ['#6d7c47', '#7f8850', '#8d925c', '#526539'],
-    base: { food: 8, wood: 12, gold: 7 },
+    base: { food: 8, wood: 12, gold: 7, stone:5, iron:4 },
     neutral: [
       { type:'gold', cx:24, cy:24, n:12 }, { type:'food', cx:19, cy:19, n:8 },
       { type:'food', cx:30, cy:30, n:8 }, { type:'wood', cx:12, cy:29, n:13 },
       { type:'wood', cx:35, cy:18, n:13 }, { type:'gold', cx:15, cy:13, n:5 },
+      { type:'stone', cx:30, cy:18, n:8 }, { type:'iron', cx:18, cy:34, n:6 },
     ],
   },
 };
@@ -491,7 +672,30 @@ const RESOURCE_PRESETS = {
   abundant: { label:'Abundant', nodes:1.38,amount:1.25,wilds:1.35,decor:1.18 },
   rich:     { label:'Rich',     nodes:1.85,amount:1.55,wilds:1.7, decor:1.35 },
 };
-const RES_EMOJI = { food:'🍎', wood:'🪵', gold:'🪙' };
+const START_PRESETS = {
+  standard: { label:'Standard Guild party' },
+  refugees: { label:'Oakvale refugees', food:120, wood:80, villagers:2 },
+  patron: { label:'Trader patronage', wood:140, gold:220, reveal:true },
+  patrol: { label:'Guild patrol', food:90, gold:90, guards:2 },
+};
+const SITE_BLUEPRINTS = [
+  { type:'demonDoor', name:'Rose Cottage Demon Door', tx:13, ty:17,
+    quest:'A heartbroken stone face asks for a simple gift before it opens.', cost:{food:60}, reward:{wood:160,gold:70}, rewardText:'hidden cottage stores' },
+  { type:'demonDoor', name:'Knothole Glade Demon Door', tx:36, ty:33,
+    quest:'The bearded stone face wants proof that your archers can strike true.', requires:{unit:'archer'}, reward:{forge:'weapons', gold:110}, rewardText:'a sealed weapon cache' },
+  { type:'demonDoor', name:'Guild Door of Bright Paths', tx:21, ty:9,
+    quest:'The old Guild face will open once your settlement earns a formal charter.', requires:{age:1}, reward:{reveal:true, food:120, wood:120}, rewardText:'old Guild route markers' },
+  { type:'traderCamp', name:'Lost Trader Camp', tx:29, ty:21,
+    quest:'A moustached trader caravan is pinned down and needs an escort patrol nearby.', requires:{fighters:2}, reward:{food:120,gold:130}, rewardText:'trader gratitude' },
+  { type:'oldForge', name:'Abandoned Blacksmith', tx:9, ty:30,
+    quest:'A cold forge still holds a readable Albion pattern plate.', requires:{age:1}, reward:{forge:'armor', wood:120}, rewardText:'salvaged armor plans' },
+  { type:'schoolhouse', name:'Bowerstone School Shed', tx:18, ty:37,
+    quest:'A poor shed-school needs lumber and food before the children scatter.', cost:{wood:70,food:40}, reward:{popCap:5,gold:80}, rewardText:'volunteer families' },
+  { type:'tavern', name:'Old Tavern Cellar', tx:39, ty:13,
+    quest:'A boarded tavern cellar has supplies, chickens, and a locked strongbox.', reward:{food:140,gold:90}, rewardText:'cellar provisions' },
+  { type:'ruinShrine', name:'Old Kingdom Shrine', tx:25, ty:40,
+    quest:'A cracked shrine reacts to a nearby Guild party and releases stored Will-light.', requires:{fighters:1}, reward:{wood:90,gold:160,reveal:true}, rewardText:'Old Kingdom tribute' },
+];
 const NODE_NAMES = THEME.NODE_NAMES;
 const FACTION = THEME.FACTIONS;
 
@@ -502,11 +706,34 @@ let terrainReady = false;
 
 function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
 function dist(x1, y1, x2, y2) { const dx = x2 - x1, dy = y2 - y1; return Math.sqrt(dx*dx + dy*dy); }
-function rand(a, b) { return a + Math.random() * (b - a); }
-function worldZoom() { return viewW <= 680 ? 1.14 : (viewW <= 900 ? 1.18 : 1.25); }
+function seededRandom() {
+  if (!game || game.rngState == null) return Math.random();
+  game.rngState = (1664525 * game.rngState + 1013904223) >>> 0;
+  return game.rngState / 4294967296;
+}
+function rand(a, b) { return a + seededRandom() * (b - a); }
+function seedFromString(text) {
+  text = String(text || '').trim();
+  if (!text) return Math.floor(Math.random() * 1000000000) >>> 0;
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < text.length; i++) {
+    h ^= text.charCodeAt(i);
+    h = Math.imul(h, 16777619) >>> 0;
+  }
+  return h || 1;
+}
+function defaultWorldZoom() { return viewW <= 680 ? 1.14 : (viewW <= 900 ? 1.18 : 1.25); }
+function worldZoom() { return game && game.camera && typeof game.camera.zoom === 'number' ? game.camera.zoom : defaultWorldZoom(); }
+function targetWorldZoom() { return game && game.camera && typeof game.camera.targetZoom === 'number' ? game.camera.targetZoom : worldZoom(); }
 function visibleWorldW() { return viewW / worldZoom(); }
 function visibleWorldH() { return viewH / worldZoom(); }
 function screenToWorld(sx, sy) { const z = worldZoom(); return { x: game.camera.x + sx / z, y: game.camera.y + sy / z }; }
+function bottomHudHeight() {
+  if (!DOM || !DOM.bottomPanel || DOM.bottomPanel.classList.contains('hidden')) return 0;
+  const measured = DOM.bottomPanel.getBoundingClientRect().height;
+  const fallback = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--bottom-h')) || 0;
+  return Math.max(0, Math.ceil(measured || fallback));
+}
 function tIdx(tx, ty) { return ty * COLS + tx; }
 function inBounds(tx, ty) { return tx >= 0 && ty >= 0 && tx < COLS && ty < ROWS; }
 function tileCenter(t) { return (t + 0.5) * T; }
@@ -551,6 +778,7 @@ function factionName(owner) { return (FACTION[owner] && FACTION[owner].name) || 
 function currentMapPreset() { return MAP_PRESETS[(game && game.options && game.options.mapId) || 'greatwood'] || MAP_PRESETS.greatwood; }
 function difficultyForOptions(opts) { return DIFFICULTY_PRESETS[(opts && opts.difficulty) || 'standard'] || DIFFICULTY_PRESETS.standard; }
 function resourceForOptions(opts) { return RESOURCE_PRESETS[(opts && opts.resources) || 'standard'] || RESOURCE_PRESETS.standard; }
+function startingForOptions(opts) { return START_PRESETS[(opts && opts.starting) || 'standard'] || START_PRESETS.standard; }
 function currentDifficulty() { return difficultyForOptions(game && game.options); }
 function currentResourceTuning() { return resourceForOptions(game && game.options); }
 function formatTime(s) {
@@ -676,6 +904,7 @@ function makePlayer(id) {
     resources: { food: CONFIG.START.FOOD, wood: CONFIG.START.WOOD, gold: CONFIG.START.GOLD },
     age: 0,
     forge: { weapons: 0, armor: 0 },
+    questPopBonus: 0,
     popCap: 0,                 // recomputed from completed buildings
     threat: null,              // {x, y, t} — last attack on this player's assets (AI defense)
   };
@@ -686,7 +915,9 @@ function getLaunchOptions() {
   const enemyFactions = clamp(parseInt(($('opt-enemies') && $('opt-enemies').value) || '1', 10) || 1, 1, 3);
   const difficulty = ($('opt-difficulty') && $('opt-difficulty').value) || 'standard';
   const resources = ($('opt-resources') && $('opt-resources').value) || 'standard';
-  return { mapId, enemyFactions, difficulty, resources };
+  const starting = ($('opt-starting') && $('opt-starting').value) || 'standard';
+  const seedText = ($('opt-seed') && $('opt-seed').value) || '';
+  return { mapId, enemyFactions, difficulty, resources, starting, seedText, seed: seedFromString(seedText) };
 }
 
 function newGame(options) {
@@ -704,21 +935,23 @@ function newGame(options) {
   return {
     time: 0,
     options: opts,
-    seed: Math.floor(Math.random() * 1000000000),
+    seed: opts.seed == null ? seedFromString(opts.seedText) : opts.seed,
+    rngState: (opts.seed == null ? seedFromString(opts.seedText) : opts.seed) >>> 0,
     nextId: 1,
     byId: new Map(),
-    units: [], buildings: [], nodes: [], projectiles: [], effects: [], pings: [],
+    units: [], buildings: [], nodes: [], sites: [], ambient: [], projectiles: [], effects: [], pings: [],
     deadList: [],
     blocked: new Uint8Array(NTILES),     // 1 = impassable (buildings + resource nodes)
     water: new Uint8Array(NTILES),       // 1 = deep water; land units need bridges, ships need water
     bridges: new Uint8Array(NTILES),     // 1 = bridge deck over water
     nodeGrid: new Array(NTILES).fill(null),
     players,
-    camera: { x: 0, y: 0 },
+    camera: { x: 0, y: 0, zoom: defaultWorldZoom(), targetZoom: defaultWorldZoom(), panVX: 0, panVY: 0, zoomAnchor: null },
     selection: [], selectionVersion: 0,
     controlGroups: {},
     placement: null,                     // {type, tx, ty, valid} while placing a building
     autoTaskTimer: 0,
+    autoCombatTimer: 0,
     ais,
     decor: null,
     underAttackAt: -999,
@@ -817,6 +1050,7 @@ function generateWorld() {
   cleanupWaterResources();
 
   rebuildBlocked();
+  placeWorldSites();
 
   // Starting villagers
   for (const tc of allTcs) {
@@ -825,8 +1059,24 @@ function generateWorld() {
       if (t) createUnit('villager', tc.owner, t.x, t.y);
     }
   }
+  applyStartingCondition(tcP);
   for (let owner = 0; owner < game.players.length; owner++) recomputePopCap(owner);
   centerCameraOn((tcP.tx + tcSize / 2) * T, (tcP.ty + tcSize / 2) * T);
+}
+
+function applyStartingCondition(tc) {
+  const start = startingForOptions(game.options);
+  const p = game.players[0];
+  for (const res of ['food', 'wood', 'gold']) if (start[res]) p.resources[res] += start[res];
+  const spawn = (type, count) => {
+    for (let i = 0; i < (count || 0); i++) {
+      const t = findSpawnTile(tc);
+      if (t) createUnit(type, 0, t.x + rand(-8, 8), t.y + rand(-8, 8));
+    }
+  };
+  spawn('villager', start.villagers || 0);
+  spawn('militia', start.guards || 0);
+  if (start.reveal) revealQuestMarkers();
 }
 
 function enemyBaseSpots(count, tcSize) {
@@ -875,6 +1125,48 @@ function placeProceduralWilds(preset, reserved) {
   }
 }
 
+function placeWorldSites() {
+  game.sites.length = 0;
+  game.ambient.length = 0;
+  for (let i = 0; i < SITE_BLUEPRINTS.length; i++) {
+    const def = SITE_BLUEPRINTS[i];
+    const tx0 = clamp(Math.round(scaleMapX(def.tx)), 2, COLS - 3);
+    const ty0 = clamp(Math.round(scaleMapY(def.ty)), 2, ROWS - 3);
+    const tile = nearestWalkableTile(tx0, ty0, 10) || { tx: tx0, ty: ty0 };
+    const site = Object.assign({}, def, {
+      id: game.nextId++, kind:'site', owner:0,
+      x: tileCenter(tile.tx), y: tileCenter(tile.ty), tx: tile.tx, ty: tile.ty,
+      radius: def.type === 'demonDoor' ? 30 : 26,
+      completed:false, discovered:false, flash:0,
+    });
+    game.sites.push(site);
+    game.byId.set(site.id, site);
+  }
+  const seed = game.seed;
+  const count = 18 + game.options.enemyFactions * 4;
+  for (let i = 0; i < count; i++) {
+    const kindRoll = hash01(seed, i, 601);
+    const tx = 3 + Math.floor(hash01(seed, i, 607) * (COLS - 6));
+    const ty = 3 + Math.floor(hash01(seed, i, 613) * (ROWS - 6));
+    const tile = nearestWalkableTile(tx, ty, 6);
+    if (!tile) continue;
+    if (kindRoll <= 0.5 && resourceTileIsClear(tile.tx, tile.ty, null)) {
+      createNode('food', tile.tx, tile.ty, { variant:'chicken', amount:45, phase:hash01(seed, i, 617) * Math.PI * 2, tint:hash01(seed, i, 619) });
+    } else {
+      game.ambient.push({
+        kind: kindRoll > 0.78 ? 'firefly' : 'smoke',
+        x: tileCenter(tile.tx) + rand(-12, 12), y: tileCenter(tile.ty) + rand(-12, 12),
+        phase: hash01(seed, i, 617) * Math.PI * 2,
+        tint: hash01(seed, i, 619),
+      });
+    }
+  }
+  for (const site of game.sites) if (site.type === 'traderCamp' || site.type === 'tavern' || site.type === 'oldForge') {
+    game.ambient.push({ kind:'smoke', x:site.x + 12, y:site.y - 16, phase:hash01(seed, site.id, 631) * Math.PI * 2, tint:.5 });
+  }
+  game.mmDirty = true;
+}
+
 function makeMapDecor(tcs, preset) {
   const seed = game.seed;
   const resTune = currentResourceTuning();
@@ -895,17 +1187,17 @@ function makeMapDecor(tcs, preset) {
     { x: T * scaleMapX(42), y: T * scaleMapY(29 + hash01(seed, 5, 79) * 6) },
   ], 9));
 
-  const streamCount = preset.name.indexOf('Marsh') >= 0 ? 3 : 1 + Math.floor(hash01(seed, 7, 81) * 2);
+  const streamCount = preset.name.indexOf('Marsh') >= 0 ? 2 : 1;
   for (let i = 0; i < streamCount; i++) {
     const stream = makeWavyPath([
-      { x: T * scaleMapX(1 + hash01(seed, i, 83) * 5), y: T * scaleMapY(8 + hash01(seed, i, 89) * 26) },
-      { x: T * scaleMapX(20 + hash01(seed, i, 97) * 8), y: T * scaleMapY(10 + hash01(seed, i, 101) * 28) },
-      { x: T * scaleMapX(42 + hash01(seed, i, 103) * 5), y: T * scaleMapY(8 + hash01(seed, i, 107) * 28) },
+      { x: T * scaleMapX(3 + hash01(seed, i, 83) * 4), y: T * scaleMapY(11 + hash01(seed, i, 89) * 22) },
+      { x: T * scaleMapX(22 + hash01(seed, i, 97) * 5), y: T * scaleMapY(16 + hash01(seed, i, 101) * 18) },
+      { x: T * scaleMapX(41 + hash01(seed, i, 103) * 4), y: T * scaleMapY(12 + hash01(seed, i, 107) * 22) },
     ], 20 + i);
-    stream.width = T * (preset.name.indexOf('Marsh') >= 0 ? 0.92 : 0.72) * (i === 0 ? 1.28 : 1);
+    stream.width = T * (preset.name.indexOf('Marsh') >= 0 ? 0.7 : 0.56) * (i === 0 ? 1.08 : 0.92);
     decor.streams.push(stream);
   }
-  const pondCount = Math.round((preset.name.indexOf('Marsh') >= 0 ? 6 : 2 + game.options.enemyFactions) * resTune.decor);
+  const pondCount = Math.round((preset.name.indexOf('Marsh') >= 0 ? 5 : 2 + game.options.enemyFactions) * resTune.decor);
   for (let i = 0; i < pondCount; i++) {
     const large = i < Math.max(1, game.options.enemyFactions);
     decor.ponds.push({
@@ -1043,6 +1335,36 @@ function markBridgeTile(tx, ty, radius) {
   }
 }
 
+function markBridgeSpan(wx, wy, ax, ay, bx, by) {
+  const tx = Math.floor(wx / T), ty = Math.floor(wy / T);
+  let dx = bx - ax, dy = by - ay;
+  if (Math.abs(dx) + Math.abs(dy) < 0.01) { dx = 1; dy = 0; }
+  const horizontal = Math.abs(dx) >= Math.abs(dy);
+  for (let off = -2; off <= 2; off++) {
+    for (let side = -1; side <= 1; side++) {
+      const x = tx + (horizontal ? off : side);
+      const y = ty + (horizontal ? side : off);
+      markBridgeTile(x, y, 0);
+    }
+  }
+}
+
+function markTrailBridgeCrossings(trail) {
+  let inWater = false, start = 0;
+  for (let i = 0; i < trail.length; i++) {
+    const tx = Math.floor(trail[i].x / T), ty = Math.floor(trail[i].y / T);
+    const water = inBounds(tx, ty) && game.water[tIdx(tx, ty)];
+    if (water && !inWater) { inWater = true; start = i; }
+    if ((!water || i === trail.length - 1) && inWater) {
+      const end = water ? i : i - 1;
+      const mid = Math.floor((start + end) / 2);
+      const a = trail[Math.max(0, mid - 1)], b = trail[Math.min(trail.length - 1, mid + 1)];
+      if (!pointInLargePond(trail[mid].x, trail[mid].y)) markBridgeSpan(trail[mid].x, trail[mid].y, a.x, a.y, b.x, b.y);
+      inWater = false;
+    }
+  }
+}
+
 function pointInLargePond(wx, wy) {
   const decor = game.decor || { ponds: [] };
   for (const pond of decor.ponds || []) {
@@ -1091,11 +1413,8 @@ function buildWaterGrid(tcs) {
     }
   }
   for (const trail of decor.trails || []) {
-    for (const p of trail) {
-      if (pointInLargePond(p.x, p.y)) continue;
-      const tx = Math.floor(p.x / T), ty = Math.floor(p.y / T);
-      if (inBounds(tx, ty) && g.water[tIdx(tx, ty)]) markBridgeTile(tx, ty, 1);
-    }
+    if (trail.some(p => pointInLargePond(p.x, p.y))) continue;
+    markTrailBridgeCrossings(trail);
   }
   for (const tc of tcs) {
     for (let ty = tc.ty - 4; ty < tc.ty + tc.size + 4; ty++) {
@@ -1282,11 +1601,13 @@ function createUnit(type, owner, x, y) {
     path: null, pathIdx: 0, pathSpec: null,
     targetId: 0, resumeX: null, resumeY: null,
     aggroHomeX: null, aggroHomeY: null,
+    autoCombat: null, guardX: null, guardY: null, patrolA: null, patrolB: null, patrolToB: true,
     gatherNodeId: 0, gatherPhase: null, gatherResType: null, dropoffId: 0,
     carryType: null, carryAmount: 0,
     buildId: 0,
     cooldown: 0, aggroTimer: rand(0, CONFIG.COMBAT.AGGRO_SCAN_INTERVAL),
     repathTimer: 0, stuckTimer: 0, unstuckAttempts: 0, lastPX: x, lastPY: y,
+    retreatUntil: 0,
     autoNeeds: false,
     transportId: 0,
     cargo: s.naval ? [] : null,
@@ -1312,11 +1633,15 @@ function createBuilding(type, owner, tx, ty, complete) {
   game.mmDirty = true;
   return b;
 }
-function createNode(type, tx, ty) {
-  const amount = Math.round(CONFIG.RESOURCES[type].nodeAmount * currentResourceTuning().amount);
+function createNode(type, tx, ty, opts) {
+  opts = opts || {};
+  const amount = Math.round((opts.amount || CONFIG.RESOURCES[type].nodeAmount) * currentResourceTuning().amount);
   const n = {
     id: game.nextId++, kind: 'resource', type, tx, ty,
     amount, max: amount,
+    variant: opts.variant || null,
+    phase: opts.phase || 0,
+    tint: opts.tint || 0,
     dead: false,
   };
   game.nodes.push(n);
@@ -1425,7 +1750,7 @@ function sweepDead() {
  * POPULATION
  * ================================================================================ */
 function recomputePopCap(pi) {
-  let cap = 0;
+  let cap = game.players[pi].questPopBonus || 0;
   for (const b of game.buildings) {
     if (b.owner !== pi || !b.complete || b.dead) continue;
     const bonus = CONFIG.BUILDINGS[b.type].popBonus;
@@ -1448,6 +1773,10 @@ function popUsed(pi) {
  * ================================================================================ */
 function clearOrder(u, keepAutoNeeds) {
   if (!keepAutoNeeds) u.autoNeeds = false;
+  u.autoCombat = null;
+  u.guardX = u.guardY = null;
+  u.patrolA = u.patrolB = null;
+  u.patrolToB = true;
   u.path = null; u.pathSpec = null; u.pathIdx = 0;
   u.targetId = 0;
   u.resumeX = u.resumeY = null;
@@ -1467,6 +1796,15 @@ function orderAttackMove(u, x, y) {
   u.resumeX = x; u.resumeY = y;
   if (!computePath(u, { kind: 'point', x, y })) u.state = 'idle';
 }
+function issueAutoAttackMove(u, x, y) {
+  u.path = null; u.pathSpec = null; u.pathIdx = 0;
+  u.targetId = 0;
+  u.aggroHomeX = u.guardX != null ? u.guardX : u.x;
+  u.aggroHomeY = u.guardY != null ? u.guardY : u.y;
+  u.state = 'attackmove';
+  u.resumeX = x; u.resumeY = y;
+  if (!computePath(u, { kind: 'point', x, y })) u.state = 'idle';
+}
 function orderAttack(u, target) {          // explicit player command — chase without leash
   clearOrder(u);
   u.state = 'attack';
@@ -1478,7 +1816,8 @@ function acquireTarget(u, target) {        // auto-aggro — remembers home (lea
   u.state = 'attack';
   u.targetId = target.id;
   u.repathTimer = 0;
-  u.aggroHomeX = u.x; u.aggroHomeY = u.y;
+  u.aggroHomeX = u.guardX != null ? u.guardX : u.x;
+  u.aggroHomeY = u.guardY != null ? u.guardY : u.y;
 }
 function orderGather(u, node) {
   if (u.type !== 'villager') { orderMove(u, tileCenter(node.tx), tileCenter(node.ty)); return; }
@@ -1680,6 +2019,7 @@ function findWaterSpawnTile(b) {
 function update(dt) {
   game.time += dt;
   updateTrainQueues(dt);
+  updateAutoCombat(dt);
   for (const u of game.units) if (!u.dead && !u.transportId) updateUnit(u, dt);
   applySeparation();
   updateProjectiles(dt);
@@ -1694,6 +2034,69 @@ function update(dt) {
     if (!getAlive(sel[i])) { sel.splice(i, 1); changed = true; }
   }
   if (changed) game.selectionVersion++;
+}
+
+function updateAutoCombat(dt) {
+  if (game.result) return;
+  game.autoCombatTimer -= dt;
+  if (game.autoCombatTimer > 0) return;
+  game.autoCombatTimer = CONFIG.AUTO_COMBAT.RECHECK_INTERVAL;
+  for (const u of game.units) {
+    if (u.dead || u.owner !== 0 || !isMilitary(u.type) || !u.autoCombat || u.transportId) continue;
+    if (u.autoCombat === 'passive') continue;
+    if (u.state !== 'idle') continue;
+    const target = findAutoCombatTarget(u);
+    if (target) { acquireTarget(u, target); continue; }
+    if (u.autoCombat === 'hold') {
+      if (u.guardX != null && dist(u.x, u.y, u.guardX, u.guardY) > T * 0.45) issueAutoAttackMove(u, u.guardX, u.guardY);
+    } else if (u.autoCombat === 'guard') {
+      if (u.guardX != null && dist(u.x, u.y, u.guardX, u.guardY) > T * 0.9) issueAutoAttackMove(u, u.guardX, u.guardY);
+    } else if (u.autoCombat === 'patrol') {
+      const dest = u.patrolToB ? u.patrolB : u.patrolA;
+      if (dest) {
+        if (dist(u.x, u.y, dest.x, dest.y) <= T * 0.8) u.patrolToB = !u.patrolToB;
+        const next = u.patrolToB ? u.patrolB : u.patrolA;
+        if (next) issueAutoAttackMove(u, next.x, next.y);
+      }
+    } else if (u.autoCombat === 'hunt') {
+      const enemy = findNearestEnemyAsset(u.owner, u.x, u.y, CONFIG.AUTO_COMBAT.HUNT_RADIUS * T * 1.8);
+      if (enemy) {
+        const c = entCenter(enemy);
+        issueAutoAttackMove(u, c.x + rand(-40, 40), c.y + rand(-40, 40));
+      }
+    }
+  }
+}
+
+function findAutoCombatTarget(u) {
+  const radius = (u.autoCombat === 'hold' ? CONFIG.AUTO_COMBAT.HOLD_RADIUS :
+    u.autoCombat === 'patrol' ? CONFIG.AUTO_COMBAT.PATROL_RADIUS :
+    u.autoCombat === 'hunt' ? CONFIG.AUTO_COMBAT.HUNT_RADIUS :
+    CONFIG.AUTO_COMBAT.GUARD_RADIUS) * T;
+  const cx = u.autoCombat === 'patrol' && u.patrolA && u.patrolB ? (u.patrolA.x + u.patrolB.x) / 2 : (u.guardX != null ? u.guardX : u.x);
+  const cy = u.autoCombat === 'patrol' && u.patrolA && u.patrolB ? (u.patrolA.y + u.patrolB.y) / 2 : (u.guardY != null ? u.guardY : u.y);
+  let best = null, bs = Infinity;
+  for (const e of game.units) {
+    if (e.dead || e.transportId || e.owner === u.owner) continue;
+    if (dist(cx, cy, e.x, e.y) > radius) continue;
+    const dUnit = dist(u.x, u.y, e.x, e.y) - e.radius;
+    const priority = e.type === 'villager' ? T * 0.9 : isMilitary(e.type) ? T * 0.62 : 0;
+    const wounded = (1 - e.hp / e.maxHp) * T * 0.72;
+    const score = dUnit - priority - wounded;
+    if (score < bs) { bs = score; best = e; }
+  }
+  if (best) return best;
+  for (const b of game.buildings) {
+    if (b.dead || b.owner === u.owner) continue;
+    const c = entCenter(b);
+    if (dist(cx, cy, c.x, c.y) > radius) continue;
+    const dUnit = distToEnt(u, b);
+    const priority = b.type === 'barracks' ? T * 0.55 : CONFIG.BUILDINGS[b.type].dropoff ? T * 0.42 : 0;
+    const wounded = (1 - b.hp / b.maxHp) * T * 0.5;
+    const score = dUnit - priority - wounded;
+    if (score < bs) { bs = score; best = b; }
+  }
+  return best;
 }
 
 /* ------------------------------- units ------------------------------- */
@@ -1717,7 +2120,8 @@ function updateUnit(u, dt) {
         u.aggroTimer -= dt;
         if (u.aggroTimer <= 0) {
           u.aggroTimer = CONFIG.COMBAT.AGGRO_SCAN_INTERVAL;
-          const t = findAggroTarget(u);
+          const t = u.autoCombat === 'passive' ? null :
+            u.autoCombat === 'hold' ? findAutoCombatTarget(u) : findAggroTarget(u);
           if (t) acquireTarget(u, t);
         }
       }
@@ -1780,21 +2184,36 @@ function recoverStuckUnit(u) {
   }
 }
 
+function combatLeashRange(u) {
+  if (u.autoCombat === 'hold') return CONFIG.AUTO_COMBAT.HOLD_RADIUS + 0.8;
+  if (u.autoCombat === 'guard') return CONFIG.AUTO_COMBAT.GUARD_RADIUS + 1;
+  if (u.autoCombat === 'patrol') return CONFIG.AUTO_COMBAT.PATROL_RADIUS + 1;
+  if (u.autoCombat === 'hunt') return CONFIG.AUTO_COMBAT.HUNT_RADIUS + 1;
+  return CONFIG.COMBAT.LEASH_RANGE;
+}
+
+function returnToAutoHome(u, x, y) {
+  u.path = null; u.pathSpec = null; u.pathIdx = 0;
+  u.targetId = 0;
+  u.state = 'move';
+  if (!computePath(u, { kind: 'point', x, y })) u.state = 'idle';
+}
+
 function updateAttack(u, dt) {
   const t = getAlive(u.targetId);
   const s = CONFIG.UNITS[u.type];
   if (!t) {
     u.targetId = 0; u.path = null;
-    if (u.resumeX != null) orderAttackMove(u, u.resumeX, u.resumeY);
+    if (u.resumeX != null) issueAutoAttackMove(u, u.resumeX, u.resumeY);
     else u.state = 'idle';
     return;
   }
   // leash: auto-acquired chasers give up far from where they started
   if (u.aggroHomeX != null &&
-      dist(u.x, u.y, u.aggroHomeX, u.aggroHomeY) > CONFIG.COMBAT.LEASH_RANGE * T) {
+      dist(u.x, u.y, u.aggroHomeX, u.aggroHomeY) > combatLeashRange(u) * T) {
     const hx = u.aggroHomeX, hy = u.aggroHomeY, rx = u.resumeX, ry = u.resumeY;
-    if (rx != null) orderAttackMove(u, rx, ry);
-    else orderMove(u, hx, hy);
+    if (rx != null) issueAutoAttackMove(u, rx, ry);
+    else returnToAutoHome(u, hx, hy);
     return;
   }
   const d = distToEnt(u, t);
@@ -1823,6 +2242,7 @@ function performAttack(u, t) {
     game.projectiles.push({
       x: u.x, y: u.y - 8, tx: c.x, ty: c.y, targetId: t.id,
       speed: s.projectileSpeed, damage: dmg, owner: u.owner, attackerId: u.id,
+      magic: !!s.magic,
       angle: Math.atan2(c.y - (u.y - 8), c.x - u.x),
     });
   } else {
@@ -1835,17 +2255,25 @@ function performAttack(u, t) {
 function findAggroTarget(u) {
   const range = CONFIG.UNITS[u.type].aggroRange * T;
   if (range <= 0) return null;
-  let best = null, bd = Infinity;
+  let best = null, bs = Infinity;
   for (const e of game.units) {
     if (e.dead || e.transportId || e.owner === u.owner) continue;
     const d = dist(u.x, u.y, e.x, e.y) - e.radius;
-    if (d <= range && d < bd) { bd = d; best = e; }
+    if (d > range) continue;
+    const priority = e.type === 'villager' ? T * 0.9 : isMilitary(e.type) ? T * 0.62 : 0;
+    const wounded = (1 - e.hp / e.maxHp) * T * 0.72;
+    const score = d - priority - wounded;
+    if (score < bs) { bs = score; best = e; }
   }
   if (best) return best;
   for (const b of game.buildings) {
     if (b.dead || b.owner === u.owner) continue;
     const d = distToEnt(u, b);
-    if (d <= range && d < bd) { bd = d; best = b; }
+    if (d > range) continue;
+    const priority = b.type === 'barracks' ? T * 0.55 : CONFIG.BUILDINGS[b.type].dropoff ? T * 0.42 : 0;
+    const wounded = (1 - b.hp / b.maxHp) * T * 0.5;
+    const score = d - priority - wounded;
+    if (score < bs) { bs = score; best = b; }
   }
   return best;
 }
@@ -2009,10 +2437,10 @@ function completeAge(pi, targetAge) {
     }
   }
   if (pi === 0) {
-    notify('Advanced to the ' + ageDisplayName(targetAge) + '! ' + A.blurb, 'good');
+    notify('Advanced to ' + ageDisplayName(targetAge) + '! ' + A.blurb, 'good');
     game.selectionVersion++;
   } else {
-    notify(factionName(pi) + ' advanced to the ' + ageDisplayName(targetAge) + '.', 'warn');
+    notify(factionName(pi) + ' advanced to ' + ageDisplayName(targetAge) + '.', 'warn');
   }
 }
 
@@ -2022,7 +2450,7 @@ function canTrainUnit(b, type) {
   const def = CONFIG.UNITS[type];
   const p = game.players[b.owner];
   if (!b.complete) return { ok: false, reason: 'Still under construction' };
-  if (p.age < def.ageReq) return { ok: false, reason: 'Requires the ' + ageDisplayName(def.ageReq) };
+  if (p.age < def.ageReq) return { ok: false, reason: 'Requires ' + ageDisplayName(def.ageReq) };
   if (b.queue.length >= CONFIG.TRAIN_QUEUE_MAX) return { ok: false, reason: 'Training queue is full' };
   if (popUsed(b.owner) + def.popCost > p.popCap) {
     return { ok: false, reason: p.popCap >= CONFIG.POP_MAX
@@ -2070,7 +2498,7 @@ function canForgeUpgrade(owner, kind) {
   const level = p.forge[kind] || 0;
   if (level >= list.length) return { ok: false, reason: 'All ' + kind + ' upgrades forged' };
   const next = list[level];
-  if (p.age < next.ageReq) return { ok: false, reason: 'Requires the ' + ageDisplayName(next.ageReq) };
+  if (p.age < next.ageReq) return { ok: false, reason: 'Requires ' + ageDisplayName(next.ageReq) };
   const lack = lackText(p, next.cost);
   if (lack) return { ok: false, reason: lack };
   return { ok: true, upgrade: next };
@@ -2109,8 +2537,16 @@ function updateProjectiles(dt) {
     if (d > 0.5) pr.angle = Math.atan2(dy, dx);
     if (step >= d) {
       if (t) {
-        damageEntity(t, pr.damage, getAlive(pr.attackerId));
-        game.effects.push({ type: 'hit', x: pr.tx, y: pr.ty, t: 0, ttl: 0.18 });
+        const attacker = getAlive(pr.attackerId);
+        damageEntity(t, pr.damage, attacker);
+        if (pr.magic) {
+          const splashR = T * 1.15;
+          for (const e of game.units) {
+            if (e.dead || e.transportId || e.owner === pr.owner || e.id === t.id) continue;
+            if (dist(pr.tx, pr.ty, e.x, e.y) <= splashR) damageEntity(e, pr.damage * 0.42, attacker);
+          }
+        }
+        game.effects.push({ type: pr.magic ? 'magicHit' : 'hit', x: pr.tx, y: pr.ty, t: 0, ttl: pr.magic ? 0.32 : 0.18 });
       }
       arr.splice(i, 1);
     } else {
@@ -2203,26 +2639,61 @@ function waveTargetSize(owner) {
   return Math.min(Math.ceil((A.WAVE_BASE_SIZE + A.WAVE_SIZE_GROWTH * ai.waveIndex) * d.waveSize), Math.ceil(A.WAVE_MAX_SIZE * d.maxArmy));
 }
 
+function aiArmyOrigin(owner, units) {
+  if (units && units.length) {
+    return {
+      x: units.reduce((sum, u) => sum + u.x, 0) / units.length,
+      y: units.reduce((sum, u) => sum + u.y, 0) / units.length,
+    };
+  }
+  const tc = findTownCenter(owner);
+  return tc ? entCenter(tc) : { x: MAPW / 2, y: MAPH / 2 };
+}
+
+function aiWaveTargetScore(target, origin) {
+  const c = entCenter(target);
+  const distanceCost = dist(origin.x, origin.y, c.x, c.y) / T * 3.4;
+  const wounded = (1 - target.hp / target.maxHp) * 85;
+  if (target.kind === 'unit') {
+    const base = target.type === 'villager' ? 150 : isMilitary(target.type) ? 105 : 70;
+    return base + wounded - distanceCost;
+  }
+  const buildingValue = {
+    towncenter: 118, barracks: 160, blacksmith: 138, storehouse: 146, shipyard: 104, house: 72,
+  };
+  return (buildingValue[target.type] || 92) + wounded + (target.complete ? 0 : 34) - distanceCost;
+}
+
+function chooseAIWaveTarget(owner, units) {
+  const origin = aiArmyOrigin(owner, units);
+  let best = null, bs = -Infinity;
+  for (const u of game.units) {
+    if (u.dead || u.transportId || u.owner !== 0) continue;
+    const score = aiWaveTargetScore(u, origin);
+    if (score > bs) { bs = score; best = u; }
+  }
+  for (const b of game.buildings) {
+    if (b.dead || b.owner !== 0) continue;
+    const score = aiWaveTargetScore(b, origin);
+    if (score > bs) { bs = score; best = b; }
+  }
+  return best;
+}
+
 function launchWaveIfReady(owner) {
   const A = CONFIG.AI, ai = game.ais[owner];
   const target = waveTargetSize(owner);
   const avail = game.units.filter(u =>
-    !u.dead && u.owner === owner && isMilitary(u.type) && u.state === 'idle');
+    !u.dead && u.owner === owner && isMilitary(u.type) && !unitMovesOnWater(u) && u.state === 'idle'
+    && (!u.retreatUntil || game.time >= u.retreatUntil));
   if (avail.length >= Math.max(2, Math.ceil(target * A.WAVE_MIN_FRACTION))) {
-    let dest = null;
-    const tc0 = game.buildings.find(b => !b.dead && b.owner === 0 && b.type === 'towncenter');
-    if (tc0) dest = entCenter(tc0);
-    else {
-      const anyB = game.buildings.find(b => !b.dead && b.owner === 0);
-      if (anyB) dest = entCenter(anyB);
-      else {
-        const anyU = game.units.find(u => !u.dead && u.owner === 0);
-        if (anyU) dest = { x: anyU.x, y: anyU.y };
-      }
-    }
-    if (dest) {
+    const targetEntity = chooseAIWaveTarget(owner, avail);
+    if (targetEntity) {
+      const dest = entCenter(targetEntity);
       for (const u of avail.slice(0, target)) {
-        orderAttackMove(u, dest.x + rand(-60, 60), dest.y + rand(-60, 60));
+        const spread = CONFIG.UNITS[u.type].range > 2 ? 92 : 58;
+        if (targetEntity.kind === 'unit') orderAttack(u, targetEntity);
+        else orderAttackMove(u, dest.x + rand(-spread, spread), dest.y + rand(-spread, spread));
       }
       ai.waveIndex++;
       ai.nextWaveTime = game.time + A.WAVE_INTERVAL * currentDifficulty().waveInterval;
@@ -2237,6 +2708,78 @@ function countQueued(b, type) {
   let n = 0;
   for (const q of b.queue) if (q.kind === 'unit' && q.type === type) n++;
   return n;
+}
+
+function countQueuedMilitary(buildings, type) {
+  let n = 0;
+  for (const b of buildings) {
+    for (const q of b.queue) if (q.kind === 'unit' && (!type || q.type === type) && isMilitary(q.type)) n++;
+  }
+  return n;
+}
+
+function aiDesiredArmyMix(age) {
+  return CONFIG.AI.ARMY_MIX[Math.min(age, CONFIG.AI.ARMY_MIX.length - 1)] || CONFIG.AI.ARMY_MIX[0];
+}
+
+function aiNextMilitaryType(owner, barracks, military, barrackses) {
+  const p = game.players[owner];
+  const mix = aiDesiredArmyMix(p.age);
+  const counts = {};
+  for (const type in mix) counts[type] = 0;
+  for (const u of military) if (counts[u.type] != null) counts[u.type]++;
+  for (const type in mix) counts[type] += countQueuedMilitary(barrackses, type);
+  const projected = Math.max(1, military.length + countQueuedMilitary(barrackses) + 1);
+  let best = null, bs = -Infinity;
+  for (const type in mix) {
+    const def = CONFIG.UNITS[type];
+    if (!def || p.age < def.ageReq) continue;
+    const check = canTrainUnit(barracks, type);
+    if (!check.ok) continue;
+    const desired = mix[type] * projected;
+    const deficit = desired - (counts[type] || 0);
+    const scarcity = Object.keys(def.cost || {}).reduce((sum, res) => sum + p.resources[res] / Math.max(1, def.cost[res]), 0);
+    const score = deficit * 10 + scarcity * 0.12 - def.popCost * 0.5;
+    if (score > bs) { bs = score; best = type; }
+  }
+  if (best) return best;
+  for (const fallback of ['militia', 'spearman', 'archer', 'knight', 'mage']) {
+    if (CONFIG.UNITS[fallback] && canTrainUnit(barracks, fallback).ok) return fallback;
+  }
+  return null;
+}
+
+function aiRetreatWounded(owner, military, tcC) {
+  const A = CONFIG.AI;
+  for (const u of military) {
+    if (u.dead || unitMovesOnWater(u) || u.hp / u.maxHp > A.RETREAT_HP_FRACTION) continue;
+    if (dist(u.x, u.y, tcC.x, tcC.y) <= T * 3) { u.retreatUntil = Math.max(u.retreatUntil || 0, game.time + 3); continue; }
+    u.retreatUntil = game.time + 7;
+    orderMove(u, tcC.x + rand(-T, T), tcC.y + rand(-T, T));
+  }
+}
+
+function aiDefendBase(owner, military, threat) {
+  const A = CONFIG.AI;
+  if (!threat || game.time - threat.t >= A.DEFEND_MEMORY) return;
+  const target = findNearestEnemyAsset(owner, threat.x, threat.y, T * 9);
+  let sent = 0;
+  for (const u of military) {
+    if (u.dead || unitMovesOnWater(u) || sent >= Math.max(3, Math.ceil(military.length * 0.55))) continue;
+    if (u.retreatUntil && game.time < u.retreatUntil) continue;
+    if (u.state !== 'idle' && dist(u.x, u.y, threat.x, threat.y) > T * 7) continue;
+    if (target) orderAttack(u, target);
+    else orderAttackMove(u, threat.x + rand(-40, 40), threat.y + rand(-40, 40));
+    sent++;
+  }
+}
+
+function aiTryForgeUpgrades(owner, blacksmith, military) {
+  const A = CONFIG.AI;
+  if (!blacksmith || !blacksmith.complete || military.length < A.UPGRADE_MIN_ARMY) return;
+  const p = game.players[owner];
+  const kind = (p.forge.weapons || 0) <= (p.forge.armor || 0) ? 'weapons' : 'armor';
+  if (!tryForgeUpgrade(owner, kind).ok) tryForgeUpgrade(owner, kind === 'weapons' ? 'armor' : 'weapons');
 }
 
 function updateAI(dt) {
@@ -2264,11 +2807,8 @@ function updateAIPlayer(dt, owner) {
   const tcC = entCenter(tc);
 
   // defense — rally idle military to a recent attack on our assets
-  if (p.threat && game.time - p.threat.t < A.DEFEND_MEMORY) {
-    for (const u of military) {
-      if (u.state === 'idle') orderAttackMove(u, p.threat.x + rand(-40, 40), p.threat.y + rand(-40, 40));
-    }
-  }
+  aiRetreatWounded(owner, military, tcC);
+  aiDefendBase(owner, military, p.threat);
 
   // villager job assignment toward this age's gather ratios
   const ratios = A.GATHER_RATIOS[Math.min(p.age, A.GATHER_RATIOS.length - 1)];
@@ -2291,7 +2831,7 @@ function updateAIPlayer(dt, owner) {
 
   // housing before we hit the cap
   const houseDef = CONFIG.BUILDINGS.house;
-  if (p.popCap < CONFIG.POP_MAX && popUsed(1) >= p.popCap - 3
+  if (p.popCap < CONFIG.POP_MAX && popUsed(owner) >= p.popCap - 3
       && !myBuildings.some(b => b.type === 'house' && !b.complete)
       && canAfford(p, houseDef.cost)) {
     aiPlaceBuilding('house', tc, villagers);
@@ -2306,23 +2846,31 @@ function updateAIPlayer(dt, owner) {
   if (p.age === 0 && villagers.length >= Math.ceil(A.FEUDAL_AT_VILLAGERS * D.ageAt)) tryQueueAge(tc);
   else if (p.age === 1 && villagers.length >= Math.ceil(A.CASTLE_AT_VILLAGERS * D.ageAt)) tryQueueAge(tc);
 
-  // barracks once Feudal
-  let barracks = myBuildings.find(b => b.type === 'barracks');
-  if (p.age >= 1 && !barracks && canAfford(p, CONFIG.BUILDINGS.barracks.cost)) {
+  // barracks once Feudal; stronger economies add a second production yard
+  let barrackses = myBuildings.filter(b => b.type === 'barracks');
+  const wantsSecondBarracks = p.age >= 2 && barrackses.length < 2 && military.length >= 8 && barrackses.every(b => b.complete);
+  if (p.age >= 1 && (!barrackses.length || wantsSecondBarracks) && canAfford(p, CONFIG.BUILDINGS.barracks.cost)) {
     aiPlaceBuilding('barracks', tc, villagers);
+    barrackses = myBuildings.filter(b => b.type === 'barracks');
   }
 
-  // military production (alternates types to keep a mixed force)
-  if (barracks && barracks.complete) {
-    const queuedMil = barracks.queue.filter(q => q.kind === 'unit').length;
-    if (military.length + queuedMil < Math.min(Math.ceil(A.MAX_ARMY * D.maxArmy), waveTargetSize(owner) + 4)) {
-      let nMil = 0, nArc = 0;
-      for (const u of military) { if (u.type === 'militia') nMil++; else nArc++; }
-      const first = nMil <= nArc ? 'militia' : 'archer';
-      if (!tryTrainUnit(barracks, first).ok) {
-        tryTrainUnit(barracks, first === 'militia' ? 'archer' : 'militia');
-      }
-    }
+  // blacksmith and upgrades once a fighting force exists
+  let blacksmith = myBuildings.find(b => b.type === 'blacksmith');
+  if (p.age >= 1 && !blacksmith && military.length >= A.BLACKSMITH_MIN_ARMY && canAfford(p, CONFIG.BUILDINGS.blacksmith.cost)) {
+    aiPlaceBuilding('blacksmith', tc, villagers);
+    blacksmith = myBuildings.find(b => b.type === 'blacksmith');
+  }
+  aiTryForgeUpgrades(owner, blacksmith, military);
+
+  // military production uses the configured age-specific army mix
+  const completeBarrackses = barrackses.filter(b => b.complete);
+  const targetArmy = Math.min(Math.ceil(A.MAX_ARMY * D.maxArmy), waveTargetSize(owner) + 5);
+  for (const barracks of completeBarrackses) {
+    const queuedMil = countQueuedMilitary(completeBarrackses);
+    if (military.length + queuedMil >= targetArmy) break;
+    if (barracks.queue.length >= CONFIG.TRAIN_QUEUE_MAX) continue;
+    const nextType = aiNextMilitaryType(owner, barracks, military, completeBarrackses);
+    if (nextType) tryTrainUnit(barracks, nextType);
   }
 }
 
@@ -2566,6 +3114,7 @@ function initInput() {
   window.addEventListener('blur', () => { keys.clear(); mouse.down = false; mouse.dragging = false; });
   window.addEventListener('keydown', onKeyDown);
   window.addEventListener('keyup', e => keys.delete(e.code));
+  canvas.addEventListener('wheel', onWheelZoom, { passive:false });
   canvas.addEventListener('touchstart', onTouchStart, { passive:false });
   canvas.addEventListener('touchmove', onTouchMove, { passive:false });
   canvas.addEventListener('touchend', onTouchEnd, { passive:false });
@@ -2581,7 +3130,12 @@ function initInput() {
   mmCanvas.addEventListener('touchend', e => { e.preventDefault(); mmDragging = false; }, { passive:false });
   DOM.touchSelect.addEventListener('click', () => setTouchMode('select'));
   DOM.touchCommand.addEventListener('click', () => setTouchMode('command'));
+  DOM.touchZoomIn.addEventListener('click', () => touchZoom(1));
+  DOM.touchZoomOut.addEventListener('click', () => touchZoom(-1));
   DOM.touchPause.addEventListener('click', togglePause);
+  $('btn-resume').addEventListener('click', () => { if (appState === 'paused') togglePause(); });
+  $('btn-pause-restart').addEventListener('click', startGame);
+  $('btn-random-seed').addEventListener('click', () => { $('opt-seed').value = String(seedFromString(Date.now() + ':' + Math.random())).slice(0, 9); });
   window.addEventListener('resize', sizeCanvas);
   $('btn-start').addEventListener('click', startGame);
   $('btn-restart').addEventListener('click', startGame);
@@ -2600,6 +3154,19 @@ function updateTouchToolbar() {
   const mode = (game && game.touchMode) || 'select';
   DOM.touchSelect.classList.toggle('active', mode === 'select');
   DOM.touchCommand.classList.toggle('active', mode === 'command');
+}
+
+function touchZoom(direction) {
+  if (!gameInteractive()) return;
+  const factor = direction > 0 ? CONFIG.CAMERA.ZOOM_STEP : 1 / CONFIG.CAMERA.ZOOM_STEP;
+  setCameraZoom(targetWorldZoom() * factor, viewW / 2, viewH / 2);
+}
+
+function onWheelZoom(e) {
+  if (!gameInteractive()) return;
+  e.preventDefault();
+  const factor = Math.pow(CONFIG.CAMERA.ZOOM_STEP, -e.deltaY / 120);
+  setCameraZoom(targetWorldZoom() * factor, e.clientX, e.clientY);
 }
 
 function onTouchStart(e) {
@@ -2665,7 +3232,22 @@ function onKeyDown(e) {
   if (!gameInteractive()) return;
   if (code === 'Escape') {
     if (game.placement) cancelPlacement();
-    else { game.selection = []; game.selectionVersion++; }
+    else { stopAutoCombatForSelected(); game.selection = []; game.selectionVersion++; }
+    return;
+  }
+  if (code === 'Equal' || code === 'NumpadAdd') {
+    e.preventDefault();
+    setCameraZoom(targetWorldZoom() * CONFIG.CAMERA.ZOOM_STEP, viewW / 2, viewH / 2);
+    return;
+  }
+  if (code === 'Minus' || code === 'NumpadSubtract') {
+    e.preventDefault();
+    setCameraZoom(targetWorldZoom() / CONFIG.CAMERA.ZOOM_STEP, viewW / 2, viewH / 2);
+    return;
+  }
+  if ((code === 'Digit0' || code === 'Numpad0') && !e.shiftKey && !e.ctrlKey && !e.altKey) {
+    e.preventDefault();
+    setCameraZoom(defaultWorldZoom(), viewW / 2, viewH / 2);
     return;
   }
   // control groups: Shift/Ctrl+digit assigns, digit recalls
@@ -2707,6 +3289,12 @@ function pickEntity(wx, wy) {
     const r = entRect(b);
     if (wx >= r.x && wx <= r.x + r.w && wy >= r.y && wy <= r.y + r.h) return b;
   }
+  for (const s of game.sites || []) {
+    if (s.dead) continue;
+    const d = dist(wx, wy, s.x, s.y);
+    if (d <= s.radius + 8 && d < bd) { bd = d; best = s; }
+  }
+  if (best) return best;
   const tx = Math.floor(wx / T), ty = Math.floor(wy / T);
   if (inBounds(tx, ty)) {
     const n = game.nodeGrid[tIdx(tx, ty)];
@@ -2779,6 +3367,13 @@ function issueContextCommand(sel, target, wx, wy) {
       return;
     }
   }
+  // quest / landmark site -> move units into interaction range
+  if (target && target.kind === 'site') {
+    const positions = formationPositions(target.x, target.y + target.radius * 0.9, sel.length);
+    for (let i = 0; i < sel.length; i++) orderMove(sel[i], positions[i].x, positions[i].y);
+    addClickFx(target.x, target.y, target.completed ? 'move' : 'gather');
+    return;
+  }
   // resource node → villagers gather, others walk over
   if (target && target.kind === 'resource') {
     for (const u of sel) {
@@ -2835,15 +3430,328 @@ function formationPositions(cx, cy, n) {
   return res;
 }
 
+function selectedMilitaryUnits() {
+  return game.selection.map(getAlive).filter(e => e && e.kind === 'unit' && e.owner === 0 && isMilitary(e.type));
+}
+
+function autoCombatLabel(mode) {
+  if (mode === 'hold') return 'Hold Position';
+  if (mode === 'guard') return 'Guard';
+  if (mode === 'patrol') return 'Patrol';
+  if (mode === 'hunt') return 'Hunt';
+  if (mode === 'passive') return 'Stand Down';
+  return 'Manual';
+}
+
+function autoCombatColor(mode) {
+  if (mode === 'hold') return '#f0c766';
+  if (mode === 'guard') return '#8ec5ff';
+  if (mode === 'patrol') return '#ffd75e';
+  if (mode === 'hunt') return '#ff8a8a';
+  if (mode === 'passive') return '#b9a989';
+  return '#8ec5ff';
+}
+
+function stopAutoCombatFor(units) {
+  let changed = 0;
+  for (const u of units) {
+    if (!u || u.dead || u.owner !== 0 || !isMilitary(u.type)) continue;
+    if (u.autoCombat) changed++;
+    u.autoCombat = null;
+    u.guardX = u.guardY = null;
+    u.patrolA = u.patrolB = null;
+    u.patrolToB = true;
+    u.aggroHomeX = u.aggroHomeY = null;
+    if (u.state === 'attackmove' && u.resumeX != null) { u.state = 'idle'; u.path = null; u.resumeX = u.resumeY = null; }
+  }
+  if (changed) game.selectionVersion++;
+  return changed;
+}
+
+function stopAutoCombatForSelected() {
+  return stopAutoCombatFor(selectedMilitaryUnits());
+}
+
+function setHoldFor(units) {
+  let changed = 0;
+  for (const u of units) {
+    if (!u || u.dead || u.owner !== 0 || !isMilitary(u.type)) continue;
+    u.autoCombat = 'hold';
+    u.guardX = u.x; u.guardY = u.y;
+    u.patrolA = u.patrolB = null;
+    u.patrolToB = true;
+    u.aggroHomeX = u.x; u.aggroHomeY = u.y;
+    u.targetId = 0; u.resumeX = u.resumeY = null;
+    u.path = null; u.pathSpec = null; u.pathIdx = 0;
+    u.state = 'idle';
+    changed++;
+  }
+  if (changed) game.selectionVersion++;
+  return changed;
+}
+
+function setGuardFor(units) {
+  let changed = 0;
+  for (const u of units) {
+    if (!u || u.dead || u.owner !== 0 || !isMilitary(u.type)) continue;
+    u.autoCombat = 'guard';
+    u.guardX = u.x; u.guardY = u.y;
+    u.patrolA = u.patrolB = null;
+    u.patrolToB = true;
+    u.aggroHomeX = u.guardX; u.aggroHomeY = u.guardY;
+    changed++;
+  }
+  if (changed) game.selectionVersion++;
+  return changed;
+}
+
+function setHuntFor(units) {
+  let changed = 0;
+  for (const u of units) {
+    if (!u || u.dead || u.owner !== 0 || !isMilitary(u.type)) continue;
+    u.autoCombat = 'hunt';
+    u.guardX = u.x; u.guardY = u.y;
+    u.patrolA = u.patrolB = null;
+    u.patrolToB = true;
+    u.aggroHomeX = u.x; u.aggroHomeY = u.y;
+    u.targetId = 0; u.resumeX = u.resumeY = null;
+    u.path = null; u.pathSpec = null; u.pathIdx = 0;
+    u.state = 'idle';
+    changed++;
+  }
+  if (changed) game.selectionVersion++;
+  return changed;
+}
+
+function setPassiveFor(units) {
+  let changed = 0;
+  for (const u of units) {
+    if (!u || u.dead || u.owner !== 0 || !isMilitary(u.type)) continue;
+    u.autoCombat = 'passive';
+    u.guardX = u.x; u.guardY = u.y;
+    u.patrolA = u.patrolB = null;
+    u.patrolToB = true;
+    u.aggroHomeX = u.aggroHomeY = null;
+    u.targetId = 0; u.resumeX = u.resumeY = null;
+    u.path = null; u.pathSpec = null; u.pathIdx = 0;
+    u.state = 'idle';
+    changed++;
+  }
+  if (changed) game.selectionVersion++;
+  return changed;
+}
+
+function passablePointNear(x, y, radius, angle, type) {
+  const mode = movementModeForType(type);
+  for (let i = 0; i < 12; i++) {
+    const a = angle + i * Math.PI / 6;
+    const px = clamp(x + Math.cos(a) * radius, 12, MAPW - 12);
+    const py = clamp(y + Math.sin(a) * radius, 12, MAPH - 12);
+    if (!blockedAtWorldFor(px, py, mode)) return { x: px, y: py };
+  }
+  return { x, y };
+}
+
+function setPatrolFor(units) {
+  let changed = 0;
+  const spacing = T * 2.4;
+  for (let i = 0; i < units.length; i++) {
+    const u = units[i];
+    if (!u || u.dead || u.owner !== 0 || !isMilitary(u.type)) continue;
+    const angle = -Math.PI / 2 + (i - (units.length - 1) / 2) * 0.22;
+    const dest = passablePointNear(u.x, u.y, spacing + (i % 3) * T * 0.45, angle, u.type);
+    u.autoCombat = 'patrol';
+    u.guardX = u.x; u.guardY = u.y;
+    u.patrolA = { x: u.x, y: u.y };
+    u.patrolB = dest;
+    u.patrolToB = true;
+    u.aggroHomeX = u.x; u.aggroHomeY = u.y;
+    issueAutoAttackMove(u, dest.x, dest.y);
+    changed++;
+  }
+  if (changed) game.selectionVersion++;
+  return changed;
+}
+
+function findNearestFriendlyFallback(owner, x, y) {
+  let best = null, bd = Infinity;
+  for (const b of game.buildings) {
+    if (b.dead || b.owner !== owner || !b.complete) continue;
+    const def = CONFIG.BUILDINGS[b.type];
+    const weight = b.type === 'towncenter' ? -T * 6 : def.dropoff ? -T * 2 : 0;
+    const c = entCenter(b);
+    const d = dist(x, y, c.x, c.y) + weight;
+    if (d < bd) { bd = d; best = b; }
+  }
+  return best;
+}
+
+function fallBackFor(units) {
+  units = units.filter(u => u && !u.dead && u.owner === 0 && isMilitary(u.type));
+  if (!units.length) return 0;
+  const cx = units.reduce((sum, u) => sum + u.x, 0) / units.length;
+  const cy = units.reduce((sum, u) => sum + u.y, 0) / units.length;
+  const fallback = findNearestFriendlyFallback(0, cx, cy);
+  if (!fallback) return 0;
+  const c = entCenter(fallback);
+  const positions = formationPositions(c.x, c.y + T * 1.8, units.length);
+  for (let i = 0; i < units.length; i++) orderMove(units[i], positions[i].x, positions[i].y);
+  game.selectionVersion++;
+  return units.length;
+}
+
+function findNearestEnemyAsset(owner, x, y, maxDist) {
+  maxDist = maxDist == null ? Infinity : maxDist;
+  let best = null, bs = Infinity;
+  for (const e of game.units) {
+    if (e.dead || e.transportId || e.owner === owner) continue;
+    const d = dist(x, y, e.x, e.y);
+    if (d > maxDist) continue;
+    const priority = e.type === 'villager' ? 170 : isMilitary(e.type) ? 105 : 60;
+    const wounded = (1 - e.hp / e.maxHp) * 70;
+    const score = d - priority - wounded;
+    if (score < bs) { bs = score; best = e; }
+  }
+  for (const b of game.buildings) {
+    if (b.dead || b.owner === owner) continue;
+    const c = entCenter(b);
+    const d = dist(x, y, c.x, c.y);
+    if (d > maxDist) continue;
+    const priority = b.type === 'towncenter' ? 40 : b.type === 'barracks' ? 100 : CONFIG.BUILDINGS[b.type].dropoff ? 115 : 70;
+    const wounded = (1 - b.hp / b.maxHp) * 80;
+    const score = d - priority - wounded;
+    if (score < bs) { bs = score; best = b; }
+  }
+  return best;
+}
+
+function findWeakestEnemyTargetFor(units) {
+  units = units.filter(u => u && !u.dead && u.owner === 0 && isMilitary(u.type));
+  if (!units.length) return null;
+  const cx = units.reduce((sum, u) => sum + u.x, 0) / units.length;
+  const cy = units.reduce((sum, u) => sum + u.y, 0) / units.length;
+  const maxDist = T * 10;
+  let best = null, bs = Infinity;
+  for (const e of game.units) {
+    if (e.dead || e.transportId || e.owner === 0) continue;
+    const d = dist(cx, cy, e.x, e.y);
+    if (d > maxDist) continue;
+    const score = e.hp / e.maxHp + d / (maxDist * 3) - (isMilitary(e.type) ? 0.18 : 0.08);
+    if (score < bs) { bs = score; best = e; }
+  }
+  for (const b of game.buildings) {
+    if (b.dead || b.owner === 0) continue;
+    const c = entCenter(b);
+    const d = dist(cx, cy, c.x, c.y);
+    if (d > maxDist) continue;
+    const score = b.hp / b.maxHp + d / (maxDist * 3) + (b.type === 'towncenter' ? 0.24 : 0);
+    if (score < bs) { bs = score; best = b; }
+  }
+  return best;
+}
+
+function focusWeakestFor(units) {
+  const target = findWeakestEnemyTargetFor(units);
+  if (!target) return 0;
+  let ordered = 0;
+  for (const u of units) {
+    if (!u || u.dead || u.owner !== 0 || !isMilitary(u.type)) continue;
+    orderAttack(u, target);
+    ordered++;
+  }
+  if (ordered) game.selectionVersion++;
+  return ordered;
+}
+
 function addClickFx(x, y, fx) {
   game.effects.push({ type: 'click', x, y, t: 0, ttl: 0.4, fx });
+}
+
+function nearbyFriendlyUnitsForSite(site) {
+  return game.units.filter(u => !u.dead && !u.transportId && u.owner === 0 && dist(u.x, u.y, site.x, site.y) <= site.radius + T * 2.2);
+}
+
+function siteRewardText(site) {
+  const reward = site.reward || {};
+  const parts = [];
+  for (const res of ['food', 'wood', 'gold']) if (reward[res]) parts.push(reward[res] + RES_EMOJI[res]);
+  if (reward.forge) parts.push(reward.forge === 'weapons' ? 'forge weapons' : 'forge armor');
+  if (reward.reveal) parts.push('map pings');
+  if (reward.popCap) parts.push('+' + reward.popCap + ' pop cap');
+  return parts.join(' · ') || 'renown';
+}
+
+function siteNeedText(site) {
+  const req = site.requires || {};
+  const parts = [];
+  if (site.cost) parts.push('Offer ' + costHtml(site.cost).replace(/<[^>]*>/g, ''));
+  if (req.age != null) parts.push('Reach ' + ageDisplayName(req.age));
+  if (req.unit) parts.push('Bring a ' + unitDisplayName(req.unit, 0));
+  if (req.fighters) parts.push('Bring ' + req.fighters + ' fighter' + (req.fighters === 1 ? '' : 's'));
+  return parts.join(' · ') || 'Bring any Guild unit nearby';
+}
+
+function canCompleteSite(site) {
+  if (!site || site.completed) return { ok:false, reason:'This side quest is complete' };
+  const nearby = nearbyFriendlyUnitsForSite(site);
+  if (!nearby.length) return { ok:false, reason:'Move a Guild unit to the site first' };
+  const p = game.players[0];
+  const lack = lackText(p, site.cost);
+  if (lack) return { ok:false, reason:lack };
+  const req = site.requires || {};
+  if (req.age != null && p.age < req.age) return { ok:false, reason:'Requires ' + ageDisplayName(req.age) };
+  if (req.unit && !nearby.some(u => u.type === req.unit)) return { ok:false, reason:'Bring a ' + unitDisplayName(req.unit, 0) + ' nearby' };
+  if (req.fighters && nearby.filter(u => isMilitary(u.type)).length < req.fighters) return { ok:false, reason:'Bring ' + req.fighters + ' fighters nearby' };
+  return { ok:true };
+}
+
+function grantForgeReward(kind) {
+  const p = game.players[0];
+  const list = CONFIG.FORGE[kind];
+  if (!list || (p.forge[kind] || 0) >= list.length) return false;
+  p.forge[kind]++;
+  if (kind === 'armor') {
+    for (const u of game.units) {
+      if (u.dead || u.owner !== 0 || !isMilitary(u.type)) continue;
+      const oldMax = u.maxHp;
+      u.maxHp = unitMaxHp(u.type, 0);
+      u.hp = Math.min(u.maxHp, u.hp + Math.max(0, u.maxHp - oldMax));
+    }
+  }
+  return true;
+}
+
+function revealQuestMarkers() {
+  for (const site of game.sites || []) if (!site.completed) game.pings.push({ x:site.x, y:site.y, t:0, ttl:5 });
+  for (const b of game.buildings) if (!b.dead && b.owner > 0 && b.type === 'towncenter') {
+    const c = entCenter(b);
+    game.pings.push({ x:c.x, y:c.y, t:0, ttl:5 });
+  }
+}
+
+function completeSite(site) {
+  const c = canCompleteSite(site);
+  if (!c.ok) { notify(c.reason, 'warn'); return false; }
+  const p = game.players[0];
+  payCost(p, site.cost);
+  const reward = site.reward || {};
+  for (const res of ['food', 'wood', 'gold']) if (reward[res]) p.resources[res] += reward[res];
+  if (reward.forge) grantForgeReward(reward.forge);
+  if (reward.popCap) { p.questPopBonus += reward.popCap; recomputePopCap(0); }
+  if (reward.reveal) revealQuestMarkers();
+  site.completed = true;
+  site.flash = 1;
+  game.effects.push({ type:'click', x:site.x, y:site.y, t:0, ttl:0.75, fx:'gather' });
+  game.selectionVersion++;
+  notify(site.name + ': ' + (site.rewardText || 'reward claimed'), 'good');
+  return true;
 }
 
 /* ------------------------------- building placement ------------------------------- */
 function enterPlacement(type) {
   const def = CONFIG.BUILDINGS[type];
   const p = game.players[0];
-  if (p.age < def.ageReq) { notify('Requires the ' + ageDisplayName(def.ageReq), 'warn'); return; }
+  if (p.age < def.ageReq) { notify('Requires ' + ageDisplayName(def.ageReq), 'warn'); return; }
   const lack = lackText(p, def.cost);
   if (lack) { notify(lack, 'warn'); return; }
   game.placement = { type, tx: 0, ty: 0, valid: false };
@@ -2886,12 +3794,16 @@ function cancelPlacement() {
 function sizeCanvas() {
   dpr = Math.max(1, Math.min(window.devicePixelRatio || 1, THEME.RENDER.MAX_DPR));
   mmDpr = dpr;
-  viewW = window.innerWidth; viewH = window.innerHeight;
+  const hudH = bottomHudHeight();
+  viewW = window.innerWidth; viewH = Math.max(260, window.innerHeight - hudH);
   mmSize = computeMinimapSize();
   canvas.width = Math.max(1, Math.floor(viewW * dpr));
   canvas.height = Math.max(1, Math.floor(viewH * dpr));
   canvas.style.width = viewW + 'px';
   canvas.style.height = viewH + 'px';
+  canvas.style.bottom = hudH + 'px';
+  DOM.pixiLayer.style.height = viewH + 'px';
+  DOM.pixiLayer.style.bottom = hudH + 'px';
   ctx.imageSmoothingEnabled = true;
   mmCanvas.width = Math.max(1, Math.floor(mmSize * mmDpr));
   mmCanvas.height = Math.max(1, Math.floor(mmSize * mmDpr));
@@ -2914,6 +3826,33 @@ function centerCameraOn(wx, wy) {
   game.camera.y = wy - visibleWorldH() / 2;
   clampCamera();
 }
+function setCameraZoom(nextZoom, sx, sy) {
+  if (!game || !game.camera) return;
+  const cam = game.camera;
+  const oldZoom = worldZoom();
+  const wx = cam.x + sx / oldZoom;
+  const wy = cam.y + sy / oldZoom;
+  cam.targetZoom = clamp(nextZoom, CONFIG.CAMERA.ZOOM_MIN, CONFIG.CAMERA.ZOOM_MAX);
+  cam.zoomAnchor = { sx, sy, wx, wy };
+  clampCamera();
+}
+function updateCameraZoom(delta) {
+  if (!game || !game.camera) return;
+  const cam = game.camera;
+  if (typeof cam.targetZoom !== 'number') cam.targetZoom = cam.zoom || defaultWorldZoom();
+  if (typeof cam.zoom !== 'number') cam.zoom = cam.targetZoom;
+  const diff = cam.targetZoom - cam.zoom;
+  if (Math.abs(diff) < 0.0005) { cam.zoom = cam.targetZoom; return; }
+  const anchor = cam.zoomAnchor || {
+    sx: viewW / 2, sy: viewH / 2,
+    wx: cam.x + viewW / 2 / cam.zoom,
+    wy: cam.y + viewH / 2 / cam.zoom,
+  };
+  cam.zoom += diff * clamp(delta * CONFIG.CAMERA.ZOOM_LERP, 0, 1);
+  cam.x = anchor.wx - anchor.sx / cam.zoom;
+  cam.y = anchor.wy - anchor.sy / cam.zoom;
+  clampCamera();
+}
 function clampCamera() {
   const cam = game.camera;
   const vw = visibleWorldW(), vh = visibleWorldH();
@@ -2922,24 +3861,40 @@ function clampCamera() {
 }
 function updateCamera(delta) {
   if (!gameInteractive()) return;
+  updateCameraZoom(delta);
   const cam = game.camera;
-  let vx = 0, vy = 0;
-  if (keys.has('KeyA') || keys.has('ArrowLeft'))  vx -= 1;
-  if (keys.has('KeyD') || keys.has('ArrowRight')) vx += 1;
-  if (keys.has('KeyW') || keys.has('ArrowUp'))    vy -= 1;
-  if (keys.has('KeyS') || keys.has('ArrowDown'))  vy += 1;
+  let targetVX = 0, targetVY = 0;
+  if (keys.has('KeyA') || keys.has('ArrowLeft'))  targetVX -= 1;
+  if (keys.has('KeyD') || keys.has('ArrowRight')) targetVX += 1;
+  if (keys.has('KeyW') || keys.has('ArrowUp'))    targetVY -= 1;
+  if (keys.has('KeyS') || keys.has('ArrowDown'))  targetVY += 1;
   const z = worldZoom();
-  if (vx || vy) {
-    cam.x += vx * CONFIG.CAMERA.KEY_SPEED * delta / z;
-    cam.y += vy * CONFIG.CAMERA.KEY_SPEED * delta / z;
-  } else if (mouse.inside && document.hasFocus()) {
-    const M = CONFIG.CAMERA.EDGE_MARGIN, S = CONFIG.CAMERA.EDGE_SPEED * delta / z;
-    if (mouse.x <= M) cam.x -= S;
-    else if (mouse.x >= viewW - M) cam.x += S;
-    if (mouse.y <= M) cam.y -= S;
-    else if (mouse.y >= viewH - M) cam.y += S;
+  if (!targetVX && !targetVY && mouse.inside && document.hasFocus()) {
+    const M = CONFIG.CAMERA.EDGE_MARGIN;
+    targetVX = edgeScrollAxis(mouse.x, viewW, M);
+    targetVY = edgeScrollAxis(mouse.y, viewH, M);
   }
+  const mag = Math.hypot(targetVX, targetVY);
+  if (mag > 1) { targetVX /= mag; targetVY /= mag; }
+  const mix = clamp(delta * CONFIG.CAMERA.PAN_SMOOTHING, 0, 1);
+  cam.panVX = (cam.panVX || 0) + (targetVX - (cam.panVX || 0)) * mix;
+  cam.panVY = (cam.panVY || 0) + (targetVY - (cam.panVY || 0)) * mix;
+  if (Math.abs(cam.panVX) < 0.002) cam.panVX = 0;
+  if (Math.abs(cam.panVY) < 0.002) cam.panVY = 0;
+  const speed = targetVX || targetVY ? CONFIG.CAMERA.KEY_SPEED : CONFIG.CAMERA.EDGE_SPEED;
+  cam.x += cam.panVX * speed * delta / z;
+  cam.y += cam.panVY * speed * delta / z;
   clampCamera();
+}
+function edgeScrollAxis(pos, size, margin) {
+  if (pos < 0 || pos > size) return 0;
+  let t = 0;
+  if (pos < margin) t = -(margin - pos) / margin;
+  else if (pos > size - margin) t = (pos - (size - margin)) / margin;
+  if (!t) return 0;
+  const s = Math.min(1, Math.abs(t));
+  const eased = s * s * (3 - 2 * s);
+  return Math.sign(t) * eased;
 }
 function minimapPan(e) {
   const r = mmCanvas.getBoundingClientRect();
@@ -3195,6 +4150,20 @@ function buildTerrainBackdrop() {
   }
 
   c.save();
+  for (let i = 0; i < 950; i++) {
+    const x = MAPW * hash01(game.seed, i, 301);
+    const y = MAPH * hash01(game.seed, i, 307);
+    const s = 0.6 + hash01(game.seed, i, 311) * 1.6;
+    const warm = hash01(game.seed, i, 313) > 0.52;
+    c.globalAlpha = warm ? 0.12 : 0.16;
+    c.fillStyle = warm ? 'rgba(230,210,142,0.45)' : 'rgba(26,52,24,0.42)';
+    c.beginPath();
+    c.ellipse(x, y, s * 1.8, s, hash01(game.seed, i, 317) * Math.PI, 0, Math.PI * 2);
+    c.fill();
+  }
+  c.restore();
+
+  c.save();
   for (let i = 0; i < 70; i++) {
     const x = MAPW * hash01(game.seed, i, 211);
     const y = MAPH * hash01(game.seed, i, 223);
@@ -3305,6 +4274,21 @@ function buildTerrainBackdrop() {
     c.strokeStyle = 'rgba(204,249,244,0.24)';
     c.lineWidth = 2;
     c.beginPath(); c.ellipse(pond.rx * 0.18, -pond.ry * 0.18, pond.rx * 0.54, pond.ry * 0.28, 0, 0, Math.PI * 2); c.stroke();
+    c.strokeStyle = 'rgba(48,36,20,0.28)';
+    c.lineWidth = 4;
+    c.beginPath(); c.ellipse(0, 0, pond.rx * 1.02, pond.ry * 1.02, 0, 0, Math.PI * 2); c.stroke();
+    c.strokeStyle = 'rgba(211,220,153,0.22)';
+    c.lineWidth = 1.4;
+    for (let reed = 0; reed < 10; reed++) {
+      const salt = Math.floor(pond.x + pond.y);
+      const a = hash01(game.seed, salt, 333 + reed) * Math.PI * 2;
+      const px = Math.cos(a) * pond.rx * (0.84 + hash01(game.seed, salt, 351 + reed) * 0.18);
+      const py = Math.sin(a) * pond.ry * (0.84 + hash01(game.seed, salt, 371 + reed) * 0.18);
+      c.beginPath();
+      c.moveTo(px, py);
+      c.lineTo(px + Math.cos(a - 0.9) * T * 0.12, py - T * (0.18 + hash01(game.seed, salt, 391 + reed) * 0.18));
+      c.stroke();
+    }
     c.restore();
   }
   for (const stream of decor.streams) drawTerrainStream(c, stream, stream.width || T * 0.18);
@@ -3357,17 +4341,19 @@ function render() {
 
   drawTerrain(cam);
   drawRallyPoints();
+  drawAmbientHappenings();
 
   // pseudo-depth: draw everything sorted by its bottom edge
   const ents = [];
   for (const b of game.buildings) if (!b.dead) ents.push(b);
+  for (const s of game.sites || []) if (!s.dead) ents.push(s);
   for (const u of game.units) if (!u.dead && !u.transportId) ents.push(u);
   ents.sort((a, b) => {
-    const ba = a.kind === 'unit' ? a.y + a.radius : (a.ty + a.size) * T;
-    const bb = b.kind === 'unit' ? b.y + b.radius : (b.ty + b.size) * T;
+    const ba = a.kind === 'unit' ? a.y + a.radius : a.kind === 'site' ? a.y + a.radius : (a.ty + a.size) * T;
+    const bb = b.kind === 'unit' ? b.y + b.radius : b.kind === 'site' ? b.y + b.radius : (b.ty + b.size) * T;
     return ba - bb;
   });
-  for (const e of ents) { if (e.kind === 'unit') drawUnit(e); else drawBuilding(e); }
+  for (const e of ents) { if (e.kind === 'unit') drawUnit(e); else if (e.kind === 'site') drawSite(e); else drawBuilding(e); }
 
   drawProjectiles();
   drawEffects();
@@ -3412,6 +4398,40 @@ function drawTerrain(cam) {
     if (x + T < cam.x - pad || x > cam.x + vw + pad ||
       y + T < cam.y - pad || y > cam.y + vh + pad) continue;
     drawNode(n, x, y);
+  }
+}
+
+function drawAmbientHappenings() {
+  const cam = game.camera;
+  const pad = T * 2;
+  const vw = visibleWorldW(), vh = visibleWorldH();
+  for (const a of game.ambient || []) {
+    const wave = Math.sin(game.time * 1.8 + a.phase);
+    const x = a.x + (a.kind === 'chicken' ? Math.sin(game.time * 0.7 + a.phase) * 8 : 0);
+    const y = a.y + (a.kind === 'firefly' ? Math.cos(game.time * 1.4 + a.phase) * 5 : 0);
+    if (x < cam.x - pad || x > cam.x + vw + pad || y < cam.y - pad || y > cam.y + vh + pad) continue;
+    ctx.save();
+    if (a.kind === 'chicken') {
+      drawShadow(x, y + 5, 8, 3, 0.18);
+      ctx.fillStyle = a.tint > 0.5 ? '#eadfc8' : '#a67a4f';
+      ctx.beginPath(); ctx.ellipse(x, y, 7, 5, wave * 0.12, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#d84a3f';
+      ctx.beginPath(); ctx.arc(x + 5, y - 4, 2.2, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#5b321d'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(x - 2, y + 5); ctx.lineTo(x - 3, y + 8); ctx.moveTo(x + 2, y + 5); ctx.lineTo(x + 3, y + 8); ctx.stroke();
+    } else if (a.kind === 'smoke') {
+      for (let i = 0; i < 3; i++) {
+        const f = (game.time * 0.22 + a.phase + i * 0.28) % 1;
+        ctx.globalAlpha = (1 - f) * 0.22;
+        ctx.fillStyle = '#d8c6a2';
+        ctx.beginPath(); ctx.ellipse(x + Math.sin(f * 7 + i) * 4, y - f * 26, 5 + f * 10, 3 + f * 7, 0, 0, Math.PI * 2); ctx.fill();
+      }
+    } else {
+      ctx.globalAlpha = 0.45 + Math.max(0, wave) * 0.35;
+      ctx.fillStyle = a.tint > 0.5 ? '#d9e78c' : '#8ec5ff';
+      ctx.beginPath(); ctx.arc(x, y, 2.4, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.restore();
   }
 }
 
@@ -3560,6 +4580,21 @@ function drawNode(n, x, y) {
     ctx.fillStyle = 'rgba(255,240,156,0.48)';
     ctx.beginPath(); ctx.arc(cx - r * 0.05, cy - r * 0.05, 3.4, 0, Math.PI * 2); ctx.fill();
     ctx.restore();
+  } else if (n.variant === 'chicken') {
+    const wobble = Math.sin(game.time * 2.2 + n.phase) * 0.12;
+    drawShadow(cx, cy + T * 0.18, T * 0.24, T * 0.08, 0.22);
+    ctx.save();
+    ctx.translate(cx, cy + Math.sin(game.time * 3 + n.phase) * 0.8);
+    ctx.rotate(wobble);
+    ctx.fillStyle = n.tint > 0.5 ? '#eadfc8' : '#a67a4f';
+    ctx.beginPath(); ctx.ellipse(0, 0, T * 0.24, T * 0.16, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#f4d6a4';
+    ctx.beginPath(); ctx.ellipse(T * 0.18, -T * 0.09, T * 0.1, T * 0.09, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#d84a3f';
+    ctx.beginPath(); ctx.arc(T * 0.22, -T * 0.17, 2.4, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#5b321d'; ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.moveTo(-T*.05, T*.14); ctx.lineTo(-T*.08, T*.24); ctx.moveTo(T*.08, T*.13); ctx.lineTo(T*.11, T*.23); ctx.stroke();
+    ctx.restore();
   } else {          // food — berry bush
     drawShadow(cx, cy + T * 0.18, T * 0.27, T * 0.11, 0.24);
     const r = T * (0.18 + 0.22 * frac);
@@ -3661,6 +4696,80 @@ function drawBuilding(b) {
   if (b.hp < b.maxHp || selected) {
     drawBar(x + 3, y - (b.complete ? 8 : 16), w - 6, 5, b.hp / b.maxHp, hpColor(b.hp / b.maxHp));
   }
+}
+
+function drawSite(site) {
+  const selected = game.selection.includes(site.id);
+  const r = site.radius;
+  if (selected) {
+    ctx.save();
+    ctx.strokeStyle = site.completed ? '#93e0a7' : '#f0c766';
+    ctx.shadowColor = ctx.strokeStyle;
+    ctx.shadowBlur = 8;
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.ellipse(site.x, site.y + r * 0.42, r * 1.18, r * 0.48, 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.restore();
+  }
+  if (site.type === 'demonDoor') { drawDemonDoorSite(site); return; }
+  ctx.save();
+  ctx.translate(site.x, site.y);
+  drawShadow(0, r * 0.48, r * 0.95, r * 0.28, 0.26);
+  const done = site.completed;
+  if (site.type === 'traderCamp') {
+    fillPoly([[-r*.75,r*.3],[-r*.2,-r*.42],[r*.25,r*.3]], done ? '#768b52' : '#9a764a');
+    fillPoly([[r*.05,r*.32],[r*.55,-r*.34],[r*.84,r*.34]], '#6e4c2b');
+    ctx.fillStyle = '#eadfc8'; ctx.fillRect(-r*.1, r*.22, r*.74, r*.16);
+  } else if (site.type === 'oldForge') {
+    ctx.fillStyle = '#6e6252'; ctx.fillRect(-r*.7, -r*.18, r*1.25, r*.48);
+    ctx.fillStyle = '#2b1b10'; ctx.fillRect(r*.2, -r*.48, r*.22, r*.36);
+    ctx.fillStyle = done ? '#f0c766' : '#ff8a72'; ctx.beginPath(); ctx.arc(-r*.25, -r*.02, r*.16, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#4d4438'; ctx.fillRect(-r*.1, r*.2, r*.48, r*.14);
+  } else if (site.type === 'schoolhouse') {
+    fillPoly([[-r*.72,r*.36],[-r*.5,-r*.26],[r*.5,-r*.26],[r*.72,r*.36]], '#8c7655');
+    fillPoly([[-r*.82,-r*.24],[0,-r*.62],[r*.82,-r*.24]], '#7b4f2b');
+    ctx.fillStyle = '#2b1b10'; ctx.fillRect(-r*.12, r*.02, r*.24, r*.34);
+  } else if (site.type === 'tavern') {
+    fillPoly([[-r*.78,r*.34],[-r*.58,-r*.24],[r*.58,-r*.24],[r*.78,r*.34]], '#9a764a');
+    fillPoly([[-r*.88,-r*.22],[0,-r*.58],[r*.88,-r*.22]], '#8f5a31');
+    ctx.fillStyle = '#f0c766'; ctx.beginPath(); ctx.arc(r*.48, -r*.02, r*.12, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = '#3a2115'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(r*.48, -r*.14); ctx.lineTo(r*.48, r*.16); ctx.stroke();
+  } else {
+    ctx.fillStyle = '#8a8170'; ctx.beginPath(); ctx.ellipse(0, -r*.12, r*.58, r*.8, 0, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = '#4b443a'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(-r*.35, -r*.05); ctx.lineTo(r*.35, -r*.05); ctx.moveTo(0, -r*.43); ctx.lineTo(0, r*.28); ctx.stroke();
+  }
+  if (done) {
+    ctx.strokeStyle = '#93e0a7'; ctx.lineWidth = 2.4;
+    ctx.beginPath(); ctx.moveTo(-r*.28, -r*.45); ctx.lineTo(-r*.05, -r*.22); ctx.lineTo(r*.34, -r*.58); ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawDemonDoorSite(site) {
+  const r = site.radius;
+  const talk = site.completed ? 0.1 : 0.5 + Math.sin(game.time * 1.9 + site.id) * 0.5;
+  drawShadow(site.x, site.y + r * 0.52, r * 1.05, r * 0.32, 0.32);
+  ctx.save();
+  ctx.translate(site.x, site.y);
+  ctx.fillStyle = site.completed ? '#7f8b7a' : '#8a8170';
+  ctx.beginPath(); ctx.ellipse(0, 0, r*.86, r*1.08, 0, Math.PI, 0); ctx.lineTo(r*.86, r*.45); ctx.quadraticCurveTo(0, r*.78, -r*.86, r*.45); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = '#4b443a'; ctx.lineWidth = 3; ctx.stroke();
+  ctx.fillStyle = '#6b6256';
+  ctx.beginPath(); ctx.ellipse(0, r*.05, r*.52, r*.68, 0, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#2b241d';
+  ctx.beginPath(); ctx.ellipse(-r*.23, -r*.1, r*.1, r*.055, 0, 0, Math.PI*2); ctx.ellipse(r*.23, -r*.1, r*.1, r*.055, 0, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#3f382f'; ctx.lineWidth = 4;
+  ctx.beginPath(); ctx.moveTo(-r*.48, -r*.24); ctx.quadraticCurveTo(-r*.22, -r*.38, 0, -r*.28); ctx.quadraticCurveTo(r*.22, -r*.38, r*.48, -r*.24); ctx.stroke();
+  ctx.fillStyle = '#4b3b31';
+  ctx.beginPath(); ctx.ellipse(0, r*.34, r*.34, r*(.08 + talk*.1), 0, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#4d4438';
+  for (let i = -2; i <= 2; i++) {
+    ctx.beginPath(); ctx.ellipse(i*r*.13, r*.58, r*.09, r*.2, i*.08, 0, Math.PI*2); ctx.fill();
+  }
+  if (site.completed) {
+    ctx.strokeStyle = '#93e0a7'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(0, -r*.82, r*.18, 0, Math.PI*2); ctx.stroke();
+  }
+  ctx.restore();
 }
 
 function drawBuildingBody(b, x, y, w, fac) {
@@ -3791,11 +4900,15 @@ function drawUnit(u) {
     ctx.restore();
   }
   const angle = unitFacingAngle(u);
-  const moving = !!(u.path && u.pathIdx < u.path.length) || u.state === 'gather' || u.state === 'build' || u.state === 'board';
-  const phase = game.time * (moving ? 9 : 2.1) + u.id * 0.73;
+  const moving = !!(u.path && u.pathIdx < u.path.length) || u.state === 'move' || u.state === 'attackmove' || u.state === 'board';
+  const working = u.state === 'gather' || u.state === 'build';
+  const phase = game.time * (moving ? 10.5 : working ? 7.6 : 2.1) + u.id * 0.73;
   const stride = moving ? Math.sin(phase) : Math.sin(phase) * 0.12;
-  const bob = moving ? Math.sin(phase * 2) * 1.35 : Math.sin(phase) * 0.45;
-  const swing = u.state === 'attack' ? Math.sin((CONFIG.UNITS[u.type].attackCooldown - Math.max(0, u.cooldown)) * 11) : stride;
+  const bob = moving ? Math.abs(Math.sin(phase)) * 1.35 : working ? Math.sin(phase * 2) * 0.55 : Math.sin(phase) * 0.38;
+  const workSwing = working ? Math.sin(phase) : 0;
+  const attackT = u.state === 'attack' ? clamp(1 - Math.max(0, u.cooldown) / CONFIG.UNITS[u.type].attackCooldown, 0, 1) : 0;
+  const swing = u.state === 'attack' ? Math.sin(attackT * Math.PI) : stride;
+  const face = Math.cos(angle) < 0 ? -1 : 1;
   drawShadow(u.x, u.y + r * 0.75, r * 1.05, r * 0.38, 0.32);
   ctx.save();
   ctx.globalAlpha = u.owner === 0 ? 0.22 : 0.18;
@@ -3825,7 +4938,7 @@ function drawUnit(u) {
   }
   ctx.save();
   ctx.translate(u.x, u.y + bob);
-  ctx.rotate(angle + Math.PI / 2);
+  ctx.scale(face, 1);
   ctx.shadowColor = 'rgba(15,9,5,0.35)';
   ctx.shadowBlur = 4;
   ctx.shadowOffsetY = 2;
@@ -3838,8 +4951,10 @@ function drawUnit(u) {
   const weaponLevel = upgradeLevel(u.owner, 'weapons');
   ctx.strokeStyle = 'rgba(19,12,8,0.82)';
   ctx.lineWidth = 2;
-  fillPoly([[-r*.42,r*.52],[-r*.18,r*.92],[0,r*.54],[r*.18,r*.92],[r*.42,r*.52]], '#2a1b12');
+  fillPoly([[-r*.42,r*.52],[-r*.2,r*(.92 + .08*stride)],[0,r*.54],[r*.2,r*(.92 - .08*stride)],[r*.42,r*.52]], '#2a1b12');
   if (u.type === 'villager') {
+    const armLift = working ? -r * (0.12 + 0.2 * Math.max(0, workSwing)) : 0;
+    const toolY = r * (0.58 - 0.22 * Math.max(0, workSwing));
     if (u.owner === 0) {
       fillPoly([[-r*.62,-r*.08],[-r*.38,r*.68],[0,r*.96],[r*.42,r*.68],[r*.58,-r*.08],[0,-r*.36]], '#d9d8d0');
       fillPoly([[-r*.54,-r*.08],[-r*.32,r*.62],[0,r*.84],[r*.34,r*.62],[r*.5,-r*.08],[0,-r*.28]], '#f1f0e6');
@@ -3850,7 +4965,7 @@ function drawUnit(u) {
       ctx.strokeStyle = '#2f6aa3'; ctx.lineWidth = 1.7;
       ctx.beginPath(); ctx.moveTo(-r*.38, r*.04); ctx.lineTo(-r*.23, r*.63); ctx.moveTo(r*.36, r*.02); ctx.lineTo(r*.2, r*.63); ctx.stroke();
       ctx.strokeStyle = '#6e4c2b'; ctx.lineWidth = 2.1; ctx.lineCap = 'round';
-      ctx.beginPath(); ctx.moveTo(r*.24, r*.66); ctx.lineTo(r*(.42 + .12*stride), r*.9); ctx.moveTo(-r*.2, r*.66); ctx.lineTo(-r*(.36 + .12*stride), r*.88); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(r*.24, r*.66); ctx.lineTo(r*(.42 + .12*stride), r*(.9 - .08*stride)); ctx.moveTo(-r*.2, r*.66); ctx.lineTo(-r*(.36 + .12*stride), r*(.88 + .08*stride)); ctx.stroke();
     } else {
       fillPoly([[-r*.62,-r*.08],[-r*.38,r*.66],[0,r*.92],[r*.42,r*.66],[r*.58,-r*.08],[0,-r*.34]], '#7b4b27');
       strokePoly([[-r*.62,-r*.08],[-r*.38,r*.66],[0,r*.92],[r*.42,r*.66],[r*.58,-r*.08],[0,-r*.34]], 'rgba(19,12,8,0.82)', 1.5);
@@ -3858,12 +4973,23 @@ function drawUnit(u) {
       ctx.fillStyle = skin; ctx.beginPath(); ctx.ellipse(0, -r*.72, r*.36, r*.42, 0, 0, Math.PI*2); ctx.fill();
       ctx.fillStyle = leather; ctx.beginPath(); ctx.ellipse(0, -r*.96, r*.42, r*.2, 0, Math.PI, 0); ctx.fill();
       ctx.strokeStyle = 'rgba(44,28,17,0.9)'; ctx.lineWidth = 1.6;
-      ctx.beginPath(); ctx.moveTo(r*.24, r*.36); ctx.lineTo(r*(.42 + .12*stride), r*.88); ctx.moveTo(-r*.2, r*.34); ctx.lineTo(-r*(.36 + .12*stride), r*.86); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(r*.24, r*.36); ctx.lineTo(r*(.42 + .12*stride), r*(.88 - .08*stride)); ctx.moveTo(-r*.2, r*.34); ctx.lineTo(-r*(.36 + .12*stride), r*(.86 + .08*stride)); ctx.stroke();
     }
     ctx.strokeStyle = leather; ctx.lineWidth = 2.4; ctx.lineCap = 'round';
-    ctx.beginPath(); ctx.moveTo(-r*.54, -r*.06); ctx.lineTo(-r*1.08, r*.58); ctx.stroke();
-    ctx.fillStyle = '#8b5a2b'; ctx.fillRect(r*.28, r*.13, r*.46, r*.36);
-    drawWoodGrain(r*.28, r*.13, r*.46, r*.36, '#d1a36c');
+    ctx.beginPath(); ctx.moveTo(-r*.54, -r*.06); ctx.lineTo(-r*1.08, r*.58 + armLift); ctx.stroke();
+    if (working) {
+      ctx.save();
+      ctx.translate(r*.54, toolY);
+      ctx.rotate(-0.35 + workSwing * 0.48);
+      ctx.fillStyle = u.state === 'build' ? '#c4b79c' : '#8b5a2b';
+      ctx.fillRect(-r*.1, -r*.38, r*.2, r*.72);
+      ctx.fillStyle = u.state === 'build' ? '#6e6252' : '#d1a36c';
+      ctx.fillRect(-r*.28, -r*.5, r*.56, r*.16);
+      ctx.restore();
+    } else {
+      ctx.fillStyle = '#8b5a2b'; ctx.fillRect(r*.28, r*.13, r*.46, r*.36);
+      drawWoodGrain(r*.28, r*.13, r*.46, r*.36, '#d1a36c');
+    }
   } else if (u.type === 'militia') {
     fillPoly([[-r*.58,-r*.2],[-r*.68,r*.54],[0,r*.96],[r*.68,r*.54],[r*.58,-r*.2],[0,-r*.48]], u.owner > 0 ? '#5a2d20' : '#687d8a');
     strokePoly([[-r*.58,-r*.2],[-r*.68,r*.54],[0,r*.96],[r*.68,r*.54],[r*.58,-r*.2],[0,-r*.48]], 'rgba(18,12,9,0.88)', 1.5);
@@ -3871,26 +4997,95 @@ function drawUnit(u) {
     ctx.fillStyle = metal; ctx.beginPath(); ctx.ellipse(0, -r*.82, r*.4, r*.32, 0, Math.PI, 0); ctx.fill();
     ctx.fillStyle = skin; ctx.beginPath(); ctx.ellipse(0, -r*.69, r*.3, r*.27, 0, 0, Math.PI*2); ctx.fill();
     ctx.strokeStyle = u.owner > 0 ? '#2b170d' : '#f2ead8'; ctx.lineWidth = 2.8; ctx.lineCap = 'round';
-    ctx.beginPath(); ctx.moveTo(r*.28, r*.35); ctx.lineTo(r*(1.1 + .16*swing), -r*(.82 + .1*Math.abs(swing))); ctx.stroke();
-    fillPoly([[r*(1.08 + .16*swing),-r*(.9 + .1*Math.abs(swing))],[r*(1.22 + .16*swing),-r*(.62 + .1*Math.abs(swing))],[r*(.94 + .16*swing),-r*(.73 + .1*Math.abs(swing))]], '#e8e3d8');
+    ctx.beginPath(); ctx.moveTo(r*.28, r*.35); ctx.lineTo(r*(.9 + .34*swing), -r*(.62 + .38*Math.max(0, swing))); ctx.stroke();
+    fillPoly([[r*(.88 + .34*swing),-r*(.7 + .38*Math.max(0, swing))],[r*(1.04 + .34*swing),-r*(.44 + .38*Math.max(0, swing))],[r*(.75 + .34*swing),-r*(.51 + .38*Math.max(0, swing))]], '#e8e3d8');
     ctx.fillStyle = u.owner > 0 ? '#3a1d15' : '#4b6c9a';
-    ctx.beginPath(); ctx.ellipse(-r*.64, r*.06, r*.36, r*.55, 0.15, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(-r*.64, r*(.06 - .12*Math.abs(swing)), r*.36, r*.55, -0.18 * swing, 0, Math.PI*2); ctx.fill(); ctx.stroke();
     ctx.strokeStyle = 'rgba(44,28,17,0.9)'; ctx.lineWidth = 1.7;
-    ctx.beginPath(); ctx.moveTo(r*.24, r*.46); ctx.lineTo(r*(.38 + .12*stride), r*.93); ctx.moveTo(-r*.2, r*.48); ctx.lineTo(-r*(.38 + .12*stride), r*.9); ctx.stroke();
-  } else {          // archer
+    ctx.beginPath(); ctx.moveTo(r*.24, r*.46); ctx.lineTo(r*(.38 + .12*stride), r*(.93 - .08*stride)); ctx.moveTo(-r*.2, r*.48); ctx.lineTo(-r*(.38 + .12*stride), r*(.9 + .08*stride)); ctx.stroke();
+  } else if (u.type === 'archer') {
+    const drawPull = u.state === 'attack' ? Math.sin(attackT * Math.PI) : 0;
     fillPoly([[0,-r*1.1],[-r*.76,r*.75],[-r*.18,r*.98],[r*.7,r*.72]], u.owner > 0 ? '#5b3022' : '#305d77');
     strokePoly([[0,-r*1.1],[-r*.76,r*.75],[-r*.18,r*.98],[r*.7,r*.72]], 'rgba(18,12,9,0.88)', 1.7);
     fillPoly([[-r*.42,-r*.12],[-r*.12,r*.25],[r*.45,-r*.14],[r*.18,r*.26]], fac.fill);
     ctx.fillStyle = skin; ctx.beginPath(); ctx.ellipse(0, -r*.78, r*.32, r*.34, 0, 0, Math.PI*2); ctx.fill();
     fillPoly([[-r*.36,-r*.94],[0,-r*1.22],[r*.38,-r*.94]], fac.dark);
     ctx.strokeStyle = '#d9c9a3'; ctx.lineWidth = 2.2; ctx.lineCap = 'round';
-    ctx.beginPath(); ctx.arc(r*.72, -r*.02, r*.84, -1.18, 1.18); ctx.stroke();
+    ctx.beginPath(); ctx.arc(r*(.72 - .08*drawPull), -r*.02, r*(.84 + .08*drawPull), -1.18, 1.18); ctx.stroke();
     ctx.strokeStyle = '#5a3d24'; ctx.lineWidth = 1.7;
     ctx.beginPath(); ctx.moveTo(-r*.38, r*.62); ctx.lineTo(-r*.94, -r*.56); ctx.stroke();
     ctx.strokeStyle = '#eadfc8'; ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(r*.28,-r*.78); ctx.lineTo(r*1.24,r*.34); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(r*(.28 - .18*drawPull),-r*.78); ctx.lineTo(r*(1.24 - .18*drawPull),r*.34); ctx.stroke();
+    if (drawPull > 0.1) {
+      ctx.strokeStyle = '#f5e6b8'; ctx.lineWidth = 1.4;
+      ctx.beginPath(); ctx.moveTo(r*(.1 - .16*drawPull), -r*.2); ctx.lineTo(r*(.88 - .2*drawPull), -r*.02); ctx.stroke();
+    }
     ctx.strokeStyle = 'rgba(44,28,17,0.9)'; ctx.lineWidth = 1.5;
-    ctx.beginPath(); ctx.moveTo(r*.18, r*.38); ctx.lineTo(r*(.34 + .1*stride), r*.88); ctx.moveTo(-r*.18, r*.4); ctx.lineTo(-r*(.42 + .1*stride), r*.84); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(r*.18, r*.38); ctx.lineTo(r*(.34 + .1*stride), r*(.88 - .07*stride)); ctx.moveTo(-r*.18, r*.4); ctx.lineTo(-r*(.42 + .1*stride), r*(.84 + .07*stride)); ctx.stroke();
+  } else if (u.type === 'spearman') {
+    fillPoly([[-r*.5,-r*.16],[-r*.68,r*.5],[-r*.08,r*.94],[r*.64,r*.52],[r*.48,-r*.16],[0,-r*.5]], u.owner > 0 ? '#4f3921' : '#4f6b63');
+    strokePoly([[-r*.5,-r*.16],[-r*.68,r*.5],[-r*.08,r*.94],[r*.64,r*.52],[r*.48,-r*.16],[0,-r*.5]], 'rgba(18,12,9,0.88)', 1.5);
+    fillPoly([[-r*.48,-r*.13],[-r*.2,r*.22],[r*.46,-r*.12],[r*.16,r*.28]], fac.fill);
+    ctx.fillStyle = metal; ctx.beginPath(); ctx.ellipse(0, -r*.82, r*.35, r*.25, 0, Math.PI, 0); ctx.fill();
+    ctx.fillStyle = skin; ctx.beginPath(); ctx.ellipse(0, -r*.68, r*.28, r*.25, 0, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = '#e9dcc2'; ctx.lineWidth = 2.5; ctx.lineCap = 'round';
+    const thrust = Math.max(0, swing);
+    ctx.beginPath(); ctx.moveTo(-r*.44, r*.25); ctx.lineTo(r*(1.35 + .35*thrust), -r*(.78 + .18*thrust)); ctx.stroke();
+    fillPoly([[r*(1.34 + .35*thrust),-r*(.88 + .18*thrust)],[r*(1.62 + .35*thrust),-r*(.72 + .18*thrust)],[r*(1.34 + .35*thrust),-r*(.56 + .18*thrust)]], '#d8d0b4');
+    ctx.fillStyle = u.owner > 0 ? '#513020' : '#375d7a';
+    ctx.beginPath(); ctx.ellipse(-r*.56, r*(.08 - .08*Math.abs(stride)), r*.28, r*.48, -0.16, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+    ctx.strokeStyle = 'rgba(44,28,17,0.9)'; ctx.lineWidth = 1.7;
+    ctx.beginPath(); ctx.moveTo(r*.24, r*.48); ctx.lineTo(r*(.36 + .1*stride), r*(.92 - .08*stride)); ctx.moveTo(-r*.18, r*.5); ctx.lineTo(-r*(.36 + .1*stride), r*(.9 + .08*stride)); ctx.stroke();
+  } else if (u.type === 'knight') {
+    const horse = u.owner === 3 ? '#5f6467' : u.owner === 2 ? '#6b5634' : u.owner > 0 ? '#4a2b1b' : '#7a6045';
+    ctx.save();
+    ctx.translate(0, r * 0.1);
+    ctx.fillStyle = horse;
+    ctx.beginPath(); ctx.ellipse(0, r*.28, r*.88, r*.42, 0, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = shadeColor(horse, 24);
+    ctx.beginPath(); ctx.ellipse(r*.62, r*.05, r*.36, r*.28, -0.15, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = shadeColor(horse, -36);
+    ctx.beginPath(); ctx.ellipse(-r*.72, r*.12, r*.18, r*.38, -0.7, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = '#2a1b12'; ctx.lineWidth = 2; ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(-r*.44, r*.58); ctx.lineTo(-r*(.58 + .08*stride), r*(1.02 + .08*stride));
+    ctx.moveTo(-r*.12, r*.62); ctx.lineTo(-r*(.16 - .08*stride), r*(1.04 - .08*stride));
+    ctx.moveTo(r*.25, r*.6); ctx.lineTo(r*(.34 + .08*stride), r*(1.02 - .08*stride));
+    ctx.moveTo(r*.58, r*.52); ctx.lineTo(r*(.72 - .08*stride), r*(.94 + .08*stride));
+    ctx.stroke();
+    ctx.strokeStyle = '#3b2414'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(r*.7, -r*.05); ctx.lineTo(r*.98, -r*.18); ctx.moveTo(r*.71, -r*.05); ctx.lineTo(r*.98, r*.02); ctx.stroke();
+    ctx.restore();
+    fillPoly([[-r*.34,-r*.38],[-r*.46,r*.22],[0,r*.55],[r*.46,r*.22],[r*.34,-r*.38],[0,-r*.7]], u.owner > 0 ? '#57423a' : '#6f7f8b');
+    strokePoly([[-r*.34,-r*.38],[-r*.46,r*.22],[0,r*.55],[r*.46,r*.22],[r*.34,-r*.38],[0,-r*.7]], 'rgba(18,12,9,0.88)', 1.4);
+    fillPoly([[-r*.34,-r*.36],[-r*.12,-r*.02],[r*.34,-r*.34],[r*.12,r*.04]], fac.fill);
+    ctx.fillStyle = metal; ctx.beginPath(); ctx.ellipse(0, -r*.84, r*.34, r*.27, 0, Math.PI, 0); ctx.fill();
+    ctx.fillStyle = skin; ctx.beginPath(); ctx.ellipse(0, -r*.7, r*.22, r*.22, 0, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = weaponLevel > 1 ? '#fff0a8' : '#e8e3d8'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(r*.28, -r*.1); ctx.lineTo(r*(1.05 + .25*swing), -r*(.86 + .26*Math.max(0, swing))); ctx.stroke();
+  } else if (u.type === 'mage') {
+    const glow = u.owner === 0 ? THEME.COLORS.cullis : fac.light;
+    ctx.save();
+    ctx.globalAlpha = 0.18 + Math.max(0, Math.sin(game.time * 3 + u.id)) * 0.1;
+    ctx.fillStyle = glow;
+    ctx.beginPath(); ctx.ellipse(0, r*.18, r*.72, r*.95, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+    fillPoly([[0,-r*1.16],[-r*.72,r*.74],[-r*.18,r*1.02],[r*.72,r*.74]], u.owner > 0 ? '#3f294d' : '#4b4f74');
+    strokePoly([[0,-r*1.16],[-r*.72,r*.74],[-r*.18,r*1.02],[r*.72,r*.74]], 'rgba(18,12,9,0.9)', 1.7);
+    fillPoly([[-r*.48,-r*.18],[-r*.16,r*.24],[r*.5,-r*.16],[r*.18,r*.26]], fac.fill);
+    ctx.fillStyle = '#201628'; ctx.beginPath(); ctx.ellipse(0, -r*.84, r*.38, r*.42, 0, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = skin; ctx.beginPath(); ctx.ellipse(0, -r*.72, r*.22, r*.24, 0, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = leather; ctx.lineWidth = 2.7; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(r*.46, r*.68); ctx.lineTo(r*.76, -r*1.08); ctx.stroke();
+    ctx.fillStyle = glow;
+    ctx.shadowColor = glow;
+    ctx.shadowBlur = 8;
+    ctx.beginPath(); ctx.arc(r*.78, -r*1.13, r*(.12 + .04*Math.max(0, Math.sin(game.time * 4 + u.id))), 0, Math.PI*2); ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = 'rgba(185,248,255,0.58)'; ctx.lineWidth = 1.1;
+    ctx.beginPath(); ctx.moveTo(-r*.32, r*.18); ctx.quadraticCurveTo(0, r*.34, r*.32, r*.18); ctx.stroke();
+    ctx.strokeStyle = 'rgba(44,28,17,0.9)'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(r*.18, r*.46); ctx.lineTo(r*(.32 + .08*stride), r*(.88 - .06*stride)); ctx.moveTo(-r*.18, r*.48); ctx.lineTo(-r*(.38 + .08*stride), r*(.84 + .06*stride)); ctx.stroke();
   }
   if (isMilitary(u.type) && armorLevel > 0) {
     ctx.save();
@@ -3922,6 +5117,11 @@ function drawUnit(u) {
     ctx.lineWidth = 1.5;
     ctx.beginPath(); ctx.arc(u.x + r * 0.8, u.y - r * 0.8, 4.2, 0, Math.PI * 2);
     ctx.fill(); ctx.stroke();
+  }
+  if (u.autoCombat) {
+    ctx.strokeStyle = autoCombatColor(u.autoCombat);
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(u.x - r * 0.92, u.y - r * 1.02, 5.5, 0, Math.PI * 2); ctx.stroke();
   }
   if (u.hp < u.maxHp || selected) {
     drawBar(u.x - r, u.y - r - 9, r * 2, 4, u.hp / u.maxHp, hpColor(u.hp / u.maxHp));
@@ -3966,6 +5166,7 @@ function drawTaskBadge(u, selected) {
   else if (u.state === 'attack' || u.state === 'attackmove') color = '#ff6b6b';
   else if (u.state === 'move') color = '#8ec5ff';
   if (u.autoNeeds) color = '#ffd75e';
+  if (u.autoCombat) color = autoCombatColor(u.autoCombat);
   if (!color) return;
   ctx.save();
   ctx.fillStyle = color;
@@ -3980,6 +5181,21 @@ function drawProjectiles() {
   ctx.lineWidth = 2.5;
   for (const pr of game.projectiles) {
     const dx = Math.cos(pr.angle), dy = Math.sin(pr.angle);
+    if (pr.magic) {
+      ctx.save();
+      ctx.shadowColor = THEME.COLORS.cullis;
+      ctx.shadowBlur = 8;
+      ctx.strokeStyle = '#b9f8ff';
+      ctx.lineWidth = 3.2;
+      ctx.beginPath();
+      ctx.moveTo(pr.x - dx * L * 0.35, pr.y - dy * L * 0.35);
+      ctx.lineTo(pr.x + dx * L * 0.35, pr.y + dy * L * 0.35);
+      ctx.stroke();
+      ctx.fillStyle = '#50c7ff';
+      ctx.beginPath(); ctx.arc(pr.x + dx * L * 0.36, pr.y + dy * L * 0.36, 3.4, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+      continue;
+    }
     ctx.strokeStyle = '#f5e6b8';
     ctx.beginPath();
     ctx.moveTo(pr.x - dx * L / 2, pr.y - dy * L / 2);
@@ -4026,6 +5242,23 @@ function drawEffects() {
       ctx.strokeStyle = THEME.COLORS.cullis;
       ctx.lineWidth = 1.2;
       ctx.beginPath(); ctx.arc(e.x, e.y, 2 + f * 6, 0, Math.PI * 2); ctx.stroke();
+    } else if (e.type === 'magicHit') {
+      ctx.globalAlpha = 1 - f;
+      ctx.shadowColor = THEME.COLORS.cullis;
+      ctx.shadowBlur = 10;
+      ctx.strokeStyle = '#b9f8ff';
+      ctx.lineWidth = 2.6;
+      ctx.beginPath(); ctx.arc(e.x, e.y, 5 + f * 22, 0, Math.PI * 2); ctx.stroke();
+      ctx.strokeStyle = '#50c7ff';
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      for (let i = 0; i < 6; i++) {
+        const a = i * Math.PI / 3 + f * 0.8;
+        ctx.moveTo(e.x + Math.cos(a) * 4, e.y + Math.sin(a) * 4);
+        ctx.lineTo(e.x + Math.cos(a) * (12 + f * 14), e.y + Math.sin(a) * (12 + f * 14));
+      }
+      ctx.stroke();
+      ctx.shadowBlur = 0;
     } else if (e.type === 'slash') {
       ctx.globalAlpha = 1 - f;
       ctx.strokeStyle = '#eadfc8';
@@ -4129,6 +5362,13 @@ function renderMinimap() {
     const s = Math.max(3, b.size * T * sc);
     mmCtx.fillRect(b.tx * T * sc, b.ty * T * sc, s, s);
   }
+  for (const site of game.sites || []) {
+    if (site.dead) continue;
+    mmCtx.fillStyle = site.completed ? '#93e0a7' : (site.type === 'demonDoor' ? '#f0c766' : '#eadfc8');
+    mmCtx.beginPath();
+    mmCtx.arc(site.x * sc, site.y * sc, site.completed ? 2 : 2.8, 0, Math.PI * 2);
+    mmCtx.fill();
+  }
   for (const u of game.units) {
     if (u.dead || u.transportId) continue;
     mmCtx.fillStyle = FACTION[u.owner].light;
@@ -4175,6 +5415,8 @@ function notify(text, kind) {
 function entityName(e) {
   if (e.kind === 'unit') return unitDisplayName(e.type, e.owner);
   if (e.kind === 'building') return buildingDisplayName(e.type, e.owner) + (e.complete ? '' : ' (Foundation)');
+  if (e.kind === 'site') return e.name;
+  if (e.kind === 'resource' && e.variant === 'chicken') return 'Chicken';
   return NODE_NAMES[e.type];
 }
 
@@ -4205,6 +5447,7 @@ function computeSelSignature() {
     const e = getAlive(id);
     if (e && e.kind === 'building') sig += e.id + ':' + (e.complete ? 1 : 0) + ':' + e.queue.length + ';';
     else if (e && e.kind === 'unit') sig += e.id + ':a' + (e.autoNeeds ? 1 : 0) + ':c' + (e.cargo ? e.cargo.length : 0) + ';';
+    else if (e && e.kind === 'site') sig += e.id + ':s' + (e.completed ? 1 : 0) + ';';
   }
   return sig;
 }
@@ -4224,9 +5467,13 @@ function rebuildSelectionPanel() {
 
 function buildSingleSelection(e) {
   const panel = DOM.selPanel;
+  if (e.kind === 'site') {
+    buildSiteSelection(e);
+    return;
+  }
   if (e.kind === 'resource') {
     panel.innerHTML =
-      '<div class="sel-name">' + NODE_NAMES[e.type] + '</div>' +
+      '<div class="sel-name">' + entityName(e) + '</div>' +
       '<div class="statline">Provides: <b>' + e.type + '</b></div>' +
       '<div class="statline">Remaining: <b id="sel-node-amt"></b></div>';
     const amtEl = $('sel-node-amt');
@@ -4244,6 +5491,7 @@ function buildSingleSelection(e) {
     html += '<div class="statline">Attack <b>' + dmg + '</b> · Range <b>' + s.range +
             '</b> · Speed <b>' + s.moveSpeed + '</b></div>';
     if (isMilitary(e.type)) html += '<div class="statline">Equipment <b>W' + upgradeLevel(e.owner, 'weapons') + '</b> · Armor <b>A' + upgradeLevel(e.owner, 'armor') + '</b></div>';
+    if (isOwn && isMilitary(e.type)) html += '<div class="statline" id="sel-auto-combat"></div>';
     if (unitMovesOnWater(e)) html += '<div class="statline" id="sel-cargo"></div>';
         if (e.type === 'villager') html += '<div class="statline" id="sel-carry"></div><div class="statline" id="sel-auto"></div>';
   } else if (!e.complete) {
@@ -4254,7 +5502,9 @@ function buildSingleSelection(e) {
   if (e.kind === 'building' && isOwn && e.complete && CONFIG.BUILDINGS[e.type].trains) {
     html += '<div class="statline" id="sel-rally"></div>';
   }
-  html += '<div class="queue-row" id="sel-queue"></div>';
+  const showQueueTop = e.kind === 'building' && isOwn && e.complete && CONFIG.BUILDINGS[e.type].trains;
+  if (showQueueTop) html = '<div class="queue-row queue-top" id="sel-queue"></div>' + html;
+  else html += '<div class="queue-row" id="sel-queue"></div>';
   panel.innerHTML = html;
 
   const hpFill = $('sel-hp-fill'), hpText = $('sel-hp-text');
@@ -4274,6 +5524,13 @@ function buildSingleSelection(e) {
         ? 'Carrying ' + Math.floor(e.carryAmount) + ' ' + e.carryType
         : (e.state === 'gather' ? 'Gathering ' + (e.gatherResType || '') : '');
       autoEl.innerHTML = e.autoNeeds ? 'Auto Needs: <b>active</b>' : '';
+    });
+  }
+  if (e.kind === 'unit' && isOwn && isMilitary(e.type)) {
+    const autoCombatEl = $('sel-auto-combat');
+    uiUpdaters.push(() => {
+      if (e.dead) return;
+      autoCombatEl.innerHTML = 'Behavior: <b>' + autoCombatLabel(e.autoCombat) + '</b>';
     });
   }
   if (e.kind === 'unit' && unitMovesOnWater(e)) {
@@ -4319,6 +5576,27 @@ function buildSingleSelection(e) {
   // context-sensitive action buttons
   if (isOwn && e.kind === 'building' && e.complete) buildBuildingButtons(e);
   if (isOwn && e.kind === 'unit' && e.type === 'villager') buildVillagerButtons();
+  if (isOwn && e.kind === 'unit' && isMilitary(e.type)) buildMilitaryButtons();
+}
+
+function buildSiteSelection(site) {
+  const status = site.completed ? 'Complete' : 'Side Quest';
+  const nearby = nearbyFriendlyUnitsForSite(site).length;
+  DOM.selPanel.innerHTML =
+    '<div class="sel-name">' + site.name + '</div>' +
+    '<div class="statline"><b>' + status + '</b> · Nearby Guild units <b id="sel-site-nearby">' + nearby + '</b></div>' +
+    '<div class="statline">' + site.quest + '</div>' +
+    '<div class="statline">Need: <b>' + siteNeedText(site) + '</b></div>' +
+    '<div class="statline">Reward: <b>' + siteRewardText(site) + '</b></div>';
+  const nearbyEl = $('sel-site-nearby');
+  uiUpdaters.push(() => { nearbyEl.textContent = nearbyFriendlyUnitsForSite(site).length; });
+  buildSiteButtons(site);
+}
+
+function buildSiteButtons(site) {
+  makeBtn(site.completed ? 'Quest Complete' : (site.type === 'demonDoor' ? 'Open Door' : 'Resolve Quest'), site.cost,
+    () => canCompleteSite(site),
+    () => completeSite(site));
 }
 
 function populationWorkHtml(owner) {
@@ -4347,18 +5625,23 @@ function populationWorkHtml(owner) {
 function buildMultiSelection(ents) {
   const counts = {};
   let hasVillager = false;
+  let hasMilitary = false;
   for (const e of ents) {
     const nm = entityName(e);
     counts[nm] = (counts[nm] || 0) + 1;
     if (e.kind === 'unit' && e.type === 'villager') hasVillager = true;
+    if (e.kind === 'unit' && e.owner === 0 && isMilitary(e.type)) hasMilitary = true;
   }
   let html = '<div class="sel-name">' + ents.length + ' units selected</div><div class="chips">';
   for (const nm in counts) html += '<div class="chip">' + nm + ' ×' + counts[nm] + '</div>';
   html += '</div>';
   const autoCount = ents.filter(e => e.kind === 'unit' && e.owner === 0 && e.type === 'villager' && e.autoNeeds).length;
   if (hasVillager) html += '<div class="statline">Auto Needs: <b>' + autoCount + '</b> active</div>';
+  const autoCombatCount = ents.filter(e => e.kind === 'unit' && e.owner === 0 && isMilitary(e.type) && e.autoCombat).length;
+  if (hasMilitary) html += '<div class="statline">Auto Orders: <b>' + autoCombatCount + '</b> active</div>';
   DOM.selPanel.innerHTML = html;
   if (hasVillager) buildVillagerButtons();
+  if (hasMilitary) buildMilitaryButtons();
 }
 
 function makeBtn(title, costObj, check, action) {
@@ -4392,8 +5675,8 @@ function productionQueueHtml(building) {
     const pct = queueIndex === 0 ? Math.floor((1 - queueItem.remaining / queueItem.total) * 100) : 0;
     const iconClass = queueItem.kind === 'age' ? 'queue-age' : 'unit-' + queueItem.type;
     const label = queueIndex === 0 ? pct + '%' : String(queueIndex + 1);
-    html += '<button type="button" class="queue-item ' + (queueIndex === 0 ? 'active' : 'queued') + '" data-queue-index="' + queueIndex + '" style="--pct:' + pct + '" title="' + name + ' - click to cancel">' +
-            '<div class="queue-icon ' + iconClass + '"></div><span class="queue-pct">' + label + '</span><span class="queue-cancel">X</span></button>';
+        html += '<button type="button" class="queue-item ' + (queueIndex === 0 ? 'active' : 'queued') + '" data-queue-index="' + queueIndex + '" style="--pct:' + pct + '" title="' + name + ' - click to cancel">' +
+          '<div class="queue-icon ' + iconClass + '"></div><span class="queue-pct">' + label + '</span></button>';
   }
   return html + '</div>';
 }
@@ -4435,7 +5718,6 @@ function addActionQueue(building) {
 
 function buildBuildingButtons(b) {
   const def = CONFIG.BUILDINGS[b.type];
-  if (def.trains) addActionQueue(b);
   if (b.type === 'blacksmith') buildBlacksmithButtons(b);
   if (def.trains) {
     for (const ut of def.trains) {
@@ -4499,13 +5781,73 @@ function buildVillagerButtons() {
     makeBtn('Build ' + buildingDisplayName(bt, 0), def.cost,
       () => {
         const p = game.players[0];
-        if (p.age < def.ageReq) return { ok: false, reason: 'Requires the ' + ageDisplayName(def.ageReq) };
+        if (p.age < def.ageReq) return { ok: false, reason: 'Requires ' + ageDisplayName(def.ageReq) };
         const lack = lackText(p, def.cost);
         if (lack) return { ok: false, reason: lack };
         return { ok: true };
       },
       () => enterPlacement(bt));
   }
+}
+
+function buildMilitaryButtons() {
+  makeBtn('Hold Position', null,
+    () => selectedMilitaryUnits().length ? { ok: true } : { ok: false, reason: 'Select Guild fighters first' },
+    () => {
+      const units = selectedMilitaryUnits();
+      const changed = setHoldFor(units);
+      if (changed) notify('Hold position set for ' + changed + ' fighter' + (changed === 1 ? '' : 's'), 'good');
+    });
+  makeBtn('Guard', null,
+    () => selectedMilitaryUnits().length ? { ok: true } : { ok: false, reason: 'Select Guild fighters first' },
+    () => {
+      const units = selectedMilitaryUnits();
+      const changed = setGuardFor(units);
+      if (changed) notify('Guard post set for ' + changed + ' fighter' + (changed === 1 ? '' : 's'), 'good');
+    });
+  makeBtn('Patrol', null,
+    () => selectedMilitaryUnits().length ? { ok: true } : { ok: false, reason: 'Select Guild fighters first' },
+    () => {
+      const units = selectedMilitaryUnits();
+      const changed = setPatrolFor(units);
+      if (changed) notify('Patrol route set for ' + changed + ' fighter' + (changed === 1 ? '' : 's'), 'good');
+    });
+  makeBtn('Hunt', null,
+    () => selectedMilitaryUnits().length ? { ok: true } : { ok: false, reason: 'Select Guild fighters first' },
+    () => {
+      const units = selectedMilitaryUnits();
+      const changed = setHuntFor(units);
+      if (changed) notify('Hunt behavior set for ' + changed + ' fighter' + (changed === 1 ? '' : 's'), 'good');
+    });
+  makeBtn('Focus Weakest', null,
+    () => selectedMilitaryUnits().length ? { ok: true } : { ok: false, reason: 'Select Guild fighters first' },
+    () => {
+      const changed = focusWeakestFor(selectedMilitaryUnits());
+      notify(changed ? 'Focused fire on weakest nearby enemy' : 'No nearby enemy to focus', changed ? 'good' : 'warn');
+    });
+  makeBtn('Fall Back', null,
+    () => selectedMilitaryUnits().length ? { ok: true } : { ok: false, reason: 'Select Guild fighters first' },
+    () => {
+      const changed = fallBackFor(selectedMilitaryUnits());
+      notify(changed ? 'Fighters falling back' : 'No safe fallback point found', changed ? 'info' : 'warn');
+    });
+  makeBtn('Stand Down', null,
+    () => selectedMilitaryUnits().length ? { ok: true } : { ok: false, reason: 'Select Guild fighters first' },
+    () => {
+      const changed = setPassiveFor(selectedMilitaryUnits());
+      if (changed) notify('Stand Down set for ' + changed + ' fighter' + (changed === 1 ? '' : 's'), 'info');
+    });
+  makeBtn('Stop Orders', null,
+    () => {
+      const units = selectedMilitaryUnits();
+      return units.length && units.some(u => u.autoCombat)
+        ? { ok: true }
+        : { ok: false, reason: 'No automated guard or patrol orders active' };
+    },
+    () => {
+      const changed = stopAutoCombatForSelected();
+      if (changed) notify('Automated fighter orders stopped', 'info');
+    });
 }
 
 /* ================================================================================
@@ -4528,6 +5870,7 @@ function startGame() {
   DOM.pauseOverlay.classList.add('hidden');
   DOM.topBar.classList.remove('hidden');
   DOM.bottomPanel.classList.remove('hidden');
+  sizeCanvas();
   updateTouchToolbar();
   notify('Map: ' + currentMapPreset().name + ' · Enemies: ' + difficultyForOptions(game.options).label + ' · Resources: ' + resourceForOptions(game.options).label, 'info');
 }
@@ -4535,11 +5878,20 @@ function startGame() {
 function togglePause() {
   if (appState === 'playing') {
     appState = 'paused';
+    updatePauseMenu();
     DOM.pauseOverlay.classList.remove('hidden');
   } else if (appState === 'paused') {
     appState = 'playing';
     DOM.pauseOverlay.classList.add('hidden');
   }
+}
+
+function updatePauseMenu() {
+  if (!game) return;
+  DOM.pauseTime.textContent = formatTime(game.time);
+  DOM.pauseAge.textContent = ageDisplayName(game.players[0].age);
+  DOM.pauseSeed.textContent = game.options.seedText || String(game.seed);
+  DOM.pauseStart.textContent = startingForOptions(game.options).label;
 }
 
 function endGame(result) {
