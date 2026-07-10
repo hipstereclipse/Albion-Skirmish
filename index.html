@@ -327,7 +327,7 @@ const CONFIG = {
 
   CAMERA: { KEY_SPEED: 720, EDGE_SPEED: 720, EDGE_MARGIN: 28, PAN_SMOOTHING: 10, ZOOM_MIN: 0.78, ZOOM_MAX: 2.25, ZOOM_STEP: 1.08, ZOOM_LERP: 14 },
 
-  START: { FOOD: 200, WOOD: 200, GOLD: 100, STONE: 80, IRON: 40, FISH: 0, VILLAGERS: 3 },
+  START: { FOOD: 200, WOOD: 200, GOLD: 100, STONE: 80, IRON: 40, FISH: 40, VILLAGERS: 3 },
 
   POP_MAX: 60,                         // absolute population ceiling
 
@@ -476,18 +476,18 @@ const CONFIG = {
 
   AI: {
     DECISION_INTERVAL: 1.5,            // seconds between AI planning ticks
-    FIRST_WAVE_DELAY: 160,             // seconds before the first attack wave
-    WAVE_INTERVAL: 75,                 // seconds between waves
-    WAVE_BASE_SIZE: 3,                 // units in the first wave
-    WAVE_SIZE_GROWTH: 2,               // extra units per subsequent wave
-    WAVE_MAX_SIZE: 14,
-    WAVE_RETRY_DELAY: 18,              // postpone if the army is not ready
+    FIRST_WAVE_DELAY: 210,             // seconds before the first attack wave
+    WAVE_INTERVAL: 95,                 // seconds between waves
+    WAVE_BASE_SIZE: 2,                 // units in the first wave
+    WAVE_SIZE_GROWTH: 1,               // extra units per subsequent wave
+    WAVE_MAX_SIZE: 12,
+    WAVE_RETRY_DELAY: 26,              // postpone if the army is not ready
     WAVE_MIN_FRACTION: 0.6,            // launch when army >= fraction of target size
     TARGET_VILLAGERS: 12,
-    FEUDAL_AT_VILLAGERS: 9,
-    CASTLE_AT_VILLAGERS: 11,
-    MAX_ARMY: 18,
-    GATHER_MULT: 1.25,                 // AI-only gather bonus so its economy never stalls
+    FEUDAL_AT_VILLAGERS: 10,
+    CASTLE_AT_VILLAGERS: 13,
+    MAX_ARMY: 16,
+    GATHER_MULT: 1.12,                 // AI-only gather bonus so its economy never stalls
     DEFEND_MEMORY: 8,                  // seconds the AI remembers an attack on its base
     RETREAT_HP_FRACTION: 0.28,          // pull wounded fighters back toward their town center
     UPGRADE_MIN_ARMY: 4,
@@ -661,10 +661,10 @@ const MAP_PRESETS = {
   },
 };
 const DIFFICULTY_PRESETS = {
-  easy:     { label:'Squire',    firstWave:1.45, waveInterval:1.25, waveSize:.72, gather:.82, maxArmy:.72, villagers:.82, ageAt:1.25, decision:1.2,  startRes:.85 },
+  easy:     { label:'Squire',    firstWave:1.7,  waveInterval:1.35, waveSize:.6,  gather:.75, maxArmy:.65, villagers:.82, ageAt:1.25, decision:1.2,  startRes:.85 },
   standard: { label:'Champion',  firstWave:1,    waveInterval:1,    waveSize:1,   gather:1,   maxArmy:1,   villagers:1,   ageAt:1,    decision:1,    startRes:1 },
-  hard:     { label:'Heroic',    firstWave:.78,  waveInterval:.86,  waveSize:1.28,gather:1.18,maxArmy:1.22,villagers:1.12,ageAt:.9,   decision:.86,  startRes:1.18 },
-  brutal:   { label:'Nightmare', firstWave:.58,  waveInterval:.72,  waveSize:1.62,gather:1.38,maxArmy:1.45,villagers:1.25,ageAt:.78,  decision:.72,  startRes:1.35 },
+  hard:     { label:'Heroic',    firstWave:.78,  waveInterval:.86,  waveSize:1.35,gather:1.28,maxArmy:1.28,villagers:1.12,ageAt:.9,   decision:.86,  startRes:1.18 },
+  brutal:   { label:'Nightmare', firstWave:.62,  waveInterval:.72,  waveSize:1.75,gather:1.55,maxArmy:1.6, villagers:1.25,ageAt:.78,  decision:.72,  startRes:1.35 },
 };
 const RESOURCE_PRESETS = {
   scarce:   { label:'Scarce',   nodes:.68, amount:.78, wilds:.65, decor:.8 },
@@ -775,6 +775,23 @@ function buildingDisplayName(type, owner) {
 }
 function ageDisplayName(age) { return THEME.AGE_NAMES[age] || CONFIG.AGES[age].name; }
 function factionName(owner) { return (FACTION[owner] && FACTION[owner].name) || 'Enemy'; }
+
+// Diplomacy predicates. Owners are player indices; CREEP_OWNER marks wildlife hostile to all.
+// game.relations[a][b] is 'war' | 'peace' | 'ally' (absent matrix = everyone at war).
+const CREEP_OWNER = 9;
+function areHostile(a, b) {
+  if (a === b) return false;
+  if (a === CREEP_OWNER || b === CREEP_OWNER) return true;
+  const rel = game && game.relations;
+  if (!rel || !rel[a]) return true;
+  return rel[a][b] === 'war';
+}
+function areAllied(a, b) {
+  if (a === b) return true;
+  if (a === CREEP_OWNER || b === CREEP_OWNER) return false;
+  const rel = game && game.relations;
+  return !!(rel && rel[a] && rel[a][b] === 'ally');
+}
 function currentMapPreset() { return MAP_PRESETS[(game && game.options && game.options.mapId) || 'greatwood'] || MAP_PRESETS.greatwood; }
 function difficultyForOptions(opts) { return DIFFICULTY_PRESETS[(opts && opts.difficulty) || 'standard'] || DIFFICULTY_PRESETS.standard; }
 function resourceForOptions(opts) { return RESOURCE_PRESETS[(opts && opts.resources) || 'standard'] || RESOURCE_PRESETS.standard; }
@@ -901,7 +918,8 @@ const AlbionFramework = (() => {
 function makePlayer(id) {
   return {
     id,
-    resources: { food: CONFIG.START.FOOD, wood: CONFIG.START.WOOD, gold: CONFIG.START.GOLD },
+    resources: { food: CONFIG.START.FOOD, wood: CONFIG.START.WOOD, gold: CONFIG.START.GOLD,
+                 stone: CONFIG.START.STONE, iron: CONFIG.START.IRON, fish: CONFIG.START.FISH },
     age: 0,
     forge: { weapons: 0, armor: 0 },
     questPopBonus: 0,
@@ -926,7 +944,7 @@ function newGame(options) {
   const players = [];
   for (let i = 0; i <= opts.enemyFactions; i++) players.push(makePlayer(i));
   for (let i = 1; i < players.length; i++) {
-    for (const res of ['food', 'wood', 'gold']) players[i].resources[res] = Math.round(players[i].resources[res] * diff.startRes);
+    for (const res of RESOURCE_TYPES) players[i].resources[res] = Math.round(players[i].resources[res] * diff.startRes);
   }
   const ais = new Array(players.length).fill(null);
   for (let i = 1; i < players.length; i++) {
@@ -1048,6 +1066,7 @@ function generateWorld() {
   }
 
   cleanupWaterResources();
+  placeFishShoals();
 
   rebuildBlocked();
   placeWorldSites();
@@ -1067,7 +1086,7 @@ function generateWorld() {
 function applyStartingCondition(tc) {
   const start = startingForOptions(game.options);
   const p = game.players[0];
-  for (const res of ['food', 'wood', 'gold']) if (start[res]) p.resources[res] += start[res];
+  for (const res of RESOURCE_TYPES) if (start[res]) p.resources[res] += start[res];
   const spawn = (type, count) => {
     for (let i = 0; i < (count || 0); i++) {
       const t = findSpawnTile(tc);
@@ -1110,10 +1129,10 @@ function placeProceduralCluster(c, i, reserved) {
 function placeProceduralWilds(preset, reserved) {
   const extras = Math.round((5 + game.options.enemyFactions * 2) * currentResourceTuning().wilds);
   const weights = preset.name.indexOf('Marsh') >= 0
-    ? ['wood', 'wood', 'food', 'gold']
+    ? ['wood', 'wood', 'food', 'gold', 'stone']
     : preset.name.indexOf('Barrow') >= 0
-      ? ['food', 'gold', 'gold', 'wood']
-      : ['wood', 'food', 'wood', 'gold'];
+      ? ['food', 'gold', 'gold', 'wood', 'iron']
+      : ['wood', 'food', 'wood', 'gold', 'stone', 'iron'];
   for (let i = 0; i < extras; i++) {
     const type = weights[Math.floor(hash01(game.seed, i, 31) * weights.length) % weights.length];
     const cx = 5 + hash01(game.seed, i, 37) * (COLS - 10);
@@ -1122,6 +1141,32 @@ function placeProceduralWilds(preset, reserved) {
       : type === 'gold' ? 3 + Math.floor(hash01(game.seed, i, 47) * 5)
       : 4 + Math.floor(hash01(game.seed, i, 53) * 6);
     placeCluster(type, cx, cy, n, reserved);
+  }
+}
+
+// Fish shoals sit on shoreline water tiles so villagers can gather from the adjacent bank.
+function placeFishShoals() {
+  const g = game;
+  const target = Math.round((6 + g.options.enemyFactions * 2) * currentResourceTuning().wilds);
+  const spots = [];
+  for (let ty = 1; ty < ROWS - 1; ty++) {
+    for (let tx = 1; tx < COLS - 1; tx++) {
+      const i = tIdx(tx, ty);
+      if (!g.water[i] || g.bridges[i] || g.blocked[i] || g.nodeGrid[i]) continue;
+      let shore = false;
+      for (const d of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const nx = tx + d[0], ny = ty + d[1];
+        if (inBounds(nx, ny) && !tileBlockedFor(nx, ny, 'land')) { shore = true; break; }
+      }
+      if (shore) spots.push({ tx, ty });
+    }
+  }
+  const placed = [];
+  for (let i = 0, guard = 0; placed.length < target && guard < target * 40 && spots.length; i++, guard++) {
+    const pick = spots[Math.floor(hash01(g.seed, i, 701) * spots.length) % spots.length];
+    if (placed.some(s => Math.abs(s.tx - pick.tx) + Math.abs(s.ty - pick.ty) < 7)) continue;
+    createNode('fish', pick.tx, pick.ty, { phase: hash01(g.seed, i, 709) * Math.PI * 2 });
+    placed.push(pick);
   }
 }
 
@@ -1694,7 +1739,7 @@ function damageEntity(target, amount, attacker) {
   }
   // idle military fights back when hit
   if (attacker && !attacker.dead && target.kind === 'unit' && isMilitary(target.type)
-      && target.state === 'idle') {
+      && target.state === 'idle' && areHostile(target.owner, attacker.owner)) {
     acquireTarget(target, attacker);
   }
   if (target.hp <= 0) { target.hp = 0; markDead(target); }
@@ -2077,7 +2122,7 @@ function findAutoCombatTarget(u) {
   const cy = u.autoCombat === 'patrol' && u.patrolA && u.patrolB ? (u.patrolA.y + u.patrolB.y) / 2 : (u.guardY != null ? u.guardY : u.y);
   let best = null, bs = Infinity;
   for (const e of game.units) {
-    if (e.dead || e.transportId || e.owner === u.owner) continue;
+    if (e.dead || e.transportId || !areHostile(u.owner, e.owner)) continue;
     if (dist(cx, cy, e.x, e.y) > radius) continue;
     const dUnit = dist(u.x, u.y, e.x, e.y) - e.radius;
     const priority = e.type === 'villager' ? T * 0.9 : isMilitary(e.type) ? T * 0.62 : 0;
@@ -2087,7 +2132,7 @@ function findAutoCombatTarget(u) {
   }
   if (best) return best;
   for (const b of game.buildings) {
-    if (b.dead || b.owner === u.owner) continue;
+    if (b.dead || !areHostile(u.owner, b.owner)) continue;
     const c = entCenter(b);
     if (dist(cx, cy, c.x, c.y) > radius) continue;
     const dUnit = distToEnt(u, b);
@@ -2257,7 +2302,7 @@ function findAggroTarget(u) {
   if (range <= 0) return null;
   let best = null, bs = Infinity;
   for (const e of game.units) {
-    if (e.dead || e.transportId || e.owner === u.owner) continue;
+    if (e.dead || e.transportId || !areHostile(u.owner, e.owner)) continue;
     const d = dist(u.x, u.y, e.x, e.y) - e.radius;
     if (d > range) continue;
     const priority = e.type === 'villager' ? T * 0.9 : isMilitary(e.type) ? T * 0.62 : 0;
@@ -2267,7 +2312,7 @@ function findAggroTarget(u) {
   }
   if (best) return best;
   for (const b of game.buildings) {
-    if (b.dead || b.owner === u.owner) continue;
+    if (b.dead || !areHostile(u.owner, b.owner)) continue;
     const d = distToEnt(u, b);
     if (d > range) continue;
     const priority = b.type === 'barracks' ? T * 0.55 : CONFIG.BUILDINGS[b.type].dropoff ? T * 0.42 : 0;
@@ -2418,7 +2463,7 @@ function applyRallyOrder(b, u) {
   const rally = b.rally;
   const target = rally.targetId ? getAlive(rally.targetId) : null;
   if (rally.kind === 'resource' && target && target.kind === 'resource') { orderGather(u, target); return; }
-  if (rally.kind === 'attack' && target && target.owner !== u.owner) { orderAttack(u, target); return; }
+  if (rally.kind === 'attack' && target && areHostile(u.owner, target.owner)) { orderAttack(u, target); return; }
   const p = target ? entCenter(target) : { x: rally.x, y: rally.y };
   orderMove(u, p.x, p.y);
 }
@@ -2542,7 +2587,7 @@ function updateProjectiles(dt) {
         if (pr.magic) {
           const splashR = T * 1.15;
           for (const e of game.units) {
-            if (e.dead || e.transportId || e.owner === pr.owner || e.id === t.id) continue;
+            if (e.dead || e.transportId || !areHostile(pr.owner, e.owner) || e.id === t.id) continue;
             if (dist(pr.tx, pr.ty, e.x, e.y) <= splashR) damageEntity(e, pr.damage * 0.42, attacker);
           }
         }
@@ -2812,15 +2857,16 @@ function updateAIPlayer(dt, owner) {
 
   // villager job assignment toward this age's gather ratios
   const ratios = A.GATHER_RATIOS[Math.min(p.age, A.GATHER_RATIOS.length - 1)];
-  const counts = { food: 0, wood: 0, gold: 0 };
+  const counts = {};
+  for (const res of RESOURCE_TYPES) counts[res] = 0;
   const idleVills = [];
   for (const v of villagers) {
     if (v.state === 'gather' && v.gatherResType) counts[v.gatherResType]++;
     else if (v.state === 'idle') idleVills.push(v);
   }
   for (const v of idleVills) {
-    const order = ['food', 'wood', 'gold'].sort((x, y) =>
-      (counts[x] - ratios[x] * villagers.length) - (counts[y] - ratios[y] * villagers.length));
+    const order = RESOURCE_TYPES.slice().sort((x, y) =>
+      (counts[x] - (ratios[x] || 0) * villagers.length) - (counts[y] - (ratios[y] || 0) * villagers.length));
     let assigned = false;
     for (const resType of order) {
       const node = findNearestNode(resType, tcC.x, tcC.y);
@@ -2977,8 +3023,11 @@ function resourceNeedOrder(owner) {
   const p = game.players[owner];
   const ratios = owner > 0
     ? CONFIG.AI.GATHER_RATIOS[Math.min(p.age, CONFIG.AI.GATHER_RATIOS.length - 1)]
-    : (p.age === 0 ? { food:.48, wood:.42, gold:.10 } : p.age === 1 ? { food:.38, wood:.30, gold:.32 } : { food:.34, wood:.24, gold:.42 });
-  const gatherers = { food: 0, wood: 0, gold: 0 };
+    : (p.age === 0 ? { food:.42, wood:.36, gold:.08, stone:.08, iron:.04, fish:.02 }
+      : p.age === 1 ? { food:.32, wood:.24, gold:.22, stone:.10, iron:.09, fish:.03 }
+      : { food:.28, wood:.18, gold:.28, stone:.10, iron:.13, fish:.03 });
+  const gatherers = {};
+  for (const res of RESOURCE_TYPES) gatherers[res] = 0;
   let villCount = 0;
   for (const u of game.units) {
     if (u.dead || u.owner !== owner || u.type !== 'villager') continue;
@@ -2987,16 +3036,16 @@ function resourceNeedOrder(owner) {
   }
   const ageCost = p.age < CONFIG.AGES.length - 1 ? CONFIG.AGES[p.age + 1].cost : null;
   const scores = {};
-  for (const res of ['food', 'wood', 'gold']) {
-    const target = ratios[res] * Math.max(1, villCount);
+  for (const res of RESOURCE_TYPES) {
+    const target = (ratios[res] || 0) * Math.max(1, villCount);
     const gatherGap = target - gatherers[res];
     const ageGap = ageCost && ageCost[res] ? Math.max(0, ageCost[res] - p.resources[res]) / 80 : 0;
-    const reserveGap = Math.max(0, 180 - p.resources[res]) / 140;
+    const reserveGap = res === 'fish' ? 0 : Math.max(0, 180 - p.resources[res]) / 140;
     scores[res] = gatherGap + ageGap + reserveGap;
   }
   if (popUsed(owner) >= p.popCap - CONFIG.AUTO_TASK.HOUSE_BUFFER) scores.wood += 3;
   if (p.age >= 1) scores.gold += 1.1;
-  return ['food', 'wood', 'gold'].sort((a, b) => scores[b] - scores[a]);
+  return RESOURCE_TYPES.slice().sort((a, b) => scores[b] - scores[a]);
 }
 
 function autoAssignColonyNeeds(villagers) {
@@ -3344,7 +3393,7 @@ function setRallyForBuildings(buildings, target, wx, wy) {
   let rally;
   if (target && target.kind === 'resource') {
     rally = { kind: 'resource', targetId: target.id, x: tileCenter(target.tx), y: tileCenter(target.ty) };
-  } else if (target && target.owner !== 0) {
+  } else if (target && target.owner !== undefined && areHostile(0, target.owner)) {
     const c = entCenter(target);
     rally = { kind: 'attack', targetId: target.id, x: c.x, y: c.y };
   } else {
@@ -3384,7 +3433,7 @@ function issueContextCommand(sel, target, wx, wy) {
     return;
   }
   // enemy unit or building → attack
-  if (target && target.kind !== 'resource' && target.owner !== 0) {
+  if (target && target.kind !== 'resource' && target.owner !== undefined && areHostile(0, target.owner)) {
     for (const u of sel) orderAttack(u, target);
     addClickFx(wx, wy, 'attack');
     return;
@@ -3604,7 +3653,7 @@ function findNearestEnemyAsset(owner, x, y, maxDist) {
   maxDist = maxDist == null ? Infinity : maxDist;
   let best = null, bs = Infinity;
   for (const e of game.units) {
-    if (e.dead || e.transportId || e.owner === owner) continue;
+    if (e.dead || e.transportId || !areHostile(owner, e.owner)) continue;
     const d = dist(x, y, e.x, e.y);
     if (d > maxDist) continue;
     const priority = e.type === 'villager' ? 170 : isMilitary(e.type) ? 105 : 60;
@@ -3613,7 +3662,7 @@ function findNearestEnemyAsset(owner, x, y, maxDist) {
     if (score < bs) { bs = score; best = e; }
   }
   for (const b of game.buildings) {
-    if (b.dead || b.owner === owner) continue;
+    if (b.dead || !areHostile(owner, b.owner)) continue;
     const c = entCenter(b);
     const d = dist(x, y, c.x, c.y);
     if (d > maxDist) continue;
@@ -3633,14 +3682,14 @@ function findWeakestEnemyTargetFor(units) {
   const maxDist = T * 10;
   let best = null, bs = Infinity;
   for (const e of game.units) {
-    if (e.dead || e.transportId || e.owner === 0) continue;
+    if (e.dead || e.transportId || !areHostile(0, e.owner)) continue;
     const d = dist(cx, cy, e.x, e.y);
     if (d > maxDist) continue;
     const score = e.hp / e.maxHp + d / (maxDist * 3) - (isMilitary(e.type) ? 0.18 : 0.08);
     if (score < bs) { bs = score; best = e; }
   }
   for (const b of game.buildings) {
-    if (b.dead || b.owner === 0) continue;
+    if (b.dead || !areHostile(0, b.owner)) continue;
     const c = entCenter(b);
     const d = dist(cx, cy, c.x, c.y);
     if (d > maxDist) continue;
@@ -3674,7 +3723,7 @@ function nearbyFriendlyUnitsForSite(site) {
 function siteRewardText(site) {
   const reward = site.reward || {};
   const parts = [];
-  for (const res of ['food', 'wood', 'gold']) if (reward[res]) parts.push(reward[res] + RES_EMOJI[res]);
+  for (const res of RESOURCE_TYPES) if (reward[res]) parts.push(reward[res] + RES_EMOJI[res]);
   if (reward.forge) parts.push(reward.forge === 'weapons' ? 'forge weapons' : 'forge armor');
   if (reward.reveal) parts.push('map pings');
   if (reward.popCap) parts.push('+' + reward.popCap + ' pop cap');
@@ -3735,7 +3784,7 @@ function completeSite(site) {
   const p = game.players[0];
   payCost(p, site.cost);
   const reward = site.reward || {};
-  for (const res of ['food', 'wood', 'gold']) if (reward[res]) p.resources[res] += reward[res];
+  for (const res of RESOURCE_TYPES) if (reward[res]) p.resources[res] += reward[res];
   if (reward.forge) grantForgeReward(reward.forge);
   if (reward.popCap) { p.questPopBonus += reward.popCap; recomputePopCap(0); }
   if (reward.reveal) revealQuestMarkers();
@@ -4580,6 +4629,56 @@ function drawNode(n, x, y) {
     ctx.fillStyle = 'rgba(255,240,156,0.48)';
     ctx.beginPath(); ctx.arc(cx - r * 0.05, cy - r * 0.05, 3.4, 0, Math.PI * 2); ctx.fill();
     ctx.restore();
+  } else if (n.type === 'stone' || n.type === 'iron') {
+    const iron = n.type === 'iron';
+    drawShadow(cx, cy + T * 0.18, T * 0.31, T * 0.13, 0.36);
+    const r = T * (0.2 + 0.22 * frac);
+    const rocks = iron
+      ? [[-0.42, 0.18, 0.58, 0.38, -0.25, '#4e565c'], [0.04, -0.1, 0.7, 0.48, 0.16, '#616b72'],
+         [0.45, 0.2, 0.5, 0.33, 0.42, '#434b51'], [-0.02, 0.34, 0.62, 0.28, -0.08, '#57616a']]
+      : [[-0.42, 0.18, 0.58, 0.38, -0.25, '#8d887b'], [0.04, -0.1, 0.7, 0.48, 0.16, '#a39d8d'],
+         [0.45, 0.2, 0.5, 0.33, 0.42, '#7c766a'], [-0.02, 0.34, 0.62, 0.28, -0.08, '#948e80']];
+    ctx.save();
+    ctx.shadowColor = 'rgba(16,11,7,0.22)';
+    ctx.shadowBlur = 4;
+    for (const rock of rocks) {
+      ctx.fillStyle = rock[5];
+      ctx.beginPath();
+      ctx.ellipse(cx + r * rock[0], cy + r * rock[1], r * rock[2], r * rock[3], rock[4], 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = iron ? '#272d32' : '#4a463d';
+      ctx.lineWidth = 1.2;
+      ctx.stroke();
+    }
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = iron ? '#9fb4bd' : '#d6d0bf';
+    for (const glint of [[-0.34, 0.02, 3.4], [0.12, -0.22, 2.9], [0.34, 0.16, 2.6]]) {
+      ctx.beginPath(); ctx.ellipse(cx + r * glint[0], cy + r * glint[1], glint[2], glint[2] * 0.6, -0.35, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.restore();
+  } else if (n.type === 'fish') {
+    const t = game.time * 1.4 + (n.phase || 0);
+    ctx.save();
+    ctx.strokeStyle = 'rgba(215,251,255,0.5)';
+    ctx.lineWidth = 1.4;
+    for (let ring = 0; ring < 3; ring++) {
+      const rr = ((t * 0.35 + ring / 3) % 1);
+      ctx.globalAlpha = (1 - rr) * 0.55;
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, T * (0.12 + rr * 0.34), T * (0.06 + rr * 0.18), 0, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 0.9;
+    ctx.fillStyle = '#7de2ec';
+    const nFish = Math.max(1, Math.round(3 * frac));
+    for (let f = 0; f < nFish; f++) {
+      const a = t * 0.9 + (f * Math.PI * 2) / 3;
+      const fx = cx + Math.cos(a) * T * 0.2, fy = cy + Math.sin(a) * T * 0.12;
+      ctx.beginPath();
+      ctx.ellipse(fx, fy, 4.2, 1.7, a + Math.PI / 2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
   } else if (n.variant === 'chicken') {
     const wobble = Math.sin(game.time * 2.2 + n.phase) * 0.12;
     drawShadow(cx, cy + T * 0.18, T * 0.24, T * 0.08, 0.22);
@@ -5345,7 +5444,8 @@ function rebuildMinimapTerrain() {
   const px = Math.ceil(T * sc);
   for (const n of game.nodes) {
     if (n.dead) continue;
-    c.fillStyle = n.type === 'wood' ? '#1d4423' : n.type === 'gold' ? '#d4af2a' : '#b04030';
+    c.fillStyle = n.type === 'wood' ? '#1d4423' : n.type === 'gold' ? '#d4af2a'
+      : n.type === 'food' ? '#b04030' : THEME.RESOURCE_COLORS[n.type] || '#b04030';
     c.fillRect(Math.floor(n.tx * T * sc), Math.floor(n.ty * T * sc), px, px);
   }
   game.mmDirty = false;
@@ -5426,6 +5526,9 @@ function uiSync() {
   DOM.resFood.textContent = Math.floor(p.resources.food);
   DOM.resWood.textContent = Math.floor(p.resources.wood);
   DOM.resGold.textContent = Math.floor(p.resources.gold);
+  DOM.resStone.textContent = Math.floor(p.resources.stone);
+  DOM.resIron.textContent = Math.floor(p.resources.iron);
+  DOM.resFish.textContent = Math.floor(p.resources.fish);
   const used = popUsed(0);
   DOM.resPop.textContent = used + '/' + p.popCap;
   DOM.resPopWrap.classList.toggle('pop-full', used >= p.popCap);
@@ -5600,7 +5703,8 @@ function buildSiteButtons(site) {
 }
 
 function populationWorkHtml(owner) {
-  const counts = { food:0, wood:0, gold:0, build:0, idle:0, auto:0, military:0, moving:0 };
+  const counts = { build:0, idle:0, auto:0, military:0, moving:0 };
+  for (const res of RESOURCE_TYPES) counts[res] = 0;
   for (const u of game.units) {
     if (u.dead || u.owner !== owner) continue;
     if (u.type !== 'villager') { counts.military++; continue; }
@@ -5610,10 +5714,9 @@ function populationWorkHtml(owner) {
     else if (u.state === 'idle') counts.idle++;
     else counts.moving++;
   }
-  return '<div class="work-grid">' +
-    '<span>Food <b>' + counts.food + '</b></span>' +
-    '<span>Wood <b>' + counts.wood + '</b></span>' +
-    '<span>Gold <b>' + counts.gold + '</b></span>' +
+  let html = '<div class="work-grid">';
+  for (const res of RESOURCE_TYPES) html += '<span>' + RES_LABELS[res] + ' <b>' + counts[res] + '</b></span>';
+  return html +
     '<span>Building <b>' + counts.build + '</b></span>' +
     '<span>Idle <b>' + counts.idle + '</b></span>' +
     '<span>Moving <b>' + counts.moving + '</b></span>' +
