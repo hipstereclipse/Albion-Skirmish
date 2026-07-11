@@ -393,6 +393,14 @@ const CONFIG = {
   REPAIR: { RATE_MULT: 1.5, COST_FRACTION: 0.35 },   // repair takes 1.5x build speed, 35% of cost
 
   MANA_REGEN: 0.8,                     // mana per second for any unit with a mana pool
+  WILL: {
+    BASE_MAX: 100, PER_HUB_MAX: 50,
+    REGEN: 0.5, PER_HUB_REGEN: 0.35,
+    POWERS: {
+      firestorm: { name:'Firestorm',      will:70, cooldown:90, radius:2.6, ticks:3, tickDamage:20, duration:3 },
+      blessing:  { name:'Guild Blessing', will:45, cooldown:60, radius:3.2, heal:50, duration:5 },
+    },
+  },
   SPELLS: {
     fireball: { name:'Fireball',  mana:30, cooldown:8,  range:7, radius:1.4, damage:34 },
     heal:     { name:'Heal Life', mana:25, cooldown:10, range:6, amount:40 },
@@ -1242,6 +1250,7 @@ function makePlayer(id) {
     lossLog: [],                // timestamps of buildings lost — feeds diplomacy heuristics
     fallenHero: null,           // {level, xp} while the hero is dead and awaiting revival
     research: {},                // techId -> true once completed
+    will: 0, willCooldowns: {},  // global Will power pool, fed by Will Hubs
   };
 }
 function hasResearch(owner, id) { const p = game.players[owner]; return !!(p && p.research[id]); }
@@ -1313,8 +1322,9 @@ function newGame(options) {
     buildingGrid: new Array(NTILES).fill(null),  // tile -> building ref, for gate lookups + wall rendering
     players,
     relations, diplo, diploVersion: 0, diplomacyOpen: false,
-    spellTarget: null,                   // {casterId, spellId} while aiming a spell
+    spellTarget: null,                   // {casterId, spellId} or {playerCast, powerId} while aiming
     creepCamps: [],
+    zones: [],                           // ticking ground-effect areas (Will powers)
     camera: { x: 0, y: 0, zoom: defaultWorldZoom(), targetZoom: defaultWorldZoom(), panVX: 0, panVY: 0, zoomAnchor: null },
     selection: [], selectionVersion: 0,
     controlGroups: {},
@@ -2587,6 +2597,8 @@ function update(dt) {
   updateEffects(dt);
   updateAutoNeeds(dt);
   updateRegen(dt);
+  updateWill(dt);
+  updateZones(dt);
   updateAI(dt);
   updateCreepCamps();
   sweepDead();
@@ -2626,6 +2638,73 @@ function updateRegen(dt) {
     }
     if (heal > 0) u.hp = Math.min(u.maxHp, u.hp + heal);
   }
+}
+
+// Will pool only exists once a player has a complete Will Hub; scales with hub count.
+function updateWill(dt) {
+  const W = CONFIG.WILL;
+  for (let owner = 0; owner < game.players.length; owner++) {
+    const p = game.players[owner];
+    const hubs = game.buildings.reduce((n, b) => n + ((!b.dead && b.complete && b.owner === owner && b.type === 'willhub') ? 1 : 0), 0);
+    if (!hubs) { p.will = 0; continue; }
+    const maxWill = W.BASE_MAX + W.PER_HUB_MAX * hubs;
+    const regen = W.REGEN + W.PER_HUB_REGEN * hubs;
+    p.will = Math.min(maxWill, p.will + regen * dt);
+  }
+}
+// Ticking ground-effect areas spawned by global Will powers.
+function updateZones(dt) {
+  for (let i = game.zones.length - 1; i >= 0; i--) {
+    const z = game.zones[i];
+    z.t += dt;
+    z.tickTimer -= dt;
+    if (z.tickTimer <= 0 && z.ticksLeft > 0) {
+      z.tickTimer += z.tickInterval;
+      z.ticksLeft--;
+      for (const u of game.units) {
+        if (u.dead || u.transportId) continue;
+        if (dist(z.x, z.y, u.x, u.y) > z.radius) continue;
+        if (z.kind === 'damage' && areHostile(z.owner, u.owner)) {
+          damageEntity(u, z.amount, null);
+        } else if (z.kind === 'heal' && !areHostile(z.owner, u.owner) && u.hp < u.maxHp) {
+          u.hp = Math.min(u.maxHp, u.hp + z.amount);
+          pushEffectCapped({ type: 'healText', x: u.x, y: u.y - u.radius - 8, t: 0, ttl: 0.8, text: '+' + Math.round(z.amount) });
+        }
+      }
+      pushEffectCapped({ type: 'magicHit', x: z.x, y: z.y, t: 0, ttl: 0.4, r: z.radius });
+    }
+    if (z.t >= z.duration) game.zones.splice(i, 1);
+  }
+}
+function canCastWillPower(owner, powerId) {
+  const def = CONFIG.WILL.POWERS[powerId];
+  const p = game.players[owner];
+  if (!def) return { ok: false, reason: 'Unknown power' };
+  if (!game.buildings.some(b => !b.dead && b.complete && b.owner === owner && b.type === 'willhub')) {
+    return { ok: false, reason: 'Requires a complete Will Hub' };
+  }
+  const cdEnd = p.willCooldowns[powerId] || 0;
+  if (game.time < cdEnd) return { ok: false, reason: 'Recharging (' + Math.ceil(cdEnd - game.time) + 's)' };
+  if (p.will < def.will) return { ok: false, reason: 'Not enough Will' };
+  return { ok: true };
+}
+function castWillPower(owner, powerId, x, y) {
+  const c = canCastWillPower(owner, powerId);
+  if (!c.ok) return c;
+  const def = CONFIG.WILL.POWERS[powerId];
+  const p = game.players[owner];
+  p.will -= def.will;
+  p.willCooldowns[powerId] = game.time + def.cooldown;
+  const kind = powerId === 'blessing' ? 'heal' : 'damage';
+  game.zones.push({
+    owner, x, y, kind, radius: def.radius * T,
+    amount: kind === 'damage' ? def.tickDamage : def.heal,
+    ticksLeft: kind === 'damage' ? def.ticks : 1,
+    tickInterval: kind === 'damage' ? (def.duration / def.ticks) : 0.01,
+    tickTimer: 0, t: 0, duration: def.duration,
+  });
+  if (owner === 0) { notify(def.name + ' cast!', 'good'); game.selectionVersion++; }
+  return { ok: true };
 }
 
 function updateAutoCombat(dt) {
@@ -4709,6 +4788,10 @@ function enterSpellTargeting(casterId, spellId) {
   game.placement = null;
   game.spellTarget = { casterId, spellId };
 }
+function enterWillTargeting(powerId) {
+  game.placement = null;
+  game.spellTarget = { playerCast: true, powerId };
+}
 function cancelSpellTargeting() {
   game.spellTarget = null;
   game.selectionVersion++;
@@ -4717,9 +4800,16 @@ function resolveSpellTarget(sx, sy) {
   const st = game.spellTarget;
   game.spellTarget = null;
   if (!st) return;
+  const p = screenToWorld(sx, sy);
+  if (st.playerCast) {
+    const r = castWillPower(0, st.powerId, p.x, p.y);
+    if (!r.ok) notify(r.reason, 'warn');
+    addClickFx(p.x, p.y, 'attack');
+    game.selectionVersion++;
+    return;
+  }
   const caster = getAlive(st.casterId);
   if (!caster) return;
-  const p = screenToWorld(sx, sy);
   const targetEnt = pickEntity(p.x, p.y);
   orderCast(caster, st.spellId, p.x, p.y, targetEnt ? targetEnt.id : 0);
   addClickFx(p.x, p.y, 'attack');
@@ -5303,6 +5393,7 @@ function render() {
   });
   for (const e of ents) { if (e.kind === 'unit') drawUnit(e); else if (e.kind === 'site') drawSite(e); else drawBuilding(e); }
 
+  drawZones();
   drawProjectiles();
   drawEffects();
   if (game.placement) drawGhost();
@@ -6394,6 +6485,27 @@ function drawTaskBadge(u, selected) {
   ctx.restore();
 }
 
+function drawZones() {
+  for (const z of game.zones) {
+    const f = clamp(z.t / z.duration, 0, 1);
+    const color = z.kind === 'damage' ? '#ff8a5e' : '#7fe0a7';
+    ctx.save();
+    ctx.globalAlpha = 0.16 + 0.1 * Math.sin(game.time * 4);
+    ctx.fillStyle = color;
+    ctx.beginPath(); ctx.arc(z.x, z.y, z.radius, 0, Math.PI * 2); ctx.fill();
+    ctx.globalAlpha = 0.55 * (1 - f * 0.4);
+    ctx.strokeStyle = color;
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 12;
+    ctx.lineWidth = 2.4;
+    ctx.setLineDash([10, 6]);
+    ctx.lineDashOffset = -game.time * 30;
+    ctx.beginPath(); ctx.arc(z.x, z.y, z.radius, 0, Math.PI * 2); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+  }
+}
+
 function drawProjectiles() {
   const L = CONFIG.COMBAT.PROJECTILE_LENGTH;
   ctx.lineWidth = 2.5;
@@ -6857,6 +6969,9 @@ function buildSingleSelection(e) {
   } else if (e.kind === 'building' && e.type === 'towncenter' && isOwn) {
     html += '<div id="sel-pop-work"></div>';
   }
+  if (e.kind === 'building' && e.type === 'willhub' && isOwn && e.complete) {
+    html += '<div class="statline" id="sel-will"></div>';
+  }
   if (e.kind === 'building' && isOwn && e.complete && CONFIG.BUILDINGS[e.type].trains) {
     html += '<div class="statline" id="sel-rally"></div>';
   }
@@ -6909,6 +7024,17 @@ function buildSingleSelection(e) {
       bp.textContent = 'Under construction — ' +
         Math.floor(e.buildProgress / CONFIG.BUILDINGS[e.type].buildTime * 100) +
         '% (right-click with villagers to assist)';
+    });
+  }
+  if (e.kind === 'building' && e.type === 'willhub' && isOwn && e.complete) {
+    const willEl = $('sel-will');
+    const W = CONFIG.WILL;
+    const hubs = () => game.buildings.reduce((n, b) => n + ((!b.dead && b.complete && b.owner === e.owner && b.type === 'willhub') ? 1 : 0), 0);
+    uiUpdaters.push(() => {
+      if (e.dead) return;
+      const p = game.players[e.owner];
+      const maxWill = W.BASE_MAX + W.PER_HUB_MAX * hubs();
+      willEl.textContent = 'Will ' + Math.floor(p.will) + ' / ' + maxWill;
     });
   }
   if (e.kind === 'building' && e.type === 'towncenter' && isOwn && e.complete) {
@@ -7136,6 +7262,16 @@ function buildBuildingButtons(b) {
       () => { toggleGateLock(b); });
   }
   if (def.market) buildMarketButtons(b);
+  if (b.type === 'willhub') buildWillhubButtons(b);
+}
+
+function buildWillhubButtons(b) {
+  for (const powerId in CONFIG.WILL.POWERS) {
+    const def = CONFIG.WILL.POWERS[powerId];
+    makeBtn('Cast ' + def.name + ' · ' + def.will + ' Will', null,
+      () => canCastWillPower(b.owner, powerId),
+      () => { enterWillTargeting(powerId); });
+  }
 }
 
 // Fixed-spread buy/sell: selling nets less than buying costs, so trading isn't free money.
