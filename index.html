@@ -392,6 +392,28 @@ const CONFIG = {
   },
   REPAIR: { RATE_MULT: 1.5, COST_FRACTION: 0.35 },   // repair takes 1.5x build speed, 35% of cost
 
+  MANA_REGEN: 0.8,                     // mana per second for any unit with a mana pool
+  SPELLS: {
+    fireball: { name:'Fireball',  mana:30, cooldown:8,  range:7, radius:1.4, damage:34 },
+    heal:     { name:'Heal Life', mana:25, cooldown:10, range:6, amount:40 },
+    slowTime: { name:'Slow Time', mana:35, cooldown:18, radius:2.6, duration:5, factor:0.45 },   // self-centered
+  },
+  HERO: {
+    LEVEL_XP: [40, 100, 200, 340, 520, 740, 1000],
+    SPELL_AT_LEVEL: { 2:'fireball', 3:'heal', 5:'slowTime' },
+    REVIVE_GOLD_PER_LEVEL: 75,
+    REVIVE_TIME: 20,
+  },
+  CREEPS: {
+    CAMPS: [
+      { units:['wolf','wolf','wolf'], bounty:{gold:60} },
+      { units:['hobbeWild','hobbeWild','hobbeWild','hobbeWild'], bounty:{gold:110,stone:40} },
+      { units:['balverine','hobbeWild','hobbeWild'], bounty:{gold:180,iron:60} },
+    ],
+    COUNT: 4,
+    MIN_TC_DIST: 14,     // tiles from every town center
+  },
+
   UNITS: {
     villager: { name:'Guild Apprentice', hp:40, damage:3,  range:0.9, attackCooldown:1.5, moveSpeed:100,
                 aggroRange:0,   popCost:1, cost:{food:50},          trainTime:10, radius:10, ageReq:0,
@@ -416,16 +438,27 @@ const CONFIG = {
                 researchReq:'cavalryTraditions' },
     mage:     { name:'Will Adept', hp:46, damage:10, range:4.6, attackCooldown:2.05, moveSpeed:92,
                 aggroRange:6.7, popCost:1, cost:{food:35,gold:100,iron:40}, trainTime:22, radius:10, ageReq:2,
-                projectileSpeed:340, magic:true, researchReq:'willStudies' },
+                projectileSpeed:340, magic:true, researchReq:'willStudies', mana:60, spells:['fireball','heal'] },
     ship:     { name:'Guild Ferry', hp:140, damage:4, range:3.2, attackCooldown:1.8, moveSpeed:118,
           aggroRange:4.5, popCost:2, cost:{wood:140,gold:45,fish:30}, trainTime:18, radius:15, ageReq:1,
           projectileSpeed:360, naval:true, capacity:6 },
+    hero:     { name:'Guild Hero', hp:220, damage:16, range:1.3, attackCooldown:1.35, moveSpeed:118,
+                aggroRange:6, popCost:2, cost:{food:120,gold:180}, trainTime:32, radius:13, ageReq:1,
+                hero:true, mana:80, maxLevel:8 },
+
+    // Neutral wildlife — hostile to every faction, guard camp bounties. Never trained.
+    wolf:      { name:'Forest Wolf', hp:55,  damage:7,  range:1.0, attackCooldown:1.2, moveSpeed:130,
+                 aggroRange:4.5, radius:10, popCost:0, cost:{}, trainTime:0, ageReq:0, creep:true, xpValue:18 },
+    hobbeWild: { name:'Wild Hobbe',  hp:80,  damage:9,  range:1.1, attackCooldown:1.4, moveSpeed:100,
+                 aggroRange:4,   radius:11, popCost:0, cost:{}, trainTime:0, ageReq:0, creep:true, xpValue:26 },
+    balverine: { name:'Balverine',   hp:170, damage:16, range:1.2, attackCooldown:1.3, moveSpeed:140,
+                 aggroRange:5,   radius:13, popCost:0, cost:{}, trainTime:0, ageReq:0, creep:true, xpValue:60 },
   },
 
   BUILDINGS: {
     // towncenter.popBonus is the starting population cap (each side begins with one TC).
     towncenter: { name:'Guild Hall', hp:1600, size:3, cost:{wood:300,stone:120}, buildTime:60,
-                  dropoff:true, popBonus:5, trains:['villager','scout','settler'],
+                  dropoff:true, popBonus:5, trains:['villager','scout','settler','hero'],
                   researches:['scouting','charterStudies','settlementCharters','renownChronicles'],
                   ageReq:0, buildable:false, research:true },
     house:      { name:'Albion Cottage',       hp:300,  size:2, cost:{wood:60},  buildTime:12,
@@ -696,6 +729,7 @@ const THEME = {
       knight: ['Guild Champion', 'Bandit Cutthroat', 'Hobbe Warboss', 'Grave Knight'],
       mage: ['Will Adept', 'Bandit Hexer', 'Hobbe Shaman', 'Wraith Binder'],
       ship: ['Guild Ferry', 'Bandit Skiff', 'Hobbe Raft', 'Bone Barge'],
+      hero: ['Guild Hero', 'Bandit Warlord', 'Hobbe King', 'Grave Lich'],
     },
     buildings: {
       towncenter: ['Guild Hall', 'Bandit War Camp', 'Hobbe Den', 'Necropolis'],
@@ -792,6 +826,10 @@ const SITE_BLUEPRINTS = [
 ];
 const NODE_NAMES = THEME.NODE_NAMES;
 const FACTION = THEME.FACTIONS;
+// Wildlife has no player slot (owner === CREEP_OWNER), so it needs its own palette wherever
+// code indexes FACTION[owner] for rendering.
+const CREEP_STYLE = { name:'Wildlife', fill:'#7a4f2a', dark:'#2e1d10', light:'#d8b183', trim:'#1e180b', cloth:'#5c3d20', wood:'#3c2a16' };
+function factionStyle(owner) { return FACTION[owner] || CREEP_STYLE; }
 
 var appState = 'menu';   // 'menu' | 'playing' | 'paused' | 'victory' | 'defeat'
 var game = null;         // all mutable game state (rebuilt by newGame)
@@ -852,20 +890,24 @@ function unitDmgBonus(owner) {
 }
 function unitMaxHp(type, owner, level) {
   const s = CONFIG.UNITS[type];
-  const hpMult = isMilitary(type) ? CONFIG.AGES[game.players[owner].age].hpMult : 1;
-  const bonus = isMilitary(type) ? unitHpBonus(owner) : 0;
+  const p = game.players[owner];
+  const scaled = isMilitary(type) && p;
+  const hpMult = scaled ? CONFIG.AGES[p.age].hpMult : 1;
+  const bonus = scaled ? unitHpBonus(owner) : 0;
   const lvlMult = 1 + CONFIG.LEVELING.HP_PER_LEVEL * Math.max(0, (level || 1) - 1);
   return Math.round((s.hp + bonus) * hpMult * lvlMult);
 }
 function unitDamageValue(type, owner, level) {
   const s = CONFIG.UNITS[type];
-  const base = s.damage + (isMilitary(type) ? unitDmgBonus(owner) : 0);
+  const p = game.players[owner];
+  const scaled = isMilitary(type) && p;
+  const base = s.damage + (scaled ? unitDmgBonus(owner) : 0);
   const lvlMult = 1 + CONFIG.LEVELING.DMG_PER_LEVEL * Math.max(0, (level || 1) - 1);
-  return base * (isMilitary(type) ? CONFIG.AGES[game.players[owner].age].dmgMult : 1) * lvlMult;
+  return base * (scaled ? CONFIG.AGES[p.age].dmgMult : 1) * lvlMult;
 }
 function unitMaxLevel(type) { return CONFIG.UNITS[type].maxLevel || CONFIG.LEVELING.MAX_LEVEL; }
 function xpToReachLevel(type, level) {   // cumulative XP required to hit `level`
-  const table = CONFIG.UNITS[type].levelXp || CONFIG.LEVELING.LEVEL_XP;
+  const table = CONFIG.UNITS[type].hero ? CONFIG.HERO.LEVEL_XP : (CONFIG.UNITS[type].levelXp || CONFIG.LEVELING.LEVEL_XP);
   const need = table[level - 2];
   return need == null ? Infinity : need;
 }
@@ -893,6 +935,13 @@ function levelUp(u) {
   }
   if (typeof onHeroLevelUp === 'function' && CONFIG.UNITS[u.type].hero) onHeroLevelUp(u);
 }
+function onHeroLevelUp(u) {
+  const spellId = CONFIG.HERO.SPELL_AT_LEVEL[u.level];
+  if (spellId && u.knownSpells && !u.knownSpells.includes(spellId)) {
+    u.knownSpells.push(spellId);
+    if (u.owner === 0) notify('Your Hero learned ' + CONFIG.SPELLS[spellId].name + '!', 'good');
+  }
+}
 // Bounded effects list — combat text in big fights must not grow without limit.
 function pushEffectCapped(e) {
   const fx = game.effects;
@@ -909,7 +958,7 @@ function buildingDisplayName(type, owner) {
   return (THEME.NAMES.buildings[type] && THEME.NAMES.buildings[type][owner]) || CONFIG.BUILDINGS[type].name;
 }
 function ageDisplayName(age) { return THEME.AGE_NAMES[age] || CONFIG.AGES[age].name; }
-function factionName(owner) { return (FACTION[owner] && FACTION[owner].name) || 'Enemy'; }
+function factionName(owner) { return owner === CREEP_OWNER ? 'Wildlife' : (FACTION[owner] && FACTION[owner].name) || 'Enemy'; }
 
 // Diplomacy predicates. Owners are player indices; CREEP_OWNER marks wildlife hostile to all.
 // game.relations[a][b] is 'war' | 'peace' | 'ally' (absent matrix = everyone at war).
@@ -1157,6 +1206,7 @@ function makePlayer(id) {
     popCap: 0,                 // recomputed from completed buildings
     threat: null,              // {x, y, t} — last attack on this player's assets (AI defense)
     lossLog: [],                // timestamps of buildings lost — feeds diplomacy heuristics
+    fallenHero: null,           // {level, xp} while the hero is dead and awaiting revival
   };
 }
 
@@ -1207,6 +1257,8 @@ function newGame(options) {
     buildingGrid: new Array(NTILES).fill(null),  // tile -> building ref, for gate lookups + wall rendering
     players,
     relations, diplo, diploVersion: 0, diplomacyOpen: false,
+    spellTarget: null,                   // {casterId, spellId} while aiming a spell
+    creepCamps: [],
     camera: { x: 0, y: 0, zoom: defaultWorldZoom(), targetZoom: defaultWorldZoom(), panVX: 0, panVY: 0, zoomAnchor: null },
     selection: [], selectionVersion: 0,
     controlGroups: {},
@@ -1313,6 +1365,7 @@ function generateWorld() {
 
   rebuildBlocked();
   placeWorldSites();
+  placeCreepCamps(allTcs);
 
   // Starting villagers
   for (const tc of allTcs) {
@@ -1418,6 +1471,53 @@ function placeFishShoals() {
     if (placed.some(s => Math.abs(s.tx - pick.tx) + Math.abs(s.ty - pick.ty) < 7)) continue;
     createNode('fish', pick.tx, pick.ty, { phase: hash01(g.seed, i, 709) * Math.PI * 2 });
     placed.push(pick);
+  }
+}
+
+// Neutral wildlife camps: hostile to every faction, leashed to a guard point, pay a
+// bounty to whoever lands the finishing blow when the whole camp is cleared.
+function placeCreepCamps(tcs) {
+  const CFG = CONFIG.CREEPS;
+  game.creepCamps = [];
+  let placed = 0, guard = 0, nextCampId = 1;
+  while (placed < CFG.COUNT && guard < CFG.COUNT * 60) {
+    guard++;
+    const tx = 4 + Math.floor(hash01(game.seed, guard, 811) * (COLS - 8));
+    const ty = 4 + Math.floor(hash01(game.seed, guard, 823) * (ROWS - 8));
+    let nearTc = false;
+    for (const tc of tcs) {
+      if (Math.max(Math.abs(tx - (tc.tx + tc.size / 2)), Math.abs(ty - (tc.ty + tc.size / 2))) < CFG.MIN_TC_DIST) { nearTc = true; break; }
+    }
+    if (nearTc) continue;
+    const tile = nearestWalkableTile(tx, ty, 6);
+    if (!tile) continue;
+    const cx = tileCenter(tile.tx), cy = tileCenter(tile.ty);
+    if (game.creepCamps.some(c => dist(cx, cy, c.x, c.y) < 8 * T)) continue;
+    const campDef = CFG.CAMPS[Math.floor(hash01(game.seed, guard, 839) * CFG.CAMPS.length)];
+    const camp = { id: nextCampId++, x: cx, y: cy, unitIds: [], bounty: campDef.bounty, lastHitBy: 0, cleared: false };
+    for (let i = 0; i < campDef.units.length; i++) {
+      const a = (i / campDef.units.length) * Math.PI * 2;
+      const u = createUnit(campDef.units[i], CREEP_OWNER, cx + Math.cos(a) * 24, cy + Math.sin(a) * 24);
+      u.guardX = cx; u.guardY = cy; u.aggroHomeX = cx; u.aggroHomeY = cy;
+      u.campId = camp.id;
+      camp.unitIds.push(u.id);
+    }
+    game.creepCamps.push(camp);
+    placed++;
+  }
+}
+// Pays out once every unit in a camp is dead, crediting whoever landed the last hit.
+function updateCreepCamps() {
+  for (const camp of game.creepCamps) {
+    if (camp.cleared) continue;
+    if (!camp.unitIds.some(id => getAlive(id))) {
+      camp.cleared = true;
+      const p = game.players[camp.lastHitBy];
+      if (p) {
+        for (const res of RESOURCE_TYPES) if (camp.bounty[res]) p.resources[res] += camp.bounty[res];
+        if (camp.lastHitBy === 0) notify('Camp cleared! Bounty: ' + costText(camp.bounty), 'good');
+      }
+    }
   }
 }
 
@@ -1862,7 +1962,8 @@ function computePath(u, spec) {
 // Advance a unit along its path. Returns 'arrived' | 'moving' | 'blocked' | 'none'.
 function followPath(u, dt) {
   if (!u.path) return 'none';
-  let remaining = CONFIG.UNITS[u.type].moveSpeed * dt;
+  const slowMult = (u.slowUntil && u.slowUntil > game.time) ? u.slowFactor : 1;
+  let remaining = CONFIG.UNITS[u.type].moveSpeed * dt * slowMult;
   let repathed = false;
   while (u.pathIdx < u.path.length && remaining > 1e-6) {
     const wp = u.path[u.pathIdx];
@@ -1921,6 +2022,11 @@ function createUnit(type, owner, x, y) {
     cargo: s.naval ? [] : null,
     flash: 0, dead: false,
   };
+  if (s.mana) {
+    u.mana = s.mana; u.maxMana = s.mana;
+    u.knownSpells = s.hero ? [] : (s.spells ? s.spells.slice() : []);
+    u.spellCooldowns = {};
+  }
   game.units.push(u);
   game.byId.set(u.id, u);
   return u;
@@ -2013,6 +2119,10 @@ function damageEntity(target, amount, attacker) {
     const c = entCenter(target);
     game.players[target.owner].threat = { x: c.x, y: c.y, t: game.time };
   }
+  if (target.campId && attacker && attacker.owner !== CREEP_OWNER) {
+    const camp = game.creepCamps.find(c => c.id === target.campId);
+    if (camp) camp.lastHitBy = attacker.owner;
+  }
   // idle military fights back when hit
   if (attacker && !attacker.dead && target.kind === 'unit' && isMilitary(target.type)
       && target.state === 'idle' && areHostile(target.owner, attacker.owner)) {
@@ -2044,12 +2154,17 @@ function destroyEntity(e) {
     }
     arrRemove(game.units, e);
     game.effects.push({ type: 'fade', x: e.x, y: e.y, r: e.radius + 4, t: 0, ttl: 0.7, owner: e.owner });
+    if (CONFIG.UNITS[e.type].hero && game.players[e.owner]) {
+      game.players[e.owner].fallenHero = { level: e.level, xp: e.xp };
+      if (e.owner === 0) notify('Your Hero has fallen! Revive at the Guild Hall.', 'bad');
+    }
   } else if (e.kind === 'building') {
     arrRemove(game.buildings, e);
     const p = game.players[e.owner];
     for (const q of e.queue) {          // refund anything still queued
       if (q.kind === 'unit') refundCost(p, CONFIG.UNITS[q.type].cost);
       else if (q.kind === 'age') refundCost(p, CONFIG.AGES[q.targetAge].cost);
+      else if (q.kind === 'revive') p.resources.gold += q.level * CONFIG.HERO.REVIVE_GOLD_PER_LEVEL;
     }
     e.queue.length = 0;
     rebuildBlocked();
@@ -2150,6 +2265,61 @@ function acquireTarget(u, target) {        // auto-aggro — remembers home (lea
   u.repathTimer = 0;
   u.aggroHomeX = u.guardX != null ? u.guardX : u.x;
   u.aggroHomeY = u.guardY != null ? u.guardY : u.y;
+}
+function orderCast(u, spellId, x, y, targetId) {
+  if (!u.knownSpells || !u.knownSpells.includes(spellId)) return;
+  clearOrder(u);
+  u.state = 'cast';
+  u.castOrder = { spellId, x, y, targetId: targetId || 0 };
+}
+// Walk into range (unless self-centered), then resolve the spell and pay its cost.
+function updateCast(u, dt) {
+  const order = u.castOrder;
+  const def = order && CONFIG.SPELLS[order.spellId];
+  if (!order || !def) { u.state = 'idle'; u.castOrder = null; return; }
+  if ((u.spellCooldowns[order.spellId] || 0) > game.time || u.mana < def.mana) {
+    u.state = 'idle'; u.castOrder = null; return;
+  }
+  const selfCentered = order.spellId === 'slowTime';
+  const tx = selfCentered ? u.x : order.x, ty = selfCentered ? u.y : order.y;
+  if (!selfCentered && dist(u.x, u.y, tx, ty) > def.range * T) {
+    if (!u.path && !computePath(u, { kind: 'point', x: tx, y: ty })) { u.state = 'idle'; u.castOrder = null; return; }
+    followPath(u, dt);
+    return;
+  }
+  u.path = null;
+  executeSpell(u, order.spellId, tx, ty, order.targetId);
+  u.mana -= def.mana;
+  u.spellCooldowns[order.spellId] = game.time + def.cooldown;
+  u.state = 'idle';
+  u.castOrder = null;
+}
+function executeSpell(u, spellId, x, y, targetId) {
+  if (spellId === 'fireball') {
+    const def = CONFIG.SPELLS.fireball;
+    const fy = u.y - 8;
+    game.projectiles.push({
+      x: u.x, y: fy, tx: x, ty: y, targetId: 0,
+      speed: 480, damage: def.damage, owner: u.owner, attackerId: u.id,
+      magic: true, spellRadius: def.radius,
+      angle: Math.atan2(y - fy, x - u.x),
+    });
+  } else if (spellId === 'heal') {
+    const def = CONFIG.SPELLS.heal;
+    const target = getAlive(targetId);
+    if (target && target.kind === 'unit' && !areHostile(u.owner, target.owner)) {
+      target.hp = Math.min(target.maxHp, target.hp + def.amount);
+      pushEffectCapped({ type: 'healText', x: target.x, y: target.y - target.radius - 8, t: 0, ttl: 0.9, text: '+' + def.amount });
+      pushEffectCapped({ type: 'magicHit', x: target.x, y: target.y, t: 0, ttl: 0.3 });
+    }
+  } else if (spellId === 'slowTime') {
+    const def = CONFIG.SPELLS.slowTime;
+    for (const e of game.units) {
+      if (e.dead || e.transportId || !areHostile(u.owner, e.owner)) continue;
+      if (dist(u.x, u.y, e.x, e.y) <= def.radius * T) { e.slowUntil = game.time + def.duration; e.slowFactor = def.factor; }
+    }
+    pushEffectCapped({ type: 'slowRing', x: u.x, y: u.y, t: 0, ttl: 0.6, r: def.radius * T });
+  }
 }
 function orderGather(u, node) {
   if (u.type !== 'villager') { orderMove(u, tileCenter(node.tx), tileCenter(node.ty)); return; }
@@ -2361,6 +2531,7 @@ function update(dt) {
   updateAutoNeeds(dt);
   updateRegen(dt);
   updateAI(dt);
+  updateCreepCamps();
   sweepDead();
   // drop dead entities from the current selection
   const sel = game.selection;
@@ -2457,6 +2628,7 @@ function findAutoCombatTarget(u) {
 function updateUnit(u, dt) {
   if (u.cooldown > 0) u.cooldown -= dt;
   if (u.flash > 0) u.flash -= dt;
+  if (u.maxMana && u.mana < u.maxMana) u.mana = Math.min(u.maxMana, u.mana + CONFIG.MANA_REGEN * dt);
 
   // stuck watchdog: repath if we have a path but made no progress
   if (u.path) {
@@ -2507,6 +2679,7 @@ function updateUnit(u, dt) {
     case 'gather': updateGather(u, dt); break;
     case 'build':  updateBuild(u, dt);  break;
     case 'board':  updateBoard(u, dt);  break;
+    case 'cast':   updateCast(u, dt);   break;
   }
 
   u.x = clamp(u.x, u.radius, MAPW - u.radius);
@@ -2782,6 +2955,22 @@ function updateTrainQueues(dt) {
       applyRallyOrder(b, u);
       b.queue.shift();
       if (b.owner === 0) game.selectionVersion++;
+    } else if (q.kind === 'revive') {
+      const t = findSpawnTileForType(b, 'hero');
+      if (!t) { q.remaining = 0.5; continue; }
+      const u = createUnit('hero', b.owner, t.x, t.y);
+      u.level = q.level;
+      u.xp = q.xp;
+      u.maxHp = unitMaxHp('hero', b.owner, u.level);
+      u.hp = Math.round(u.maxHp * 0.6);
+      for (let lvl = 2; lvl <= u.level; lvl++) {
+        const spellId = CONFIG.HERO.SPELL_AT_LEVEL[lvl];
+        if (spellId && !u.knownSpells.includes(spellId)) u.knownSpells.push(spellId);
+      }
+      game.players[b.owner].fallenHero = null;
+      applyRallyOrder(b, u);
+      b.queue.shift();
+      if (b.owner === 0) { notify('Your Hero has returned!', 'good'); game.selectionVersion++; }
     } else {
       b.queue.shift();
       completeAge(b.owner, q.targetAge);
@@ -2841,6 +3030,13 @@ function canTrainUnit(b, type) {
   const p = game.players[b.owner];
   if (!b.complete) return { ok: false, reason: 'Still under construction' };
   if (p.age < def.ageReq) return { ok: false, reason: 'Requires ' + ageDisplayName(def.ageReq) };
+  if (def.hero) {
+    if (p.fallenHero) return { ok: false, reason: 'Revive your fallen Hero instead' };
+    if (game.units.some(u => !u.dead && u.owner === b.owner && CONFIG.UNITS[u.type].hero))
+      return { ok: false, reason: 'You already have a Hero' };
+    if (b.queue.some(q => q.kind === 'unit' && CONFIG.UNITS[q.type].hero))
+      return { ok: false, reason: 'A Hero is already training' };
+  }
   if (b.queue.length >= CONFIG.TRAIN_QUEUE_MAX) return { ok: false, reason: 'Training queue is full' };
   if (popUsed(b.owner) + def.popCost > p.popCap) {
     return { ok: false, reason: p.popCap >= CONFIG.POP_MAX
@@ -2882,6 +3078,24 @@ function tryQueueAge(b) {
   return { ok: true };
 }
 
+function canReviveHero(owner, b) {
+  const p = game.players[owner];
+  if (!p.fallenHero) return { ok: false, reason: 'No fallen Hero to revive' };
+  if (b.queue.some(q => q.kind === 'revive')) return { ok: false, reason: 'Already reviving' };
+  const cost = p.fallenHero.level * CONFIG.HERO.REVIVE_GOLD_PER_LEVEL;
+  if (p.resources.gold < cost) return { ok: false, reason: 'Not enough gold (need ' + cost + ')' };
+  return { ok: true, cost };
+}
+function tryReviveHero(b) {
+  const c = canReviveHero(b.owner, b);
+  if (!c.ok) return c;
+  const p = game.players[b.owner];
+  p.resources.gold -= c.cost;
+  b.queue.push({ kind: 'revive', level: p.fallenHero.level, xp: p.fallenHero.xp,
+                 remaining: CONFIG.HERO.REVIVE_TIME, total: CONFIG.HERO.REVIVE_TIME });
+  if (b.owner === 0) game.selectionVersion++;
+  return { ok: true };
+}
 function canForgeUpgrade(owner, kind) {
   const p = game.players[owner];
   const list = CONFIG.FORGE[kind];
@@ -2960,8 +3174,8 @@ function updateProjectiles(dt) {
     const step = pr.speed * dt;
     if (d > 0.5) pr.angle = Math.atan2(dy, dx);
     if (step >= d) {
+      const attacker = getAlive(pr.attackerId);
       if (t) {
-        const attacker = getAlive(pr.attackerId);
         damageEntity(t, pr.damage, attacker);
         if (pr.magic) {
           const splashR = T * 1.15;
@@ -2971,6 +3185,14 @@ function updateProjectiles(dt) {
           }
         }
         game.effects.push({ type: pr.magic ? 'magicHit' : 'hit', x: pr.tx, y: pr.ty, t: 0, ttl: pr.magic ? 0.32 : 0.18 });
+      } else if (pr.spellRadius) {
+        // Point-targeted spell (e.g. Fireball) — no primary target, full damage in a radius.
+        const r = pr.spellRadius * T;
+        for (const e of game.units) {
+          if (e.dead || e.transportId || !areHostile(pr.owner, e.owner)) continue;
+          if (dist(pr.tx, pr.ty, e.x, e.y) <= r) damageEntity(e, pr.damage, attacker);
+        }
+        game.effects.push({ type: 'magicHit', x: pr.tx, y: pr.ty, t: 0, ttl: 0.4, r });
       }
       arr.splice(i, 1);
     } else {
@@ -3568,6 +3790,7 @@ function initInput() {
   canvas.addEventListener('mousedown', e => {
     if (!gameInteractive()) return;
     if (e.button === 0) {
+      if (game.spellTarget) { resolveSpellTarget(e.clientX, e.clientY); return; }
       if (game.placement) {
         if (CONFIG.BUILDINGS[game.placement.type].dragBuild) { beginWallDrag(); return; }
         tryPlacement(); return;
@@ -3575,6 +3798,7 @@ function initInput() {
       mouse.down = true; mouse.dragging = false;
       mouse.sx = e.clientX; mouse.sy = e.clientY;
     } else if (e.button === 2) {
+      if (game.spellTarget) { cancelSpellTargeting(); return; }
       if (game.placement) { cancelPlacement(); return; }
       onRightClick(e.clientX, e.clientY);
     }
@@ -3728,6 +3952,7 @@ function onKeyDown(e) {
   if (!gameInteractive()) return;
   if (code === 'Escape') {
     if (game.diplomacyOpen) { toggleDiplomacy(false); return; }
+    if (game.spellTarget) { cancelSpellTargeting(); return; }
     if (game.placement) cancelPlacement();
     else { stopAutoCombatForSelected(); game.selection = []; game.selectionVersion++; }
     return;
@@ -4341,6 +4566,29 @@ function tryPlacement() {
 }
 function cancelPlacement() {
   game.placement = null;
+  game.selectionVersion++;
+}
+
+/* ------------------------------- spell targeting ------------------------------- */
+function enterSpellTargeting(casterId, spellId) {
+  if (!getAlive(casterId)) return;
+  game.placement = null;
+  game.spellTarget = { casterId, spellId };
+}
+function cancelSpellTargeting() {
+  game.spellTarget = null;
+  game.selectionVersion++;
+}
+function resolveSpellTarget(sx, sy) {
+  const st = game.spellTarget;
+  game.spellTarget = null;
+  if (!st) return;
+  const caster = getAlive(st.casterId);
+  if (!caster) return;
+  const p = screenToWorld(sx, sy);
+  const targetEnt = pickEntity(p.x, p.y);
+  orderCast(caster, st.spellId, p.x, p.y, targetEnt ? targetEnt.id : 0);
+  addClickFx(p.x, p.y, 'attack');
   game.selectionVersion++;
 }
 // Units mid-route through a tile that just became blocked drop their stale path;
@@ -5590,7 +5838,7 @@ function unitFacingAngle(u) {
 }
 
 function drawUnit(u) {
-  const fac = FACTION[u.owner];
+  const fac = factionStyle(u.owner);
   const r = u.radius * 1.45;
   const selected = game.selection.includes(u.id);
   if (selected) {
@@ -5792,6 +6040,53 @@ function drawUnit(u) {
     ctx.beginPath(); ctx.moveTo(-r*.32, r*.18); ctx.quadraticCurveTo(0, r*.34, r*.32, r*.18); ctx.stroke();
     ctx.strokeStyle = 'rgba(44,28,17,0.9)'; ctx.lineWidth = 1.5;
     ctx.beginPath(); ctx.moveTo(r*.18, r*.46); ctx.lineTo(r*(.32 + .08*stride), r*(.88 - .06*stride)); ctx.moveTo(-r*.18, r*.48); ctx.lineTo(-r*(.38 + .08*stride), r*(.84 + .06*stride)); ctx.stroke();
+  } else if (u.type === 'hero') {
+    const gold = '#ffd75e';
+    fillPoly([[-r*.5,-r*.32],[-r*.62,r*.5],[0,r*1.0],[r*.62,r*.5],[r*.5,-r*.32],[0,-r*.62]], '#eadfc8');
+    strokePoly([[-r*.5,-r*.32],[-r*.62,r*.5],[0,r*1.0],[r*.62,r*.5],[r*.5,-r*.32],[0,-r*.62]], 'rgba(18,12,9,0.88)', 1.7);
+    fillPoly([[-r*.4,-r*.24],[-r*.12,r*.2],[r*.4,-r*.2],[r*.14,r*.24]], gold);
+    ctx.fillStyle = skin; ctx.beginPath(); ctx.ellipse(0, -r*.86, r*.3, r*.3, 0, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#4b6c9a';
+    ctx.beginPath(); ctx.moveTo(-r*.36, -r*.5); ctx.lineTo(-r*1.0, r*.9); ctx.lineTo(r*.1, r*.7); ctx.lineTo(-r*.14, -r*.4); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = gold; ctx.lineWidth = 3.2; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(r*.3, r*.4); ctx.lineTo(r*(1.1 + .34*swing), -r*(.7 + .38*Math.max(0, swing))); ctx.stroke();
+    ctx.fillStyle = gold;
+    ctx.beginPath(); ctx.arc(0, -r*1.1, r*.14, 0, Math.PI*2); ctx.fill();
+  } else if (u.type === 'wolf') {
+    const fur = '#5a4634', furDark = '#332619';
+    ctx.save(); ctx.rotate(-Math.PI / 2);
+    fillPoly([[-r*.62,-r*.32],[-r*.9,-r*.04],[-r*.62,r*.3],[r*.5,r*.34],[r*.86,r*.02],[r*.5,-r*.3]], fur);
+    strokePoly([[-r*.62,-r*.32],[-r*.9,-r*.04],[-r*.62,r*.3],[r*.5,r*.34],[r*.86,r*.02],[r*.5,-r*.3]], furDark, 1.4);
+    fillPoly([[r*.72,-r*.14],[r*1.06,-r*.02],[r*.7,r*.14]], fur);
+    ctx.strokeStyle = furDark; ctx.lineWidth = 2.6; ctx.lineCap = 'round';
+    const swayL = Math.sin(phase) * 0.16;
+    ctx.beginPath();
+    ctx.moveTo(-r*.5,r*.26); ctx.lineTo(-r*(.5+swayL), r*.72);
+    ctx.moveTo(r*.34,r*.28); ctx.lineTo(r*(.34-swayL), r*.72);
+    ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-r*.7,-r*.24); ctx.lineTo(-r*1.06,-r*.5); ctx.stroke();
+    ctx.restore();
+  } else if (u.type === 'hobbeWild') {
+    const hide = u.owner > 0 ? '#5c6e3a' : '#6f7d3f', hideDark = '#333d1f';
+    fillPoly([[-r*.62,-r*.1],[-r*.7,r*.6],[0,r*.98],[r*.7,r*.6],[r*.62,-r*.1],[0,-r*.44]], hide);
+    strokePoly([[-r*.62,-r*.1],[-r*.7,r*.6],[0,r*.98],[r*.7,r*.6],[r*.62,-r*.1],[0,-r*.44]], hideDark, 1.6);
+    ctx.fillStyle = hideDark; ctx.beginPath(); ctx.ellipse(0, -r*.68, r*.34, r*.32, 0, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#ffb15e';
+    ctx.beginPath(); ctx.arc(-r*.12, -r*.7, 2.4, 0, Math.PI*2); ctx.arc(r*.12, -r*.7, 2.4, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = '#7b6a4a'; ctx.lineWidth = 4; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(r*.5, r*.2); ctx.lineTo(r*(.9 + .3*swing), -r*(.5 + .3*Math.max(0, swing))); ctx.stroke();
+  } else if (u.type === 'balverine') {
+    const hide = '#2b2530', hideLight = '#453a4d';
+    fillPoly([[-r*.5,-r*.5],[-r*.72,r*.4],[0,r*1.05],[r*.72,r*.4],[r*.5,-r*.5],[0,-r*.86]], hide);
+    strokePoly([[-r*.5,-r*.5],[-r*.72,r*.4],[0,r*1.05],[r*.72,r*.4],[r*.5,-r*.5],[0,-r*.86]], '#0f0c10', 1.8);
+    fillPoly([[-r*.34,-r*.6],[-r*.14,-r*.94],[0,-r*.62]], hideLight);
+    fillPoly([[r*.34,-r*.6],[r*.14,-r*.94],[0,-r*.62]], hideLight);
+    ctx.fillStyle = '#ff8a72'; ctx.beginPath(); ctx.arc(-r*.14, -r*.66, 2.6, 0, Math.PI*2); ctx.arc(r*.14, -r*.66, 2.6, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = '#c9c0ad'; ctx.lineWidth = 2.4; ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(-r*.56, r*.18); ctx.lineTo(-r*(.78 + .2*swing), r*(.7 + .2*Math.max(0, swing)));
+    ctx.moveTo(r*.56, r*.18); ctx.lineTo(r*(.78 + .2*swing), r*(.7 + .2*Math.max(0, swing)));
+    ctx.stroke();
   }
   if (isMilitary(u.type) && armorLevel > 0) {
     ctx.save();
@@ -5831,6 +6126,9 @@ function drawUnit(u) {
   }
   if (u.hp < u.maxHp || selected) {
     drawBar(u.x - r, u.y - r - 9, r * 2, 4, u.hp / u.maxHp, hpColor(u.hp / u.maxHp));
+  }
+  if (u.maxMana && (u.mana < u.maxMana || selected)) {
+    drawBar(u.x - r, u.y - r - 14, r * 2, 3, u.mana / u.maxMana, '#4ab7ea');
   }
   drawRankPips(u, r);
   drawTaskBadge(u, selected);
@@ -5951,7 +6249,7 @@ function drawEffects() {
     const f = clamp(e.t / e.ttl, 0, 1);
     if (e.type === 'fade') {
       ctx.globalAlpha = (1 - f) * 0.5;
-      ctx.fillStyle = FACTION[e.owner].fill;
+      ctx.fillStyle = factionStyle(e.owner).fill;
       ctx.beginPath(); ctx.arc(e.x, e.y, e.r * (1 + f * 0.4), 0, Math.PI * 2); ctx.fill();
     } else if (e.type === 'rubble') {
       ctx.globalAlpha = (1 - f) * 0.75;
@@ -6024,6 +6322,23 @@ function drawEffects() {
         ctx.moveTo(px, py - 3.5); ctx.lineTo(px + 2.6, py + 2); ctx.lineTo(px - 2.6, py + 2);
         ctx.closePath(); ctx.fill();
       }
+      ctx.shadowBlur = 0;
+    } else if (e.type === 'healText') {
+      ctx.globalAlpha = f < 0.7 ? 1 : (1 - f) / 0.3;
+      ctx.font = 'bold 12px Georgia, serif';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = 'rgba(10,20,10,0.75)';
+      ctx.fillText(e.text, e.x + 1, e.y - f * 16 + 1);
+      ctx.fillStyle = '#7fe0a7';
+      ctx.fillText(e.text, e.x, e.y - f * 16);
+      ctx.textAlign = 'left';
+    } else if (e.type === 'slowRing') {
+      ctx.globalAlpha = (1 - f) * 0.7;
+      ctx.strokeStyle = '#7de2ec';
+      ctx.shadowColor = '#7de2ec';
+      ctx.shadowBlur = 10;
+      ctx.lineWidth = 2.4;
+      ctx.beginPath(); ctx.arc(e.x, e.y, (e.r || 60) * (0.3 + f * 0.7), 0, Math.PI * 2); ctx.stroke();
       ctx.shadowBlur = 0;
     }
     ctx.globalAlpha = 1;
@@ -6151,7 +6466,7 @@ function renderMinimap() {
   }
   for (const u of game.units) {
     if (u.dead || u.transportId) continue;
-    mmCtx.fillStyle = FACTION[u.owner].light;
+    mmCtx.fillStyle = factionStyle(u.owner).light;
     mmCtx.fillRect(u.x * sc - 1.5, u.y * sc - 1.5, 3, 3);
   }
   for (const p of game.pings) {
@@ -6322,6 +6637,7 @@ function buildSingleSelection(e) {
   }
   const isOwn = e.owner === 0;
   const relTag = isOwn ? '' :
+    e.owner === CREEP_OWNER ? ' <span class="sel-owner-enemy">WILDLIFE</span>' :
     areAllied(0, e.owner) ? ' <span class="sel-owner-ally">ALLY</span>' :
     game.relations[0][e.owner] === 'peace' ? ' <span class="sel-owner-peace">PEACE</span>' :
     ' <span class="sel-owner-enemy">ENEMY</span>';
@@ -6339,6 +6655,7 @@ function buildSingleSelection(e) {
               Math.floor(e.xp) + (atMax ? '</b> (max)' : ' / ' + xpToReachLevel(e.type, e.level + 1) + '</b>') + '</div>';
     }
     if (isMilitary(e.type)) html += '<div class="statline">Equipment <b>W' + upgradeLevel(e.owner, 'weapons') + '</b> · Armor <b>A' + upgradeLevel(e.owner, 'armor') + '</b></div>';
+    if (e.maxMana) html += '<div class="statline" id="sel-mana"></div>';
     if (isOwn && isMilitary(e.type)) html += '<div class="statline" id="sel-auto-combat"></div>';
     if (unitMovesOnWater(e)) html += '<div class="statline" id="sel-cargo"></div>';
         if (e.type === 'villager') html += '<div class="statline" id="sel-carry"></div><div class="statline" id="sel-auto"></div>';
@@ -6363,6 +6680,10 @@ function buildSingleSelection(e) {
     hpFill.style.background = hpColor(f);
     hpText.textContent = 'HP ' + Math.ceil(e.hp) + ' / ' + e.maxHp;
   });
+  if (e.kind === 'unit' && e.maxMana) {
+    const manaEl = $('sel-mana');
+    uiUpdaters.push(() => { if (!e.dead) manaEl.textContent = 'Will ' + Math.floor(e.mana) + ' / ' + e.maxMana; });
+  }
   if (e.kind === 'unit' && e.type === 'villager') {
     const carryEl = $('sel-carry');
     const autoEl = $('sel-auto');
@@ -6425,6 +6746,7 @@ function buildSingleSelection(e) {
   if (isOwn && e.kind === 'building' && e.complete) buildBuildingButtons(e);
   if (isOwn && e.kind === 'unit' && e.type === 'villager') buildVillagerButtons();
   if (isOwn && e.kind === 'unit' && isMilitary(e.type)) buildMilitaryButtons();
+  if (isOwn && e.kind === 'unit' && e.knownSpells && e.knownSpells.length) buildCasterButtons(e);
 }
 
 function buildSiteSelection(site) {
@@ -6519,9 +6841,10 @@ function productionQueueHtml(building) {
     const queueItem = building.queue[queueIndex];
     const name = queueItem.kind === 'unit'
       ? 'Training ' + unitDisplayName(queueItem.type, building.owner)
+      : queueItem.kind === 'revive' ? 'Reviving Hero'
       : 'Advancing to ' + ageDisplayName(queueItem.targetAge);
     const pct = queueIndex === 0 ? Math.floor((1 - queueItem.remaining / queueItem.total) * 100) : 0;
-    const iconClass = queueItem.kind === 'age' ? 'queue-age' : 'unit-' + queueItem.type;
+    const iconClass = queueItem.kind === 'age' ? 'queue-age' : 'unit-' + (queueItem.kind === 'revive' ? 'hero' : queueItem.type);
     const label = queueIndex === 0 ? pct + '%' : String(queueIndex + 1);
         html += '<button type="button" class="queue-item ' + (queueIndex === 0 ? 'active' : 'queued') + '" data-queue-index="' + queueIndex + '" style="--pct:' + pct + '" title="' + name + ' - click to cancel">' +
           '<div class="queue-icon ' + iconClass + '"></div><span class="queue-pct">' + label + '</span></button>';
@@ -6533,13 +6856,15 @@ function refundQueueItem(owner, item) {
   const p = game.players[owner];
   if (item.kind === 'unit') refundCost(p, CONFIG.UNITS[item.type].cost);
   else if (item.kind === 'age') refundCost(p, CONFIG.AGES[item.targetAge].cost);
+  else if (item.kind === 'revive') p.resources.gold += item.level * CONFIG.HERO.REVIVE_GOLD_PER_LEVEL;
 }
 
 function cancelQueueItem(building, queueIndex) {
   if (!building || building.dead || building.owner !== 0 || queueIndex < 0 || queueIndex >= building.queue.length) return false;
   const item = building.queue.splice(queueIndex, 1)[0];
   refundQueueItem(building.owner, item);
-  const name = item.kind === 'unit' ? unitDisplayName(item.type, building.owner) : ageDisplayName(item.targetAge);
+  const name = item.kind === 'unit' ? unitDisplayName(item.type, building.owner)
+    : item.kind === 'revive' ? 'Hero revival' : ageDisplayName(item.targetAge);
   notify('Canceled ' + name + ' and refunded resources', 'info');
   game.selectionVersion++;
   return true;
@@ -6587,6 +6912,11 @@ function buildBuildingButtons(b) {
       makeBtn('Final Age reached', null,
         () => ({ ok: false, reason: 'Already at the final Age' }),
         () => {});
+    }
+    if (p.fallenHero) {
+      makeBtn('Revive Hero · ' + (p.fallenHero.level * CONFIG.HERO.REVIVE_GOLD_PER_LEVEL) + 'g', null,
+        () => canReviveHero(0, b),
+        () => { tryReviveHero(b); });
     }
   }
   if (def.upgradesTo) {
@@ -6677,6 +7007,20 @@ function buildVillagerButtons() {
         return { ok: true };
       },
       () => enterPlacement(bt));
+  }
+}
+
+function buildCasterButtons(u) {
+  for (const spellId of u.knownSpells) {
+    const def = CONFIG.SPELLS[spellId];
+    makeBtn('Cast ' + def.name + ' · ' + def.mana + ' Will', null,
+      () => {
+        const cdLeft = (u.spellCooldowns[spellId] || 0) - game.time;
+        if (cdLeft > 0) return { ok: false, reason: 'Recharging (' + Math.ceil(cdLeft) + 's)' };
+        if (u.mana < def.mana) return { ok: false, reason: 'Not enough Will' };
+        return { ok: true };
+      },
+      () => { enterSpellTargeting(u.id, spellId); });
   }
 }
 
