@@ -1,5 +1,48 @@
 # Implementation Notes
 
+## July 2026 Major Expansion
+
+Eight-phase pass adding fortifications, diplomacy, progression, magic, and a deeper tech tree. Each phase was committed and smoke-tested independently; see git log for the full breakdown.
+
+### Economy And AI Pacing
+- Stone/iron/fish were configured but never seeded, tracked, or spent by any code path — the six-resource economy is now real for every player, including the AI's villager job assignment and the HUD.
+- Fish shoals now spawn on shoreline water tiles, kept clear of every town center's build-out radius (an earlier version of this boxed AI bases in and stalled their economy).
+- `areHostile`/`areAllied` predicates replace ad hoc `owner !==` comparisons everywhere targeting is decided, in preparation for diplomacy.
+- AI wave timing, size growth, and army caps are tuned down; difficulty presets rescaled so Heroic/Nightmare keep roughly their old bite.
+
+### Fortifications
+- Palisade -> Stone Wall -> Fortified Wall, upgradeable in place with HP fraction preserved. Drag-placement paints a Manhattan line of segments in one click-drag.
+- Gates resolve passability per-unit: `tileBlockedFor` takes an optional asker-owner argument so a gate reads as open for the owner's (and allies') units and solid for everyone else, without changing behavior for any caller that omits it.
+- Watch/Guard Towers fire on a per-building combat tick (buildings previously never attacked) that reuses the existing projectile pipeline.
+- AI whose chase target becomes walled off retargets to the nearest reachable hostile asset instead of repathing against a sealed route forever.
+
+### Progression
+- Units gain XP from kills and level up (Heroes to 8, everyone else to 5) with a multiplicative HP/damage bonus, rank-pip rendering, and out-of-combat regen (faster near a friendly building, or from a Temple Acolyte's aura even mid-fight).
+- Villagers repair damaged complete buildings through the existing build state machine, paying a fraction of build cost.
+- Research was pure config before this pass — nothing tracked or enforced it. It's now a real per-player system with its own production-queue kind. **Barracks trains militia/spearman/archer/knight/mage but their unlock research previously only existed on guardhub/willhub**, buildings the AI never constructs; barracks now carries its own copy of every unlock it needs.
+- A 4th Age (Archon's Legacy) and four new units (Battering Ram, Guild Ballista, Temple Acolyte, Guild Outrider) round out the tech tree, gated by new research entries.
+
+### Diplomacy
+- A per-pair relations matrix (war/peace/ally) starts everyone at war, matching prior behavior exactly until a relation changes.
+- AI accepts peace when weaker or recently battered, alliance after a peace duration plus a strength edge or cumulative tribute, and may break a long peace if it grows much stronger than the player.
+- AI wave targeting is relations-driven instead of hardcoded to the player, so factions can raid each other.
+- Victory requires every surviving town-center faction to be allied, not just the player's survival.
+
+### Magic
+- Casters get a mana pool with passive regen; spells are cast via the same click-to-target flow as building placement (`game.spellTarget`).
+- Fireball is a point-targeted, non-homing projectile — the projectile pipeline was extended to deal area damage on arrival even without a primary unit target.
+- The Will Hub grants a per-player Will pool (scales with hub count) for global, map-anywhere powers (Firestorm, Guild Blessing), resolved through a new ticking `game.zones` list.
+
+### Sentinel-Owner Safety (Neutral Creeps)
+- Wildlife camps use a sentinel owner outside the real player range. `unitMaxHp`/`unitDamageValue` and every `FACTION[owner]` rendering/color lookup now guard against a missing player or faction-palette entry (`factionStyle()` falls back to a dedicated `CREEP_STYLE`).
+- Two previously-unhandled unit types (any type not in the draw function's if-chain) rendered as an invisible sprite — this was latent before creeps/Hero existed since every prior type had a branch; both new type families now have their own render branches.
+
+### Combat Feel
+- Melee slashes point along the actual attack angle instead of a fixed X; a new spark burst plays on impact, and a throttled dust puff on building hits. Damage remains fully instant — these are additive visual effects, not a timing change.
+
+### Validation
+Each phase was checked with headless-browser scripts driving the live simulation (`update()`/`render()` called directly, no timers) rather than relying on visual inspection alone: multi-minute, multi-faction stability runs watching for console errors and NaN resource values; targeted checks per system (gate passability with and without a matching owner, turret fire-and-damage, wall-drag line geometry, diplomacy accept/refuse/betray thresholds, market spread, mana spend and cooldowns, hero XP-to-level-8 and revive-at-correct-level, creep camp bounty payout); and a multi-seed sweep specifically to catch AI pacing regressions from the new research gating. Regenerated `in-game`, `fortifications`, `diplomacy`, and `production-queue` screenshots with Playwright.
+
 ## July 2026 Update
 
 This checkpoint added framework support, gameplay systems, screenshots, and documentation.
