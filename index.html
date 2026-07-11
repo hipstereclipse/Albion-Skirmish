@@ -78,6 +78,8 @@
   #selection-panel { width:clamp(178px, 25vw, 300px); padding:calc(9px * var(--ui-scale)) calc(13px * var(--ui-scale)); border-right:1px solid var(--panel-line); overflow:hidden; }
   #selection-panel .sel-name { font-size:calc(16px * var(--ui-scale)); font-weight:800; margin-bottom:2px; letter-spacing:.2px; }
   #selection-panel .sel-owner-enemy { color:#ff8a8a; font-size:calc(12px * var(--ui-scale)); font-weight:800; }
+  #selection-panel .sel-owner-peace { color:#a8e0a8; font-size:calc(12px * var(--ui-scale)); font-weight:800; }
+  #selection-panel .sel-owner-ally { color:#9fd9ec; font-size:calc(12px * var(--ui-scale)); font-weight:800; }
   #selection-panel .dim { color:#8e8068; font-size:calc(13px * var(--ui-scale)); margin-top:8px; }
   #selection-panel .statline { font-size:calc(12.5px * var(--ui-scale)); color:var(--muted); margin-top:3px; }
   #selection-panel .statline b { color:#eadfc8; }
@@ -171,6 +173,27 @@
   .pause-actions { display:flex; flex-wrap:wrap; justify-content:center; gap:10px; }
   .pause-btn { min-width:132px; height:40px; border-radius:7px; border:1px solid rgba(203,154,75,.75); color:#eadfc8; background:linear-gradient(180deg, rgba(75,54,32,.96), rgba(32,25,18,.98)); font:800 13px Georgia, serif; cursor:pointer; }
   .pause-btn.primary { color:#20170f; background:linear-gradient(#ffe37e,#d6a32a); }
+  .topbar-btn { font:800 12px Georgia, serif; letter-spacing:.4px; color:#eadfc8; cursor:pointer;
+    border:1px solid rgba(203,154,75,.6); border-radius:6px; padding:4px 10px;
+    background:linear-gradient(180deg, rgba(75,54,32,.85), rgba(32,25,18,.9)); }
+  .topbar-btn:hover { border-color:#f0c766; }
+  #diplomacy-overlay { position:absolute; inset:0; z-index:41; display:flex; align-items:center; justify-content:center; background:rgba(9,7,5,.5); backdrop-filter:blur(4px); }
+  .diplo-card { width:min(560px, 92vw); max-height:82vh; overflow-y:auto; }
+  #diplomacy-rows { display:flex; flex-direction:column; gap:10px; margin-bottom:16px; }
+  .diplo-row { border:1px solid rgba(203,154,75,.35); border-radius:7px; padding:10px 12px; text-align:left; background:rgba(0,0,0,.18); }
+  .diplo-row-head { display:flex; align-items:center; gap:8px; margin-bottom:6px; }
+  .diplo-swatch { width:12px; height:12px; border-radius:3px; flex:0 0 auto; box-shadow:0 0 0 1px rgba(0,0,0,.5); }
+  .diplo-name { font-weight:800; color:#eadfc8; flex:1; }
+  .diplo-badge { font:800 10px Georgia, serif; letter-spacing:.5px; padding:2px 7px; border-radius:10px; text-transform:uppercase; }
+  .diplo-badge.war { background:rgba(200,60,50,.28); color:#ff9a8a; }
+  .diplo-badge.peace { background:rgba(120,170,120,.28); color:#a8e0a8; }
+  .diplo-badge.ally { background:rgba(90,160,220,.3); color:#9fd9ec; }
+  .diplo-strength { font-size:11px; color:#b9a989; margin-bottom:8px; }
+  .diplo-actions { display:flex; flex-wrap:wrap; gap:6px; }
+  .diplo-btn { font:700 11px Georgia, serif; padding:5px 9px; border-radius:5px; cursor:pointer;
+    border:1px solid rgba(203,154,75,.6); color:#eadfc8; background:linear-gradient(180deg, rgba(75,54,32,.9), rgba(32,25,18,.95)); }
+  .diplo-btn:disabled { opacity:.4; cursor:default; }
+  .diplo-btn.tribute { border-color:rgba(120,170,220,.6); }
   #touch-toolbar { right:max(6px, env(safe-area-inset-right)); bottom:calc(var(--bottom-h) + 8px); display:flex; padding:4px; gap:4px; align-items:center; flex-direction:column; border-radius:10px; opacity:.88; }
   #touch-toolbar:hover { opacity:1; }
   .touch-btn { width:40px; min-width:40px; height:34px; padding:0; border-radius:7px; border:1px solid rgba(203,154,75,.72); color:#eadfc8; background:linear-gradient(180deg, rgba(75,54,32,.96), rgba(32,25,18,.98)); font:800 10px "Palatino Linotype", "Book Antiqua", Georgia, serif; letter-spacing:.3px; }
@@ -215,6 +238,7 @@
   <span class="res" id="res-pop-wrap"><span class="res-icon pop" aria-hidden="true"></span><span class="num" id="res-pop">0/0</span></span>
   <span id="age-display">Apprentice Years</span>
   <span id="time-display">0:00</span>
+  <button type="button" id="btn-diplomacy" class="topbar-btn" title="Diplomacy (P)">Diplomacy</button>
   <span id="pause-hint">Space = pause</span>
 </div>
 
@@ -309,6 +333,17 @@
     <div class="pause-actions">
       <button type="button" class="pause-btn primary" id="btn-resume">Resume</button>
       <button type="button" class="pause-btn" id="btn-pause-restart">Restart</button>
+    </div>
+  </div>
+</div>
+
+<div id="diplomacy-overlay" class="hidden">
+  <div class="pause-card diplo-card">
+    <h2>DIPLOMACY</h2>
+    <small>Manage relations, alliances, and tribute &mdash; press P or Esc to close</small>
+    <div id="diplomacy-rows"></div>
+    <div class="pause-actions">
+      <button type="button" class="pause-btn primary" id="btn-diplo-close">Close</button>
     </div>
   </div>
 </div>
@@ -437,6 +472,8 @@ const CONFIG = {
     guardtower: { name:'Guard Tower', hp:820, size:2, cost:{stone:140,iron:60}, buildTime:26,
                   ageReq:2, buildable:false, turret:true,
                   attack:{ damage:12, range:6.2, cooldown:1.8, projectileSpeed:480 } },
+    market:     { name:'Bowerstone Market', hp:640, size:3, cost:{wood:140,gold:60}, buildTime:24,
+                  ageReq:1, buildable:true, market:true },
   },
 
   FORGE: {
@@ -538,6 +575,21 @@ const CONFIG = {
     ],
   },
 
+  DIPLOMACY: {
+    PEACE_STRENGTH_RATIO: 1.3,        // AI accepts peace if the offering side is this much stronger
+    PEACE_RECENT_LOSSES: 2,           // ...or lost this many buildings within LOSS_WINDOW
+    LOSS_WINDOW: 90,
+    ALLY_PEACE_DURATION: 120,         // seconds of unbroken peace required before an alliance is possible
+    ALLY_STRENGTH_RATIO: 1.5,
+    ALLY_TRIBUTE: 500,                // lifetime tribute total that substitutes for the strength check
+    TRIBUTE_LOT: 100,
+    AI_BETRAY_RATIO: 0.55,            // AI may declare war again if the player looks this much weaker than it
+    AI_BETRAY_MIN_PEACE: 180,
+    AI_BETRAY_CHANCE: 0.02,           // per decision tick, once eligible
+    REFUSAL_COOLDOWN: 45,
+  },
+  MARKET: { LOT: 100, BUY_GOLD: 110, SELL_GOLD: 90 },
+
   SOCIETY_PRIORITIES: {
     balanced: { label:'Balanced', ratios:{food:.30, wood:.24, gold:.16, stone:.12, iron:.12, fish:.06} },
     economy:  { label:'Economy',  ratios:{food:.28, wood:.30, gold:.10, stone:.12, iron:.08, fish:.12} },
@@ -611,6 +663,7 @@ const DOM = {
   pauseTime: $('pause-time'), pauseAge: $('pause-age'), pauseSeed: $('pause-seed'), pauseStart: $('pause-start'),
   touchToolbar: $('touch-toolbar'), touchSelect: $('btn-touch-select'),
   touchCommand: $('btn-touch-command'), touchZoomIn: $('btn-touch-zoom-in'), touchZoomOut: $('btn-touch-zoom-out'), touchPause: $('btn-touch-pause'),
+  diplomacyOverlay: $('diplomacy-overlay'), diplomacyRows: $('diplomacy-rows'), btnDiplomacy: $('btn-diplomacy'),
 };
 
 const THEME = {
@@ -662,6 +715,7 @@ const THEME = {
       gate: ['Guild Gate', 'Bandit Gate', 'Hobbe Gate', 'Bone Gate'],
       watchtower: ['Watch Tower', 'Bandit Lookout', 'Hobbe Perch', 'Grave Spire'],
       guardtower: ['Guard Tower', 'Bandit Bastion', 'Hobbe Stronghold', 'Wraith Tower'],
+      market: ['Bowerstone Market', 'Bandit Fence Stall', 'Hobbe Swap Pile', 'Bone Bazaar'],
     },
   },
 };
@@ -873,6 +927,102 @@ function areAllied(a, b) {
   const rel = game && game.relations;
   return !!(rel && rel[a] && rel[a][b] === 'ally');
 }
+// Rough army+economy score used by diplomacy heuristics (accept/refuse/betray decisions).
+function strengthOf(owner) {
+  let s = 0;
+  for (const u of game.units) {
+    if (u.dead || u.owner !== owner) continue;
+    s += isMilitary(u.type) ? (CONFIG.UNITS[u.type].popCost || 1) : 0.25;
+  }
+  for (const b of game.buildings) {
+    if (b.dead || b.owner !== owner || !b.complete) continue;
+    const def = CONFIG.BUILDINGS[b.type];
+    s += def.trains || def.attack ? 1.2 : 0.3;
+  }
+  return s;
+}
+function setRelation(a, b, rel) {
+  if (!game.relations[a] || !game.relations[b] || a === b) return;
+  game.relations[a][b] = rel;
+  game.relations[b][a] = rel;
+  const now = game.time;
+  if (rel === 'war') { game.diplo[a][b].peaceSince = -1; game.diplo[b][a].peaceSince = -1; }
+  else if (game.diplo[a][b].peaceSince < 0) { game.diplo[a][b].peaceSince = now; game.diplo[b][a].peaceSince = now; }
+  game.diploVersion++;
+  checkVictoryCondition();
+}
+function checkVictoryCondition() {
+  if (!game || game.result) return;
+  const unresolved = game.buildings.some(b => !b.dead && b.type === 'towncenter' && b.owner > 0 && !areAllied(0, b.owner));
+  if (!unresolved) endGame('victory');
+}
+function diploState(owner) { return game.diplo[0][owner]; }
+function canOfferPeace(owner) {
+  if (game.relations[0][owner] !== 'war') return { ok: false, reason: 'Already at peace or allied' };
+  if (game.time < diploState(owner).refusedUntil) return { ok: false, reason: 'They are still considering your last offer' };
+  return { ok: true };
+}
+function offerPeace(owner) {
+  const c = canOfferPeace(owner);
+  if (!c.ok) return c;
+  const D = CONFIG.DIPLOMACY;
+  const p = game.players[owner];
+  const recentLosses = p.lossLog.filter(t => game.time - t < D.LOSS_WINDOW).length;
+  const willing = strengthOf(0) >= strengthOf(owner) * D.PEACE_STRENGTH_RATIO || recentLosses >= D.PEACE_RECENT_LOSSES;
+  if (willing) {
+    setRelation(0, owner, 'peace');
+    notify(factionName(owner) + ' accepts peace.', 'good');
+    return { ok: true };
+  }
+  diploState(owner).refusedUntil = game.time + D.REFUSAL_COOLDOWN;
+  notify(factionName(owner) + ' refuses peace.', 'warn');
+  return { ok: true };
+}
+function canOfferAlliance(owner) {
+  if (game.relations[0][owner] !== 'peace') return { ok: false, reason: 'Requires peace first' };
+  const ds = diploState(owner);
+  if (game.time < ds.refusedUntil) return { ok: false, reason: 'They are still considering your last offer' };
+  if (ds.peaceSince < 0 || game.time - ds.peaceSince < CONFIG.DIPLOMACY.ALLY_PEACE_DURATION) return { ok: false, reason: 'Peace is too recent' };
+  return { ok: true };
+}
+function offerAlliance(owner) {
+  const c = canOfferAlliance(owner);
+  if (!c.ok) return c;
+  const D = CONFIG.DIPLOMACY;
+  const willing = strengthOf(0) >= strengthOf(owner) * D.ALLY_STRENGTH_RATIO || diploState(owner).tribute >= D.ALLY_TRIBUTE;
+  if (willing) {
+    setRelation(0, owner, 'ally');
+    notify(factionName(owner) + ' accepts your alliance!', 'good');
+    return { ok: true };
+  }
+  diploState(owner).refusedUntil = game.time + D.REFUSAL_COOLDOWN;
+  notify(factionName(owner) + ' is not ready to ally.', 'warn');
+  return { ok: true };
+}
+function declareWar(owner) {
+  if (game.relations[0][owner] === 'war') return { ok: false, reason: 'Already at war' };
+  setRelation(0, owner, 'war');
+  notify('You have declared war on ' + factionName(owner) + '.', 'bad');
+  return { ok: true };
+}
+function canSendTribute(owner, resKey, amount) {
+  if (game.relations[0][owner] === 'war') return { ok: false, reason: 'Cannot send tribute during war' };
+  const p = game.players[0];
+  if (p.resources[resKey] < amount) return { ok: false, reason: 'Not enough ' + resKey };
+  return { ok: true };
+}
+function sendTribute(owner, resKey, amount) {
+  const c = canSendTribute(owner, resKey, amount);
+  if (!c.ok) return c;
+  game.players[0].resources[resKey] -= amount;
+  game.players[owner].resources[resKey] += amount;
+  if (resKey === 'gold') diploState(owner).tribute += amount;
+  else diploState(owner).tribute += amount * 0.5;
+  game.diplo[owner][0].tribute = diploState(owner).tribute;
+  notify('Sent ' + amount + ' ' + resKey + ' to ' + factionName(owner) + '.', 'good');
+  game.diploVersion++;
+  return { ok: true };
+}
 function currentMapPreset() { return MAP_PRESETS[(game && game.options && game.options.mapId) || 'greatwood'] || MAP_PRESETS.greatwood; }
 function difficultyForOptions(opts) { return DIFFICULTY_PRESETS[(opts && opts.difficulty) || 'standard'] || DIFFICULTY_PRESETS.standard; }
 function resourceForOptions(opts) { return RESOURCE_PRESETS[(opts && opts.resources) || 'standard'] || RESOURCE_PRESETS.standard; }
@@ -1006,6 +1156,7 @@ function makePlayer(id) {
     questPopBonus: 0,
     popCap: 0,                 // recomputed from completed buildings
     threat: null,              // {x, y, t} — last attack on this player's assets (AI defense)
+    lossLog: [],                // timestamps of buildings lost — feeds diplomacy heuristics
   };
 }
 
@@ -1031,6 +1182,15 @@ function newGame(options) {
   for (let i = 1; i < players.length; i++) {
     ais[i] = { nextWaveTime: CONFIG.AI.FIRST_WAVE_DELAY * diff.firstWave + (i - 1) * 32, waveIndex: 0, decisionTimer: 1 + i * 0.45 };
   }
+  // Every pair starts at war (matches the game's original always-hostile behavior).
+  const relations = [], diplo = [];
+  for (let a = 0; a < players.length; a++) {
+    relations.push([]); diplo.push([]);
+    for (let b = 0; b < players.length; b++) {
+      relations[a][b] = a === b ? 'peace' : 'war';
+      diplo[a][b] = { peaceSince: -1, tribute: 0, refusedUntil: -999 };
+    }
+  }
   return {
     time: 0,
     options: opts,
@@ -1046,6 +1206,7 @@ function newGame(options) {
     nodeGrid: new Array(NTILES).fill(null),
     buildingGrid: new Array(NTILES).fill(null),  // tile -> building ref, for gate lookups + wall rendering
     players,
+    relations, diplo, diploVersion: 0, diplomacyOpen: false,
     camera: { x: 0, y: 0, zoom: defaultWorldZoom(), targetZoom: defaultWorldZoom(), panVX: 0, panVY: 0, zoomAnchor: null },
     selection: [], selectionVersion: 0,
     controlGroups: {},
@@ -1893,13 +2054,16 @@ function destroyEntity(e) {
     e.queue.length = 0;
     rebuildBlocked();
     recomputePopCap(e.owner);
+    if (p) p.lossLog.push(game.time);
     const c = entCenter(e);
     game.effects.push({ type: 'rubble', x: c.x, y: c.y, r: e.size * T * 0.45, t: 0, ttl: 1.3 });
     if (e.owner === 0 && e.type !== 'towncenter') notify(buildingDisplayName(e.type, e.owner) + ' destroyed!', 'bad');
     if (e.type === 'towncenter' && !game.result) {
       if (e.owner === 0) endGame('defeat');
-      else if (!game.buildings.some(b => !b.dead && b.owner > 0 && b.type === 'towncenter')) endGame('victory');
-      else notify(factionName(e.owner) + ' camp destroyed!', 'good');
+      else {
+        notify(factionName(e.owner) + ' camp destroyed!', 'good');
+        checkVictoryCondition();
+      }
     }
   } else if (e.kind === 'resource') {
     arrRemove(game.nodes, e);
@@ -2976,12 +3140,12 @@ function chooseAIWaveTarget(owner, units) {
   const origin = aiArmyOrigin(owner, units);
   let best = null, bs = -Infinity;
   for (const u of game.units) {
-    if (u.dead || u.transportId || u.owner !== 0) continue;
+    if (u.dead || u.transportId || !areHostile(owner, u.owner)) continue;
     const score = aiWaveTargetScore(u, origin);
     if (score > bs) { bs = score; best = u; }
   }
   for (const b of game.buildings) {
-    if (b.dead || b.owner !== 0) continue;
+    if (b.dead || !areHostile(owner, b.owner)) continue;
     const score = aiWaveTargetScore(b, origin);
     if (score > bs) { bs = score; best = b; }
   }
@@ -3005,7 +3169,8 @@ function launchWaveIfReady(owner) {
       }
       ai.waveIndex++;
       ai.nextWaveTime = game.time + A.WAVE_INTERVAL * currentDifficulty().waveInterval;
-      notify(factionName(owner) + ' attack wave incoming!', 'bad');
+      if (targetEntity.owner === 0) notify(factionName(owner) + ' attack wave incoming!', 'bad');
+      else notify(factionName(owner) + ' marches on ' + factionName(targetEntity.owner) + '.', 'info');
       return;
     }
   }
@@ -3103,6 +3268,16 @@ function updateAIPlayer(dt, owner) {
   ai.decisionTimer -= dt;
   if (ai.decisionTimer > 0) return;
   ai.decisionTimer = A.DECISION_INTERVAL * D.decision;
+
+  // diplomacy: a faction that's grown much stronger than the player may break a long peace
+  const DP = CONFIG.DIPLOMACY;
+  if (game.relations[owner][0] === 'peace' && game.diplo[owner][0].peaceSince >= 0
+      && game.time - game.diplo[owner][0].peaceSince > DP.AI_BETRAY_MIN_PEACE
+      && strengthOf(owner) >= strengthOf(0) * DP.AI_BETRAY_RATIO
+      && Math.random() < DP.AI_BETRAY_CHANCE) {
+    setRelation(owner, 0, 'war');
+    notify(factionName(owner) + ' has broken the peace and declared war!', 'bad');
+  }
 
   const villagers = [], military = [];
   for (const u of game.units) {
@@ -3455,6 +3630,8 @@ function initInput() {
   $('btn-resume').addEventListener('click', () => { if (appState === 'paused') togglePause(); });
   $('btn-pause-restart').addEventListener('click', startGame);
   $('btn-random-seed').addEventListener('click', () => { $('opt-seed').value = String(seedFromString(Date.now() + ':' + Math.random())).slice(0, 9); });
+  DOM.btnDiplomacy.addEventListener('click', () => toggleDiplomacy());
+  $('btn-diplo-close').addEventListener('click', () => toggleDiplomacy(false));
   window.addEventListener('resize', sizeCanvas);
   $('btn-start').addEventListener('click', startGame);
   $('btn-restart').addEventListener('click', startGame);
@@ -3550,10 +3727,12 @@ function onKeyDown(e) {
   if (code === 'Space') { togglePause(); return; }
   if (!gameInteractive()) return;
   if (code === 'Escape') {
+    if (game.diplomacyOpen) { toggleDiplomacy(false); return; }
     if (game.placement) cancelPlacement();
     else { stopAutoCombatForSelected(); game.selection = []; game.selectionVersion++; }
     return;
   }
+  if (code === 'KeyP') { toggleDiplomacy(); return; }
   if (code === 'Equal' || code === 'NumpadAdd') {
     e.preventDefault();
     setCameraZoom(targetWorldZoom() * CONFIG.CAMERA.ZOOM_STEP, viewW / 2, viewH / 2);
@@ -5348,6 +5527,22 @@ function drawBuildingBody(b, x, y, w, fac) {
     ctx.fillStyle = '#2b1b10';
     ctx.fillRect(x + w * 0.46, y + w * 0.42, w * 0.08, w * 0.16);
     drawBanner(x + w * 0.47, y - w * 0.02, w * 0.06, w * 0.16, fac.fill);
+  } else if (b.type === 'market') {
+    const cloth = bandit ? fac.cloth : '#a3453f';
+    fillPoly([[x+w*.08,y+w*.42],[x+w*.5,y+w*.2],[x+w*.92,y+w*.42],[x+w*.5,y+w*.5]], cloth);
+    fillPoly([[x+w*.5,y+w*.2],[x+w*.92,y+w*.42],[x+w*.5,y+w*.5]], shadeColor(cloth, -28));
+    ctx.strokeStyle = '#2b1b10'; ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(x+w*.14,y+w*.44); ctx.lineTo(x+w*.14,y+w*.84);
+    ctx.moveTo(x+w*.86,y+w*.44); ctx.lineTo(x+w*.86,y+w*.84);
+    ctx.stroke();
+    ctx.fillStyle = bandit ? '#3d2c1c' : '#8c7655';
+    ctx.fillRect(x+w*.2, y+w*.62, w*.6, w*.2);
+    for (const crate of [[.24,.68],[.42,.72],[.6,.66]]) {
+      ctx.fillStyle = '#f0c766'; ctx.beginPath(); ctx.arc(x+w*crate[0], y+w*crate[1], w*.05, 0, Math.PI*2); ctx.fill();
+      ctx.strokeStyle = '#8a6a1f'; ctx.lineWidth = 1; ctx.stroke();
+    }
+    drawBanner(x + w * 0.47, y + w * 0.02, w * 0.08, w * 0.16, fac.fill);
   } else {          // storehouse
     fillPoly([[x+w*.16,y+w*.48],[x+w*.5,y+w*.32],[x+w*.84,y+w*.48],[x+w*.76,y+w*.86],[x+w*.24,y+w*.86]], bandit ? '#5a3420' : '#9a764a');
     fillPoly([[x+w*.13,y+w*.43],[x+w*.5,y+w*.22],[x+w*.87,y+w*.43],[x+w*.72,y+w*.55],[x+w*.28,y+w*.55]], bandit ? '#603025' : '#6e4c2b');
@@ -5978,6 +6173,7 @@ function renderMinimap() {
  * UI — top bar sync, selection panel, action buttons, notifications, screens
  * ================================================================================ */
 let lastSelSignature = '';
+let lastDiploVersionSynced = -1;
 let uiUpdaters = [];
 const notifRecent = new Map();
 
@@ -5995,6 +6191,58 @@ function notify(text, kind) {
     el.classList.add('fadeout');
     setTimeout(() => el.remove(), 520);
   }, CONFIG.UI.NOTIFY_SECONDS * 1000);
+}
+
+function toggleDiplomacy(force) {
+  if (!game || appState !== 'playing') return;
+  const open = force != null ? force : !game.diplomacyOpen;
+  game.diplomacyOpen = open;
+  DOM.diplomacyOverlay.classList.toggle('hidden', !open);
+  if (open) { lastDiploVersionSynced = game.diploVersion; rebuildDiplomacyPanel(); }
+}
+function rebuildDiplomacyPanel() {
+  const rows = DOM.diplomacyRows;
+  rows.innerHTML = '';
+  for (let owner = 1; owner < game.players.length; owner++) {
+    const rel = game.relations[0][owner];
+    const myS = strengthOf(0), theirS = strengthOf(owner);
+    const hint = theirS > myS * 1.15 ? 'Stronger' : theirS < myS * 0.85 ? 'Weaker' : 'Even';
+    const row = document.createElement('div');
+    row.className = 'diplo-row';
+    row.innerHTML =
+      '<div class="diplo-row-head">' +
+        '<span class="diplo-swatch" style="background:' + FACTION[owner].fill + '"></span>' +
+        '<span class="diplo-name">' + factionName(owner) + '</span>' +
+        '<span class="diplo-badge ' + rel + '">' + rel + '</span>' +
+      '</div>' +
+      '<div class="diplo-strength">Relative strength: ' + hint + '</div>' +
+      '<div class="diplo-actions"></div>';
+    const actions = row.querySelector('.diplo-actions');
+    const addBtn = (label, extraClass, check, action) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'diplo-btn' + (extraClass ? ' ' + extraClass : '');
+      btn.textContent = label;
+      const c = check();
+      btn.disabled = !c.ok;
+      if (!c.ok && c.reason) btn.title = c.reason;
+      btn.addEventListener('click', () => {
+        const r = action();
+        if (r && !r.ok && r.reason) notify(r.reason, 'warn');
+        rebuildDiplomacyPanel();
+      });
+      actions.appendChild(btn);
+    };
+    addBtn('Offer Peace', '', () => canOfferPeace(owner), () => offerPeace(owner));
+    addBtn('Propose Alliance', '', () => canOfferAlliance(owner), () => offerAlliance(owner));
+    addBtn('Declare War', '', () => (rel === 'war' ? { ok: false, reason: 'Already at war' } : { ok: true }), () => declareWar(owner));
+    for (const res of RESOURCE_TYPES) {
+      addBtn('Tribute ' + CONFIG.DIPLOMACY.TRIBUTE_LOT + ' ' + RES_LABELS[res], 'tribute',
+        () => canSendTribute(owner, res, CONFIG.DIPLOMACY.TRIBUTE_LOT),
+        () => sendTribute(owner, res, CONFIG.DIPLOMACY.TRIBUTE_LOT));
+    }
+    rows.appendChild(row);
+  }
 }
 
 function entityName(e) {
@@ -6024,12 +6272,16 @@ function uiSync() {
     lastSelSignature = sig;
     rebuildSelectionPanel();
   }
+  if (game.diplomacyOpen && game.diploVersion !== lastDiploVersionSynced) {
+    lastDiploVersionSynced = game.diploVersion;
+    rebuildDiplomacyPanel();
+  }
   for (const f of uiUpdaters) f();
   canvas.style.cursor = game.placement ? 'crosshair' : 'default';
 }
 
 function computeSelSignature() {
-  let sig = appState + '|' + game.players[0].age + '|' +
+  let sig = appState + '|' + game.players[0].age + '|' + game.diploVersion + '|' +
             (game.placement ? game.placement.type : '') + '|' + game.selectionVersion + '|';
   for (const id of game.selection) {
     const e = getAlive(id);
@@ -6069,8 +6321,11 @@ function buildSingleSelection(e) {
     return;
   }
   const isOwn = e.owner === 0;
-  let html = '<div class="sel-name">' + entityName(e) +
-    (isOwn ? '' : ' <span class="sel-owner-enemy">ENEMY</span>') + '</div>';
+  const relTag = isOwn ? '' :
+    areAllied(0, e.owner) ? ' <span class="sel-owner-ally">ALLY</span>' :
+    game.relations[0][e.owner] === 'peace' ? ' <span class="sel-owner-peace">PEACE</span>' :
+    ' <span class="sel-owner-enemy">ENEMY</span>';
+  let html = '<div class="sel-name">' + entityName(e) + relTag + '</div>';
   html += '<div class="hpbar"><div id="sel-hp-fill"></div></div>';
   html += '<div class="statline" id="sel-hp-text"></div>';
   if (e.kind === 'unit') {
@@ -6345,6 +6600,37 @@ function buildBuildingButtons(b) {
       () => ({ ok: true }),
       () => { toggleGateLock(b); });
   }
+  if (def.market) buildMarketButtons(b);
+}
+
+// Fixed-spread buy/sell: selling nets less than buying costs, so trading isn't free money.
+function canTradeMarket(owner, dir, resKey) {
+  const p = game.players[owner];
+  const M = CONFIG.MARKET;
+  if (dir === 'sell' && p.resources[resKey] < M.LOT) return { ok: false, reason: 'Not enough ' + resKey };
+  if (dir === 'buy' && p.resources.gold < M.BUY_GOLD) return { ok: false, reason: 'Not enough gold' };
+  return { ok: true };
+}
+function tryTradeMarket(owner, dir, resKey) {
+  const c = canTradeMarket(owner, dir, resKey);
+  if (!c.ok) return c;
+  const p = game.players[owner], M = CONFIG.MARKET;
+  if (dir === 'sell') { p.resources[resKey] -= M.LOT; p.resources.gold += M.SELL_GOLD; }
+  else { p.resources.gold -= M.BUY_GOLD; p.resources[resKey] += M.LOT; }
+  if (owner === 0) game.selectionVersion++;
+  return { ok: true };
+}
+function buildMarketButtons(b) {
+  const M = CONFIG.MARKET;
+  for (const res of RESOURCE_TYPES) {
+    if (res === 'gold') continue;
+    makeBtn('Sell ' + M.LOT + ' ' + RES_LABELS[res] + ' → ' + M.SELL_GOLD + 'g', null,
+      () => canTradeMarket(b.owner, 'sell', res),
+      () => { tryTradeMarket(b.owner, 'sell', res); });
+    makeBtn('Buy ' + M.LOT + ' ' + RES_LABELS[res] + ' ← ' + M.BUY_GOLD + 'g', null,
+      () => canTradeMarket(b.owner, 'buy', res),
+      () => { tryTradeMarket(b.owner, 'buy', res); });
+  }
 }
 
 function buildBlacksmithButtons(b) {
@@ -6379,7 +6665,7 @@ function buildVillagerButtons() {
       if (!res.ok) notify('Auto Needs enabled; waiting for reachable work', 'info');
       else notify('Auto Needs enabled for ' + vills.length + ' apprentice' + (vills.length === 1 ? '' : 's'), 'good');
     });
-  for (const bt of ['house', 'storehouse', 'barracks', 'blacksmith', 'shipyard', 'palisade', 'stonewall', 'gate', 'watchtower']) {
+  for (const bt of ['house', 'storehouse', 'barracks', 'blacksmith', 'shipyard', 'market', 'palisade', 'stonewall', 'gate', 'watchtower']) {
     const def = CONFIG.BUILDINGS[bt];
     if (!def.buildable) continue;
     makeBtn('Build ' + buildingDisplayName(bt, 0), def.cost,
@@ -6472,6 +6758,7 @@ function startGame() {
   DOM.screenStart.classList.add('hidden');
   DOM.screenEnd.classList.add('hidden');
   DOM.pauseOverlay.classList.add('hidden');
+  DOM.diplomacyOverlay.classList.add('hidden');
   DOM.topBar.classList.remove('hidden');
   DOM.bottomPanel.classList.remove('hidden');
   sizeCanvas();
@@ -6502,10 +6789,17 @@ function endGame(result) {
   game.result = result;
   appState = result;
   DOM.pauseOverlay.classList.add('hidden');
+  DOM.diplomacyOverlay.classList.add('hidden');
+  game.diplomacyOpen = false;
   DOM.endTitle.textContent = result === 'victory' ? 'VICTORY!' : 'DEFEAT';
   DOM.endTitle.classList.toggle('defeat', result !== 'victory');
+  const allyCount = result === 'victory'
+    ? game.players.filter((p, i) => i > 0 && areAllied(0, i) &&
+        game.buildings.some(b => !b.dead && b.type === 'towncenter' && b.owner === i)).length
+    : 0;
   DOM.endSub.textContent = result === 'victory'
-    ? 'The enemy strongholds have fallen after ' + formatTime(game.time) + '. Albion holds the field.'
+    ? 'The hostile strongholds have fallen after ' + formatTime(game.time) + '.'
+      + (allyCount ? ' ' + allyCount + ' allied faction' + (allyCount === 1 ? '' : 's') + ' stand with Albion.' : ' Albion holds the field.')
     : 'The Guild Hall was destroyed after ' + formatTime(game.time) + '. Rebuild and try again!';
   DOM.screenEnd.classList.remove('hidden');
 }
