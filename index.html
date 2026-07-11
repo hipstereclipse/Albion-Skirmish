@@ -342,6 +342,21 @@ const CONFIG = {
   },
   INTERACT_RANGE: 1.15,                // tiles — reach for gathering / building / depositing
 
+  // Veterancy: military units earn XP from kills and level up for lasting stat gains.
+  LEVELING: {
+    MAX_LEVEL: 5,
+    LEVEL_XP: [40, 100, 200, 340],     // cumulative XP needed to reach levels 2..5
+    HP_PER_LEVEL: 0.08,                // +8% max HP per level above 1
+    DMG_PER_LEVEL: 0.08,               // +8% damage per level above 1
+    KILL_XP_UNIT_HP_FACTOR: 0.25,      // xp for a kill = victim max HP * factor
+    KILL_XP_BUILDING_FACTOR: 0.05,
+    REGEN_DELAY: 8,                    // seconds out of combat before regen starts
+    REGEN_RATE: 0.005,                 // fraction of max HP healed per second
+    REGEN_NEAR_BUILDING_RATE: 0.015,   // faster rate near a friendly finished building
+    REGEN_BUILDING_RADIUS: 4,          // tiles
+  },
+  REPAIR: { RATE_MULT: 1.5, COST_FRACTION: 0.35 },   // repair takes 1.5x build speed, 35% of cost
+
   UNITS: {
     villager: { name:'Guild Apprentice', hp:40, damage:3,  range:0.9, attackCooldown:1.5, moveSpeed:100,
                 aggroRange:0,   popCost:1, cost:{food:50},          trainTime:10, radius:10, ageReq:0,
@@ -756,16 +771,57 @@ function unitDmgBonus(owner) {
   for (let i = 0; i < upgradeLevel(owner, 'weapons'); i++) bonus += CONFIG.FORGE.weapons[i].dmgBonus || 0;
   return bonus;
 }
-function unitMaxHp(type, owner) {
+function unitMaxHp(type, owner, level) {
   const s = CONFIG.UNITS[type];
   const hpMult = isMilitary(type) ? CONFIG.AGES[game.players[owner].age].hpMult : 1;
   const bonus = isMilitary(type) ? unitHpBonus(owner) : 0;
-  return Math.round((s.hp + bonus) * hpMult);
+  const lvlMult = 1 + CONFIG.LEVELING.HP_PER_LEVEL * Math.max(0, (level || 1) - 1);
+  return Math.round((s.hp + bonus) * hpMult * lvlMult);
 }
-function unitDamageValue(type, owner) {
+function unitDamageValue(type, owner, level) {
   const s = CONFIG.UNITS[type];
   const base = s.damage + (isMilitary(type) ? unitDmgBonus(owner) : 0);
-  return base * (isMilitary(type) ? CONFIG.AGES[game.players[owner].age].dmgMult : 1);
+  const lvlMult = 1 + CONFIG.LEVELING.DMG_PER_LEVEL * Math.max(0, (level || 1) - 1);
+  return base * (isMilitary(type) ? CONFIG.AGES[game.players[owner].age].dmgMult : 1) * lvlMult;
+}
+function unitMaxLevel(type) { return CONFIG.UNITS[type].maxLevel || CONFIG.LEVELING.MAX_LEVEL; }
+function xpToReachLevel(type, level) {   // cumulative XP required to hit `level`
+  const table = CONFIG.UNITS[type].levelXp || CONFIG.LEVELING.LEVEL_XP;
+  const need = table[level - 2];
+  return need == null ? Infinity : need;
+}
+function xpValueOf(victim) {
+  const L = CONFIG.LEVELING;
+  if (victim.kind === 'building') return Math.max(4, Math.round(victim.maxHp * L.KILL_XP_BUILDING_FACTOR));
+  const def = CONFIG.UNITS[victim.type];
+  if (def && def.xpValue) return def.xpValue;
+  return Math.max(5, Math.round(victim.maxHp * L.KILL_XP_UNIT_HP_FACTOR));
+}
+function grantXP(u, amount) {
+  if (!u || u.dead || u.kind !== 'unit' || !isMilitary(u.type)) return;
+  u.xp += amount;
+  while (u.level < unitMaxLevel(u.type) && u.xp >= xpToReachLevel(u.type, u.level + 1)) levelUp(u);
+}
+function levelUp(u) {
+  u.level++;
+  const oldMax = u.maxHp;
+  u.maxHp = unitMaxHp(u.type, u.owner, u.level);
+  u.hp = Math.min(u.maxHp, u.hp + Math.max(0, u.maxHp - oldMax) + Math.round(u.maxHp * 0.25));
+  pushEffectCapped({ type: 'levelup', x: u.x, y: u.y, t: 0, ttl: 0.9 });
+  if (u.owner === 0) {
+    notify(unitDisplayName(u.type, u.owner) + ' reached level ' + u.level + '!', 'good');
+    game.selectionVersion++;
+  }
+  if (typeof onHeroLevelUp === 'function' && CONFIG.UNITS[u.type].hero) onHeroLevelUp(u);
+}
+// Bounded effects list — combat text in big fights must not grow without limit.
+function pushEffectCapped(e) {
+  const fx = game.effects;
+  if (fx.length > 300) {
+    const i = fx.findIndex(f => f.type === 'dmgText');
+    if (i >= 0) fx.splice(i, 1); else fx.shift();
+  }
+  fx.push(e);
 }
 function unitDisplayName(type, owner) {
   return (THEME.NAMES.units[type] && THEME.NAMES.units[type][owner]) || CONFIG.UNITS[type].name;
@@ -1145,14 +1201,22 @@ function placeProceduralWilds(preset, reserved) {
 }
 
 // Fish shoals sit on shoreline water tiles so villagers can gather from the adjacent bank.
+// Kept clear of every town center's build-out radius so AI bases never get boxed in.
 function placeFishShoals() {
   const g = game;
+  const TC_CLEAR = 8;
+  const tcs = g.buildings.filter(b => b.type === 'towncenter');
   const target = Math.round((6 + g.options.enemyFactions * 2) * currentResourceTuning().wilds);
   const spots = [];
   for (let ty = 1; ty < ROWS - 1; ty++) {
     for (let tx = 1; tx < COLS - 1; tx++) {
       const i = tIdx(tx, ty);
       if (!g.water[i] || g.bridges[i] || g.blocked[i] || g.nodeGrid[i]) continue;
+      let nearTc = false;
+      for (const tc of tcs) {
+        if (Math.max(Math.abs(tx - (tc.tx + tc.size / 2)), Math.abs(ty - (tc.ty + tc.size / 2))) < TC_CLEAR) { nearTc = true; break; }
+      }
+      if (nearTc) continue;
       let shore = false;
       for (const d of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
         const nx = tx + d[0], ny = ty + d[1];
@@ -1643,6 +1707,7 @@ function createUnit(type, owner, x, y) {
     x, y, radius: s.radius,
     hp: maxHp, maxHp,
     state: 'idle',
+    xp: 0, level: 1, lastCombatAt: -999,
     path: null, pathIdx: 0, pathSpec: null,
     targetId: 0, resumeX: null, resumeY: null,
     aggroHomeX: null, aggroHomeY: null,
@@ -1726,6 +1791,17 @@ function damageEntity(target, amount, attacker) {
   if (!target || target.dead || game.result) return;
   target.hp -= amount;
   target.flash = 0.13;
+  target.lastCombatAt = game.time;
+  if (attacker && attacker.kind === 'unit') attacker.lastCombatAt = game.time;
+  if (amount >= 1) {
+    const c = entCenter(target);
+    pushEffectCapped({
+      type: 'dmgText', t: 0, ttl: 0.8, text: String(Math.round(amount)),
+      x: c.x + rand(-6, 6),
+      y: target.kind === 'building' ? c.y - target.size * T * 0.35 : c.y - target.radius - 8,
+      mine: target.owner === 0,
+    });
+  }
   if (target.owner === 0) {
     if (game.time - game.underAttackAt > CONFIG.UI.UNDER_ATTACK_COOLDOWN) {
       game.underAttackAt = game.time;
@@ -1733,7 +1809,7 @@ function damageEntity(target, amount, attacker) {
       const c = entCenter(target);
       game.pings.push({ x: c.x, y: c.y, t: 0, ttl: 4 });
     }
-  } else if (target.owner > 0) {
+  } else if (target.owner > 0 && game.players[target.owner]) {
     const c = entCenter(target);
     game.players[target.owner].threat = { x: c.x, y: c.y, t: game.time };
   }
@@ -1742,7 +1818,15 @@ function damageEntity(target, amount, attacker) {
       && target.state === 'idle' && areHostile(target.owner, attacker.owner)) {
     acquireTarget(target, attacker);
   }
-  if (target.hp <= 0) { target.hp = 0; markDead(target); }
+  if (target.hp <= 0) {
+    target.hp = 0;
+    if (attacker && !attacker.dead && attacker.kind === 'unit'
+        && (target.kind === 'unit' || target.kind === 'building')
+        && areHostile(attacker.owner, target.owner)) {
+      grantXP(attacker, xpValueOf(target));
+    }
+    markDead(target);
+  }
 }
 function destroyEntity(e) {
   game.byId.delete(e.id);
@@ -2070,6 +2154,7 @@ function update(dt) {
   updateProjectiles(dt);
   updateEffects(dt);
   updateAutoNeeds(dt);
+  updateRegen(dt);
   updateAI(dt);
   sweepDead();
   // drop dead entities from the current selection
@@ -2079,6 +2164,25 @@ function update(dt) {
     if (!getAlive(sel[i])) { sel.splice(i, 1); changed = true; }
   }
   if (changed) game.selectionVersion++;
+}
+
+// Out-of-combat healing, batched to one pass per second.
+function updateRegen(dt) {
+  if (game.result) return;
+  game.regenTimer = (game.regenTimer || 0) - dt;
+  if (game.regenTimer > 0) return;
+  game.regenTimer += 1;
+  const L = CONFIG.LEVELING;
+  for (const u of game.units) {
+    if (u.dead || u.transportId || u.hp >= u.maxHp) continue;
+    if (game.time - u.lastCombatAt < L.REGEN_DELAY) continue;
+    let rate = L.REGEN_RATE;
+    for (const b of game.buildings) {
+      if (b.dead || !b.complete || b.owner !== u.owner) continue;
+      if (distToEnt(u, b) <= L.REGEN_BUILDING_RADIUS * T) { rate = L.REGEN_NEAR_BUILDING_RATE; break; }
+    }
+    u.hp = Math.min(u.maxHp, u.hp + u.maxHp * rate);
+  }
 }
 
 function updateAutoCombat(dt) {
@@ -2281,7 +2385,7 @@ function updateAttack(u, dt) {
 
 function performAttack(u, t) {
   const s = CONFIG.UNITS[u.type];
-  const dmg = unitDamageValue(u.type, u.owner);
+  const dmg = unitDamageValue(u.type, u.owner, u.level);
   if (s.projectileSpeed) {
     const c = entCenter(t);
     game.projectiles.push({
@@ -2402,15 +2506,44 @@ function updateGather(u, dt) {
 /* ------------------------------- construction ------------------------------- */
 function updateBuild(u, dt) {
   const b = getAlive(u.buildId);
-  if (!b || b.complete) { u.state = 'idle'; u.buildId = 0; u.path = null; return; }
+  if (!b || (b.complete && b.hp >= b.maxHp)) { u.state = 'idle'; u.buildId = 0; u.path = null; return; }
   if (inRangeOfEnt(u, b, CONFIG.INTERACT_RANGE)) {
     u.path = null;
-    b.buildProgress += dt;              // several villagers on one site stack additively
-    if (b.buildProgress >= CONFIG.BUILDINGS[b.type].buildTime) completeBuilding(b);
+    if (!b.complete) {
+      b.buildProgress += dt;            // several villagers on one site stack additively
+      if (b.buildProgress >= CONFIG.BUILDINGS[b.type].buildTime) completeBuilding(b);
+    } else {
+      repairTick(u, b, dt);
+    }
   } else {
     if (!u.path && !computePath(u, rectSpecFor(b))) { u.state = 'idle'; return; }
     followPath(u, dt);
   }
+}
+
+// Villagers restore a damaged finished building, paying a fraction of its cost as they go.
+function repairTick(u, b, dt) {
+  const def = CONFIG.BUILDINGS[b.type];
+  const R = CONFIG.REPAIR;
+  const hpGain = Math.min((b.maxHp / (def.buildTime * R.RATE_MULT)) * dt, b.maxHp - b.hp);
+  if (hpGain <= 0) return;
+  const p = game.players[u.owner];
+  const frac = (hpGain / b.maxHp) * R.COST_FRACTION;
+  if (def.cost) {
+    for (const k in def.cost) {
+      if (p.resources[k] < def.cost[k] * frac) {
+        u.state = 'idle'; u.buildId = 0;
+        if (u.owner === 0 && (!game.lastNoResNotify.repair || game.time - game.lastNoResNotify.repair > 6)) {
+          game.lastNoResNotify.repair = game.time;
+          notify('Not enough ' + k + ' to keep repairing', 'warn');
+        }
+        return;
+      }
+    }
+    for (const k in def.cost) p.resources[k] -= def.cost[k] * frac;
+  }
+  b.hp += hpGain;
+  if (b.hp >= b.maxHp) { b.hp = b.maxHp; u.state = 'idle'; u.buildId = 0; }
 }
 
 function completeBuilding(b) {
@@ -2558,7 +2691,7 @@ function tryForgeUpgrade(owner, kind) {
     for (const u of game.units) {
       if (u.dead || u.owner !== owner || !isMilitary(u.type)) continue;
       const oldMax = u.maxHp;
-      u.maxHp = unitMaxHp(u.type, owner);
+      u.maxHp = unitMaxHp(u.type, owner, u.level);
       u.hp = Math.min(u.maxHp, u.hp + Math.max(0, u.maxHp - oldMax));
     }
   }
@@ -3443,6 +3576,7 @@ function issueContextCommand(sel, target, wx, wy) {
     const def = CONFIG.BUILDINGS[target.type];
     for (const u of sel) {
       if (u.type === 'villager' && !target.complete) orderBuild(u, target);
+      else if (u.type === 'villager' && target.hp < target.maxHp) orderBuild(u, target);   // repair
       else if (u.type === 'villager' && def.dropoff && u.carryAmount > 0) orderDeposit(u, target);
       else orderMove(u, entCenter(target).x, entCenter(target).y);
     }
@@ -3763,7 +3897,7 @@ function grantForgeReward(kind) {
     for (const u of game.units) {
       if (u.dead || u.owner !== 0 || !isMilitary(u.type)) continue;
       const oldMax = u.maxHp;
-      u.maxHp = unitMaxHp(u.type, 0);
+      u.maxHp = unitMaxHp(u.type, 0, u.level);
       u.hp = Math.min(u.maxHp, u.hp + Math.max(0, u.maxHp - oldMax));
     }
   }
@@ -5032,6 +5166,7 @@ function drawUnit(u) {
       }
     }
     if (u.hp < u.maxHp || selected) drawBar(u.x - r, u.y - r - 9, r * 2, 4, u.hp / u.maxHp, hpColor(u.hp / u.maxHp));
+    drawRankPips(u, r);
     drawTaskBadge(u, selected);
     return;
   }
@@ -5225,7 +5360,28 @@ function drawUnit(u) {
   if (u.hp < u.maxHp || selected) {
     drawBar(u.x - r, u.y - r - 9, r * 2, 4, u.hp / u.maxHp, hpColor(u.hp / u.maxHp));
   }
+  drawRankPips(u, r);
   drawTaskBadge(u, selected);
+}
+
+// Gold veterancy chevrons above the unit — one per level beyond the first.
+function drawRankPips(u, r) {
+  if (!u.level || u.level <= 1) return;
+  const n = u.level - 1;
+  const y = u.y - r - 13;
+  const w = 5.4;
+  const x0 = u.x - ((n - 1) * w) / 2;
+  ctx.save();
+  ctx.fillStyle = '#ffd75e';
+  ctx.strokeStyle = 'rgba(0,0,0,0.7)';
+  ctx.lineWidth = 0.8;
+  for (let i = 0; i < n; i++) {
+    const px = x0 + i * w;
+    ctx.beginPath();
+    ctx.moveTo(px, y - 2.4); ctx.lineTo(px + 2.2, y + 1.8); ctx.lineTo(px - 2.2, y + 1.8);
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+  }
+  ctx.restore();
 }
 
 function drawShipSprite(u, r, angle, fac) {
@@ -5371,6 +5527,32 @@ function drawEffects() {
       ctx.strokeStyle = CLICK_FX_COLORS[e.fx] || '#ffffff';
       ctx.lineWidth = 2;
       ctx.beginPath(); ctx.arc(e.x, e.y, 5 + (1 - f) * 12, 0, Math.PI * 2); ctx.stroke();
+    } else if (e.type === 'dmgText') {
+      ctx.globalAlpha = f < 0.7 ? 1 : (1 - f) / 0.3;
+      ctx.font = 'bold 11px Georgia, serif';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = 'rgba(20,12,4,0.75)';
+      ctx.fillText(e.text, e.x + 1, e.y - f * 15 + 1);
+      ctx.fillStyle = e.mine ? '#ff6b6b' : '#ffd75e';
+      ctx.fillText(e.text, e.x, e.y - f * 15);
+      ctx.textAlign = 'left';
+    } else if (e.type === 'levelup') {
+      ctx.globalAlpha = 1 - f;
+      ctx.shadowColor = '#ffd75e';
+      ctx.shadowBlur = 8;
+      ctx.strokeStyle = '#ffe9a3';
+      ctx.lineWidth = 2.2;
+      ctx.beginPath(); ctx.arc(e.x, e.y, 6 + f * 18, 0, Math.PI * 2); ctx.stroke();
+      ctx.fillStyle = '#ffd75e';
+      for (let i = 0; i < 4; i++) {
+        const a = -Math.PI / 2 + i * Math.PI / 2;
+        const d = 10 + f * 16;
+        const px = e.x + Math.cos(a) * d, py = e.y + Math.sin(a) * d - f * 10;
+        ctx.beginPath();
+        ctx.moveTo(px, py - 3.5); ctx.lineTo(px + 2.6, py + 2); ctx.lineTo(px - 2.6, py + 2);
+        ctx.closePath(); ctx.fill();
+      }
+      ctx.shadowBlur = 0;
     }
     ctx.globalAlpha = 1;
   }
@@ -5549,7 +5731,7 @@ function computeSelSignature() {
   for (const id of game.selection) {
     const e = getAlive(id);
     if (e && e.kind === 'building') sig += e.id + ':' + (e.complete ? 1 : 0) + ':' + e.queue.length + ';';
-    else if (e && e.kind === 'unit') sig += e.id + ':a' + (e.autoNeeds ? 1 : 0) + ':c' + (e.cargo ? e.cargo.length : 0) + ';';
+    else if (e && e.kind === 'unit') sig += e.id + ':a' + (e.autoNeeds ? 1 : 0) + ':c' + (e.cargo ? e.cargo.length : 0) + ':l' + e.level + ';';
     else if (e && e.kind === 'site') sig += e.id + ':s' + (e.completed ? 1 : 0) + ';';
   }
   return sig;
@@ -5590,9 +5772,14 @@ function buildSingleSelection(e) {
   html += '<div class="statline" id="sel-hp-text"></div>';
   if (e.kind === 'unit') {
     const s = CONFIG.UNITS[e.type];
-    const dmg = Math.round(unitDamageValue(e.type, e.owner));
+    const dmg = Math.round(unitDamageValue(e.type, e.owner, e.level));
     html += '<div class="statline">Attack <b>' + dmg + '</b> · Range <b>' + s.range +
             '</b> · Speed <b>' + s.moveSpeed + '</b></div>';
+    if (isMilitary(e.type)) {
+      const atMax = e.level >= unitMaxLevel(e.type);
+      html += '<div class="statline">Level <b>' + e.level + '</b> · XP <b>' +
+              Math.floor(e.xp) + (atMax ? '</b> (max)' : ' / ' + xpToReachLevel(e.type, e.level + 1) + '</b>') + '</div>';
+    }
     if (isMilitary(e.type)) html += '<div class="statline">Equipment <b>W' + upgradeLevel(e.owner, 'weapons') + '</b> · Armor <b>A' + upgradeLevel(e.owner, 'armor') + '</b></div>';
     if (isOwn && isMilitary(e.type)) html += '<div class="statline" id="sel-auto-combat"></div>';
     if (unitMovesOnWater(e)) html += '<div class="statline" id="sel-cargo"></div>';
