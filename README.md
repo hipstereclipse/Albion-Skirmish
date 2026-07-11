@@ -19,15 +19,18 @@ Open [index.html](index.html) in a modern browser. The game is self-contained an
 ## Current Features
 
 ### Core
-- HTML HUD with resource counters (food/wood/gold/stone/iron/fish), production actions, selection details, minimap, and touch controls.
+- HTML HUD with resource counters (food/wood/gold/stone/iron/fish), production actions, selection details, minimap, idle-unit badges, and touch controls.
+- Expanded pause menu with settings, statistics, diplomacy, and four local save/load slots.
 - Optional PixiJS overlay loaded from CDN for richer water/atmosphere effects while the Canvas renderer remains the fallback.
-- Larger 72 x 72 tile battlefield with generated streams, ponds, bridges, fish shoals, and water-aware pathfinding.
+- Larger 72 x 72 tile battlefield with generated streams, constrained ponds, span-rendered bridges, fish shoals, and water-aware pathfinding.
 - Land units cannot cross deep water except at bridges; larger bodies of water require ferries from an Albion Dock.
 - Production buildings show compact square queue tiles with progress and click-to-cancel refunds.
+- Touch controls support select-mode marquee, command-mode pan, and two-finger pan/pinch zoom.
 - Animated vector sprites with walk bob, leg stride, directional attack swings, impact sparks, building dust puffs, ferry wake, and cargo pips.
 
 ### Fortifications
 - Palisade, Stone, and Fortified walls — drag-build a whole line in one click-drag, upgrade a tier in place without losing HP%.
+- Buildings can be box-selected, canceled for a full foundation refund, demolished for a partial refund, batch-upgraded, and walls can convert into gates or compact watch towers.
 - Guild Gates let friendly units (and allies) pass through while blocking hostiles; lockable, with an animated door swing.
 - Watch Towers and Guard Towers fire arrows at hostiles automatically.
 
@@ -43,6 +46,10 @@ Open [index.html](index.html) in a modern browser. The game is self-contained an
 - AI factions can make peace, ally, or betray a peace based on relative strength — and will raid each other, not just the player.
 - Victory requires every surviving faction to be allied, not just the player's own survival.
 - A Bowerstone Market buys and sells every resource at a fixed spread.
+- Albion Farms provide renewable food plots through the normal gather/drop-off pipeline.
+- Guild Hall priority presets and per-resource bias chips steer Auto Needs worker assignment.
+- Fighter Auto Patrol assigns patrol routes around active apprentice work clusters.
+- The start menu supports per-faction difficulty, color, and initial relation setup.
 
 ### Magic & threats
 - Mages and Heroes cast targeted spells (Fireball AoE, Heal Life, Slow Time) with mana pools and cooldowns, via the same click-to-target flow as building placement.

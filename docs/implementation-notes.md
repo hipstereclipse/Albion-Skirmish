@@ -1,5 +1,37 @@
 # Implementation Notes
 
+## July 2026 Tranquil Kite Expansion
+
+This pass extends the single-file RTS across building lifecycle controls, water generation/rendering, farming, automation, start configuration, pause/settings/statistics, diplomacy, touch input, and local save/load.
+
+### Building Lifecycle And Economy
+- Box select now follows an AoE-style rule: owned units win the marquee, otherwise owned buildings in the rectangle are selected.
+- Own buildings expose cancel/demolish controls with armed confirmation; foundations refund full cost, completed buildings refund 30%.
+- Same-type building selections can batch upgrade, and completed wall segments can convert in place to gates or compact watch towers while preserving HP fraction.
+- Farms are regular buildings with linked renewable food nodes, so villager gathering, carrying, drop-off, stats, and auto-needs all reuse the existing resource pipeline.
+- Guild Hall priority presets now drive player `resourceNeedOrder`, with per-resource low/normal/high bias chips.
+
+### Map, Rendering, And Controls
+- Pond placement is deterministic rejection sampling that avoids roads, town-center clearings, and tiny one-tile lakes.
+- Bridges are derived from trail-water runs and stored as `bridgeSpans`; a connectivity fix-up stamps bridge runs when land BFS cannot reach an enemy town center.
+- Terrain, minimap, and Pixi shoreline effects now draw from the water/bridge tile masks instead of translucent pond ellipses.
+- Touch input supports select-mode marquee selection, command-mode pan, and two-finger pan/pinch zoom.
+
+### UI, Automation, And Persistence
+- The pause menu now opens settings, save/load, diplomacy, and statistics overlays while keeping simulation paused.
+- Statistics are sampled every five seconds with bounded decimation and rendered as faction-colored canvas line charts.
+- Idle-unit badges on the left edge cycle through workers, fighters, and scouts/other units; `.` cycles idle workers.
+- Auto Patrol assigns selected fighters to patrol routes around clusters of working apprentices.
+- Start configuration supports per-NPC difficulty, color, and initial relation, with per-player faction styles used by rendering.
+- Save/load uses four localStorage slots with versioned JSON; derived grids, selection, transient effects/projectiles, and `byId` are rebuilt on load.
+
+### Validation
+- JavaScript parse check passed with Node by extracting the inline script from [index.html](../index.html).
+- A mocked DOM/canvas boot smoke test passed.
+- A mocked simulation smoke test started a game, generated the world, advanced 30 ticks, and rendered without exceptions.
+- A mocked save/load round-trip advanced, serialized, deserialized, advanced again, and rendered without exceptions.
+- Playwright/Puppeteer were not installed in this environment, so screenshot regeneration was skipped.
+
 ## July 2026 Major Expansion
 
 Eight-phase pass adding fortifications, diplomacy, progression, magic, and a deeper tech tree. Each phase was committed and smoke-tested independently; see git log for the full breakdown.

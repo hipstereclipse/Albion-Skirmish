@@ -73,6 +73,18 @@
   .notif.fadeout { transition:opacity .5s; opacity:0; }
   @keyframes notifIn { from { transform:translateY(-8px); opacity:0; } to { transform:none; opacity:1; } }
 
+  #idle-column { position:fixed; left:10px; top:50%; transform:translateY(-50%); z-index:9; display:flex; flex-direction:column; gap:7px; pointer-events:auto; }
+  .idle-btn { position:relative; width:42px; height:42px; border-radius:7px; border:1px solid rgba(203,154,75,.7); cursor:pointer;
+    background:linear-gradient(180deg, rgba(43,34,25,.88), rgba(18,15,11,.94)); box-shadow:0 5px 16px rgba(0,0,0,.36), inset 0 1px rgba(255,233,180,.1); }
+  .idle-btn::before { content:""; position:absolute; left:11px; top:8px; width:18px; height:21px; border-radius:50% 50% 42% 42%; background:#eadfc8; box-shadow:inset 0 -5px #2f6aa3; }
+  .idle-btn.worker::after { content:""; position:absolute; left:9px; top:25px; width:22px; height:5px; border-radius:2px; background:#8b5a2b; transform:rotate(-24deg); }
+  .idle-btn.military::before { background:#8fa1a7; box-shadow:inset 0 0 0 3px #2d3a42; }
+  .idle-btn.military::after { content:""; position:absolute; right:8px; top:5px; width:3px; height:26px; border-radius:2px; background:#f2ead8; transform:rotate(38deg); }
+  .idle-btn.scout::before { background:#d7aa78; box-shadow:inset 0 -5px #4f7f3e; }
+  .idle-btn.scout::after { content:""; position:absolute; left:8px; top:10px; width:25px; height:25px; border:2px solid #d9c9a3; border-left:0; border-bottom:0; border-radius:50%; transform:rotate(42deg); }
+  .idle-badge { position:absolute; right:-5px; top:-6px; min-width:18px; height:18px; padding:0 4px; border-radius:9px; display:flex; align-items:center; justify-content:center;
+    color:#20170f; background:#ffd75e; border:1px solid #8c6837; font:900 10px Georgia, serif; }
+
   /* ---- bottom panel ---- */
   #bottom-panel { left:0; right:0; bottom:0; height:var(--bottom-h); display:flex; border-top-width:1px; }
   #selection-panel { width:clamp(178px, 25vw, 300px); padding:calc(9px * var(--ui-scale)) calc(13px * var(--ui-scale)); border-right:1px solid var(--panel-line); overflow:hidden; }
@@ -87,6 +99,7 @@
   .hpbar > div { height:100%; background:#4dc36b; transition:width .1s linear; }
   .chips { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
   .chip { background:rgba(43,34,25,.82); border:1px solid rgba(144,108,55,.7); border-radius:4px; padding:3px 9px; font-size:calc(12.5px * var(--ui-scale)); }
+  .chip.selected { color:#20170f; background:linear-gradient(#ffe37e,#d6a32a); border-color:#f0c766; }
   #actions-panel { flex:1; padding:calc(9px * var(--ui-scale)) calc(11px * var(--ui-scale)); display:flex; flex-wrap:wrap; gap:clamp(5px, 1vw, 8px); align-content:flex-start; overflow-y:auto; scrollbar-width:thin; }
   .action-btn { width:clamp(106px, 13vw, 132px); min-height:clamp(46px, 8vh, 58px); text-align:left; padding:calc(6px * var(--ui-scale)) calc(9px * var(--ui-scale)); border-radius:6px; cursor:pointer;
     background:linear-gradient(180deg, rgba(96,68,34,.96), rgba(44,33,22,.97)); border:1px solid rgba(203,154,75,.7); color:#f2ead8; font-family:inherit; box-shadow:inset 0 1px rgba(255,233,180,.15), 0 2px 8px rgba(0,0,0,.22); }
@@ -157,6 +170,20 @@
   .launch-options { display:grid; grid-template-columns:repeat(3, minmax(190px, 1fr)); gap:14px; margin:0 auto 24px; max-width:760px; }
   .launch-field { display:flex; flex-direction:column; align-items:flex-start; gap:6px; color:#c7b68f; font-size:12px; text-transform:uppercase; letter-spacing:.8px; }
   .launch-field select, .launch-field input { width:100%; min-width:0; height:42px; padding:0 12px; color:#eadfc8; background:#241a11; border:1px solid #8c6837; border-radius:6px; font:700 15px Georgia, "Times New Roman", Cambria, serif; }
+  .npc-config, .slot-list, .settings-grid { display:flex; flex-direction:column; gap:8px; margin:0 auto 18px; max-width:760px; text-align:left; }
+  .launch-section-title { color:#f0c766; font-size:12px; font-weight:900; letter-spacing:1px; text-transform:uppercase; margin:2px 0 0; }
+  .npc-row, .slot-row, .setting-row, .metric-tabs { display:flex; align-items:center; gap:8px; padding:7px; border:1px solid rgba(203,154,75,.28); border-radius:7px; background:rgba(0,0,0,.14); }
+  .npc-row label, .setting-row label { color:#b9a989; font-size:11px; text-transform:uppercase; letter-spacing:.7px; display:flex; flex-direction:column; gap:4px; }
+  .npc-row select, .setting-row select, .setting-row input { height:34px; color:#eadfc8; background:#241a11; border:1px solid #8c6837; border-radius:5px; font:700 13px Georgia, serif; }
+  .npc-title, .slot-title { min-width:120px; color:#eadfc8; font-weight:800; font-size:13px; }
+  .swatches { display:flex; gap:5px; align-items:center; flex-wrap:wrap; }
+  .swatch-btn { width:24px; height:24px; border-radius:5px; border:2px solid rgba(0,0,0,.5); cursor:pointer; box-shadow:inset 0 1px rgba(255,255,255,.28); }
+  .swatch-btn.selected { border-color:#ffd75e; box-shadow:0 0 0 2px rgba(255,215,94,.28), inset 0 1px rgba(255,255,255,.28); }
+  .swatch-btn:disabled { opacity:.28; cursor:not-allowed; }
+  .slot-row { justify-content:space-between; }
+  .slot-meta { color:#b9a989; font-size:12px; flex:1; min-width:0; }
+  .mini-btn { height:30px; padding:0 10px; border-radius:5px; border:1px solid rgba(203,154,75,.62); color:#eadfc8; background:linear-gradient(180deg, rgba(75,54,32,.9), rgba(32,25,18,.95)); font:800 11px Georgia, serif; cursor:pointer; }
+  .mini-btn:disabled { opacity:.4; cursor:default; }
   .seed-row { width:100%; display:flex; gap:7px; }
   .seed-row input { flex:1; }
   .seed-btn { width:42px; height:42px; border-radius:6px; border:1px solid #8c6837; color:#20170f; background:linear-gradient(#f0c766,#b9832e); font:900 18px Georgia, serif; cursor:pointer; }
@@ -177,8 +204,15 @@
     border:1px solid rgba(203,154,75,.6); border-radius:6px; padding:4px 10px;
     background:linear-gradient(180deg, rgba(75,54,32,.85), rgba(32,25,18,.9)); }
   .topbar-btn:hover { border-color:#f0c766; }
-  #diplomacy-overlay { position:absolute; inset:0; z-index:41; display:flex; align-items:center; justify-content:center; background:rgba(9,7,5,.5); backdrop-filter:blur(4px); }
-  .diplo-card { width:min(560px, 92vw); max-height:82vh; overflow-y:auto; }
+  #diplomacy-overlay, #stats-overlay, #settings-overlay, #save-load-overlay { position:absolute; inset:0; z-index:41; display:flex; align-items:center; justify-content:center; background:rgba(9,7,5,.5); backdrop-filter:blur(4px); }
+  #stats-overlay { z-index:42; }
+  #settings-overlay, #save-load-overlay { z-index:43; }
+  .diplo-card, .stats-card, .settings-card { width:min(760px, 94vw); max-height:84vh; overflow-y:auto; }
+  .stats-card { width:min(860px, 95vw); }
+  #stats-canvas { width:100%; height:320px; border:1px solid rgba(203,154,75,.28); border-radius:6px; background:rgba(0,0,0,.18); }
+  .metric-tabs { flex-wrap:wrap; margin:0 0 10px; }
+  .metric-tab { min-width:92px; height:30px; border-radius:5px; border:1px solid rgba(203,154,75,.58); color:#eadfc8; background:rgba(43,34,25,.82); font:800 11px Georgia, serif; cursor:pointer; }
+  .metric-tab.active { color:#20170f; background:linear-gradient(#ffe37e,#d6a32a); }
   #diplomacy-rows { display:flex; flex-direction:column; gap:10px; margin-bottom:16px; }
   .diplo-row { border:1px solid rgba(203,154,75,.35); border-radius:7px; padding:10px 12px; text-align:left; background:rgba(0,0,0,.18); }
   .diplo-row-head { display:flex; align-items:center; gap:8px; margin-bottom:6px; }
@@ -189,12 +223,14 @@
   .diplo-badge.peace { background:rgba(120,170,120,.28); color:#a8e0a8; }
   .diplo-badge.ally { background:rgba(90,160,220,.3); color:#9fd9ec; }
   .diplo-strength { font-size:11px; color:#b9a989; margin-bottom:8px; }
-  .diplo-actions { display:flex; flex-wrap:wrap; gap:6px; }
+  .diplo-strength-bar { height:7px; border-radius:4px; background:#21160f; overflow:hidden; margin:4px 0 8px; }
+  .diplo-strength-bar > div { height:100%; background:#f0c766; }
+  .diplo-actions, .diplo-tribute { display:flex; flex-wrap:wrap; gap:6px; margin-top:7px; }
   .diplo-btn { font:700 11px Georgia, serif; padding:5px 9px; border-radius:5px; cursor:pointer;
     border:1px solid rgba(203,154,75,.6); color:#eadfc8; background:linear-gradient(180deg, rgba(75,54,32,.9), rgba(32,25,18,.95)); }
   .diplo-btn:disabled { opacity:.4; cursor:default; }
   .diplo-btn.tribute { border-color:rgba(120,170,220,.6); }
-  #touch-toolbar { right:max(6px, env(safe-area-inset-right)); bottom:calc(var(--bottom-h) + 8px); display:flex; padding:4px; gap:4px; align-items:center; flex-direction:column; border-radius:10px; opacity:.88; }
+  #touch-toolbar { right:max(6px, env(safe-area-inset-right)); top:50%; transform:translateY(-50%); display:flex; padding:4px; gap:4px; align-items:center; flex-direction:column; border-radius:10px; opacity:.88; }
   #touch-toolbar:hover { opacity:1; }
   .touch-btn { width:40px; min-width:40px; height:34px; padding:0; border-radius:7px; border:1px solid rgba(203,154,75,.72); color:#eadfc8; background:linear-gradient(180deg, rgba(75,54,32,.96), rgba(32,25,18,.98)); font:800 10px "Palatino Linotype", "Book Antiqua", Georgia, serif; letter-spacing:.3px; }
   .touch-btn.active { color:#20170f; background:linear-gradient(#ffe37e,#d6a32a); border-color:#f0c766; }
@@ -216,7 +252,7 @@
     .action-btn { width:clamp(92px, 28vw, 112px); min-height:40px; }
     .action-btn .bc { margin-top:1px; }
     #minimap-wrap { padding:4px; }
-    #touch-toolbar { right:5px; bottom:calc(var(--bottom-h) + 5px); padding:3px; gap:3px; }
+    #touch-toolbar { right:5px; top:50%; bottom:auto; padding:3px; gap:3px; }
     .touch-btn { width:34px; min-width:34px; height:29px; font-size:8.5px; }
     .launch-options { grid-template-columns:1fr; }
     .screen h1 { font-size:38px; }
@@ -239,10 +275,12 @@
   <span id="age-display">Apprentice Years</span>
   <span id="time-display">0:00</span>
   <button type="button" id="btn-diplomacy" class="topbar-btn" title="Diplomacy (P)">Diplomacy</button>
+  <button type="button" id="btn-statistics" class="topbar-btn" title="Statistics">Stats</button>
   <span id="pause-hint">Space = pause</span>
 </div>
 
 <div id="notifications"></div>
+<div id="idle-column" class="hidden" aria-label="Idle units"></div>
 
 <div id="touch-toolbar" class="hud hidden">
   <button class="touch-btn active" id="btn-touch-select" title="Select mode" aria-label="Select mode">SEL</button>
@@ -310,6 +348,15 @@
       <span class="seed-row"><input id="opt-seed" type="text" maxlength="32" placeholder="random"><button type="button" class="seed-btn" id="btn-random-seed" title="Random seed">↻</button></span>
     </label>
   </div>
+  <div class="npc-config">
+    <div class="launch-section-title">Faction setup</div>
+    <div id="player-config"></div>
+    <div id="npc-config"></div>
+  </div>
+  <div class="slot-list" id="start-load-slots"></div>
+  <div class="pause-actions">
+    <button class="pause-btn" id="btn-start-settings" type="button">Settings</button>
+  </div>
   <button class="big-btn" id="btn-start">BEGIN QUEST</button>
   </div>
 </div>
@@ -332,7 +379,13 @@
     </div>
     <div class="pause-actions">
       <button type="button" class="pause-btn primary" id="btn-resume">Resume</button>
+      <button type="button" class="pause-btn" id="btn-save-game">Save Game</button>
+      <button type="button" class="pause-btn" id="btn-load-game">Load Game</button>
+      <button type="button" class="pause-btn" id="btn-pause-settings">Settings</button>
+      <button type="button" class="pause-btn" id="btn-pause-diplomacy">Diplomacy</button>
+      <button type="button" class="pause-btn" id="btn-pause-stats">Statistics</button>
       <button type="button" class="pause-btn" id="btn-pause-restart">Restart</button>
+      <button type="button" class="pause-btn" id="btn-quit-menu">Quit to Menu</button>
     </div>
   </div>
 </div>
@@ -344,6 +397,61 @@
     <div id="diplomacy-rows"></div>
     <div class="pause-actions">
       <button type="button" class="pause-btn primary" id="btn-diplo-close">Close</button>
+    </div>
+  </div>
+</div>
+
+<div id="stats-overlay" class="hidden">
+  <div class="pause-card stats-card">
+    <h2>STATISTICS</h2>
+    <small>Settlement, economy, and combat history</small>
+    <div class="metric-tabs" id="stats-tabs"></div>
+    <canvas id="stats-canvas" width="820" height="320"></canvas>
+    <div id="stats-legend" class="chips"></div>
+    <div class="pause-actions">
+      <button type="button" class="pause-btn primary" id="btn-stats-close">Close</button>
+    </div>
+  </div>
+</div>
+
+<div id="settings-overlay" class="hidden">
+  <div class="pause-card settings-card">
+    <h2>SETTINGS</h2>
+    <small>Input, camera, and notification preferences</small>
+    <div class="settings-grid">
+      <div class="setting-row">
+        <span class="slot-title">Touch Controls</span>
+        <label>Mode
+          <select id="set-touch">
+            <option value="auto">Auto</option>
+            <option value="on">On</option>
+            <option value="off">Off</option>
+          </select>
+        </label>
+      </div>
+      <div class="setting-row">
+        <span class="slot-title">Camera</span>
+        <label><input id="set-edgepan" type="checkbox"> Edge Pan</label>
+        <label>Pan Speed <input id="set-panspeed" type="range" min="0.6" max="1.8" step="0.1"></label>
+      </div>
+      <div class="setting-row">
+        <span class="slot-title">Messages</span>
+        <label><input id="set-notifications" type="checkbox"> Notifications</label>
+      </div>
+    </div>
+    <div class="pause-actions">
+      <button type="button" class="pause-btn primary" id="btn-settings-close">Close</button>
+    </div>
+  </div>
+</div>
+
+<div id="save-load-overlay" class="hidden">
+  <div class="pause-card settings-card">
+    <h2 id="save-load-title">SAVE GAME</h2>
+    <small>Four local campaign slots</small>
+    <div class="slot-list" id="save-load-slots"></div>
+    <div class="pause-actions">
+      <button type="button" class="pause-btn primary" id="btn-save-load-close">Close</button>
     </div>
   </div>
 </div>
@@ -375,6 +483,7 @@ const CONFIG = {
     iron: { gatherRate: 0.6, carryCapacity: 10, nodeAmount: 260 },
     fish: { gatherRate: 0.95, carryCapacity: 12, nodeAmount: 190 },
   },
+  FARM: { YIELD_CAP: 300, REGROW_RATE: 2, GATHER_MULT: 0.85 },
   INTERACT_RANGE: 1.15,                // tiles — reach for gathering / building / depositing
 
   // Veterancy: military units earn XP from kills and level up for lasting stat gains.
@@ -483,6 +592,8 @@ const CONFIG = {
                   ageReq:0, buildable:false, research:true },
     house:      { name:'Albion Cottage',       hp:300,  size:2, cost:{wood:60},  buildTime:12,
                   popBonus:5, ageReq:0, buildable:true },
+    farm:       { name:'Albion Farm',          hp:220,  size:2, cost:{wood:45}, buildTime:20,
+                  ageReq:0, buildable:true, farm:true, builderTypes:['villager'] },
     storehouse: { name:'Guild Storehouse',  hp:320,  size:2, cost:{wood:80,stone:20},  buildTime:12,
                   dropoff:true, ageReq:0, buildable:true },
     barracks:   { name:'Training Yard',    hp:700,  size:3, cost:{wood:150,stone:60,iron:30}, buildTime:22,
@@ -610,6 +721,7 @@ const CONFIG = {
     HOLD_RADIUS: 3,
     PATROL_RADIUS: 7,
     HUNT_RADIUS: 12,
+    AUTOPATROL_RECHECK: 4,
   },
 
   AI: {
@@ -725,6 +837,7 @@ const DOM = {
   resPop: $('res-pop'), resPopWrap: $('res-pop-wrap'),
   age: $('age-display'), time: $('time-display'),
   notifications: $('notifications'),
+  idleColumn: $('idle-column'),
   selPanel: $('selection-panel'), actionsPanel: $('actions-panel'),
   pixiLayer: $('pixi-layer'),
   screenStart: $('screen-start'), screenEnd: $('screen-end'),
@@ -734,6 +847,9 @@ const DOM = {
   touchToolbar: $('touch-toolbar'), touchSelect: $('btn-touch-select'),
   touchCommand: $('btn-touch-command'), touchZoomIn: $('btn-touch-zoom-in'), touchZoomOut: $('btn-touch-zoom-out'), touchPause: $('btn-touch-pause'),
   diplomacyOverlay: $('diplomacy-overlay'), diplomacyRows: $('diplomacy-rows'), btnDiplomacy: $('btn-diplomacy'),
+  statsOverlay: $('stats-overlay'), statsCanvas: $('stats-canvas'), statsTabs: $('stats-tabs'), statsLegend: $('stats-legend'), btnStatistics: $('btn-statistics'),
+  settingsOverlay: $('settings-overlay'), saveLoadOverlay: $('save-load-overlay'), saveLoadTitle: $('save-load-title'), saveLoadSlots: $('save-load-slots'), startLoadSlots: $('start-load-slots'),
+  playerConfig: $('player-config'), npcConfig: $('npc-config'),
 };
 
 const THEME = {
@@ -754,6 +870,10 @@ const THEME = {
     { name: 'Bandits', fill:'#a13a2a', dark:'#4d1b16', light:'#f08b65', trim:'#2a1910', cloth:'#8e2f25', wood:'#4a2c18' },
     { name: 'Hobbe Clan', fill:'#7d6b22', dark:'#352d11', light:'#d6c05a', trim:'#1e180b', cloth:'#6f6020', wood:'#44341b' },
     { name: 'Undead Host', fill:'#6f7890', dark:'#29303b', light:'#c7d4ea', trim:'#171a20', cloth:'#566173', wood:'#36383b' },
+    { name: 'Brightwood', fill:'#2f8a69', dark:'#153f34', light:'#8ee0bf', trim:'#f0c766', cloth:'#2f8a69', wood:'#5f4a2e' },
+    { name: 'Oakvale', fill:'#b66a2f', dark:'#583016', light:'#f4b579', trim:'#2d1c12', cloth:'#9d5728', wood:'#6d3e1f' },
+    { name: 'Knothole', fill:'#7250a8', dark:'#2f214d', light:'#c3a6ff', trim:'#dfc978', cloth:'#65489a', wood:'#4b3322' },
+    { name: 'Bowerstone', fill:'#3f8f9f', dark:'#1c4450', light:'#a5edf4', trim:'#f1d88a', cloth:'#347c8d', wood:'#6b5132' },
   ],
   NAMES: {
     units: {
@@ -775,6 +895,7 @@ const THEME = {
     buildings: {
       towncenter: ['Guild Hall', 'Bandit War Camp', 'Hobbe Den', 'Necropolis'],
       house: ['Albion Cottage', 'Bandit Lodge', 'Hobbe Burrow', 'Crypt'],
+      farm: ['Albion Farm', 'Bandit Crop Patch', 'Hobbe Mushroom Plot', 'Grave Moss Plot'],
       storehouse: ['Guild Storehouse', 'Supply Cache', 'Loot Pile', 'Bone Cache'],
       barracks: ['Training Yard', 'Bandit Drill Camp', 'Brawl Pit', 'Grave Muster'],
       blacksmith: ['Guild Blacksmith', 'Bandit Forge', 'Hobbe Smithy', 'Bone Furnace'],
@@ -870,7 +991,24 @@ const FACTION = THEME.FACTIONS;
 // Wildlife has no player slot (owner === CREEP_OWNER), so it needs its own palette wherever
 // code indexes FACTION[owner] for rendering.
 const CREEP_STYLE = { name:'Wildlife', fill:'#7a4f2a', dark:'#2e1d10', light:'#d8b183', trim:'#1e180b', cloth:'#5c3d20', wood:'#3c2a16' };
-function factionStyle(owner) { return FACTION[owner] || CREEP_STYLE; }
+function factionStyle(owner) {
+  if (game && game.factionStyles && game.factionStyles[owner]) return game.factionStyles[owner];
+  return FACTION[owner] || CREEP_STYLE;
+}
+
+const DEFAULT_SETTINGS = { touchControls:'auto', edgePan:true, panSpeed:1, notifications:true };
+let appSettings = loadSettings();
+function loadSettings() {
+  try {
+    const raw = localStorage.getItem('albion.settings');
+    return Object.assign({}, DEFAULT_SETTINGS, raw ? JSON.parse(raw) : {});
+  } catch (err) {
+    return Object.assign({}, DEFAULT_SETTINGS);
+  }
+}
+function saveSettings() {
+  try { localStorage.setItem('albion.settings', JSON.stringify(appSettings)); } catch (err) {}
+}
 
 var appState = 'menu';   // 'menu' | 'playing' | 'paused' | 'victory' | 'defeat'
 var game = null;         // all mutable game state (rebuilt by newGame)
@@ -1000,7 +1138,7 @@ function buildingDisplayName(type, owner) {
   return (THEME.NAMES.buildings[type] && THEME.NAMES.buildings[type][owner]) || CONFIG.BUILDINGS[type].name;
 }
 function ageDisplayName(age) { return THEME.AGE_NAMES[age] || CONFIG.AGES[age].name; }
-function factionName(owner) { return owner === CREEP_OWNER ? 'Wildlife' : (FACTION[owner] && FACTION[owner].name) || 'Enemy'; }
+function factionName(owner) { return owner === CREEP_OWNER ? 'Wildlife' : (factionStyle(owner).name || 'Enemy'); }
 
 // Diplomacy predicates. Owners are player indices; CREEP_OWNER marks wildlife hostile to all.
 // game.relations[a][b] is 'war' | 'peace' | 'ally' (absent matrix = everyone at war).
@@ -1116,9 +1254,15 @@ function sendTribute(owner, resKey, amount) {
 }
 function currentMapPreset() { return MAP_PRESETS[(game && game.options && game.options.mapId) || 'greatwood'] || MAP_PRESETS.greatwood; }
 function difficultyForOptions(opts) { return DIFFICULTY_PRESETS[(opts && opts.difficulty) || 'standard'] || DIFFICULTY_PRESETS.standard; }
+function difficultyForPlayerOptions(opts, owner) {
+  if (owner > 0 && opts && opts.npcs && opts.npcs[owner - 1] && opts.npcs[owner - 1].difficulty) {
+    return DIFFICULTY_PRESETS[opts.npcs[owner - 1].difficulty] || difficultyForOptions(opts);
+  }
+  return difficultyForOptions(opts);
+}
 function resourceForOptions(opts) { return RESOURCE_PRESETS[(opts && opts.resources) || 'standard'] || RESOURCE_PRESETS.standard; }
 function startingForOptions(opts) { return START_PRESETS[(opts && opts.starting) || 'standard'] || START_PRESETS.standard; }
-function currentDifficulty() { return difficultyForOptions(game && game.options); }
+function currentDifficulty(owner) { return difficultyForPlayerOptions(game && game.options, owner || 0); }
 function currentResourceTuning() { return resourceForOptions(game && game.options); }
 function formatTime(s) {
   const m = Math.floor(s / 60), ss = Math.floor(s % 60);
@@ -1204,29 +1348,29 @@ const AlbionFramework = (() => {
   function drawWaterAndAtmosphere(delta) {
     const cam = game.camera;
     const z = worldZoom();
-    const decor = game.decor || { streams: [], ponds: [] };
     const t = game.time + delta;
-    for (const pond of decor.ponds || []) {
-      const sx = (pond.x - cam.x) * z;
-      const sy = (pond.y - cam.y) * z;
-      const rx = pond.rx * z, ry = pond.ry * z;
-      if (sx + rx < -40 || sx - rx > viewW + 40 || sy + ry < -40 || sy - ry > viewH + 40) continue;
-      graphics.lineStyle(Math.max(1, 1.4 * z), 0xb9f8ff, pond.large ? 0.22 : 0.14);
-      graphics.drawEllipse(sx, sy, rx * (0.82 + Math.sin(t * 0.8 + pond.a) * 0.025), ry * 0.78);
-      graphics.lineStyle(Math.max(1, 0.8 * z), 0xffffff, pond.large ? 0.18 : 0.1);
-      graphics.moveTo(sx - rx * 0.38, sy - ry * 0.22);
-      graphics.quadraticCurveTo(sx, sy - ry * 0.36 - Math.sin(t + pond.a) * 4, sx + rx * 0.42, sy - ry * 0.18);
-    }
-    for (const stream of decor.streams || []) {
-      for (let i = 0; i < stream.length - 1; i += 3) {
-        const a = stream[i], b = stream[i + 1];
-        const ax = (a.x - cam.x) * z, ay = (a.y - cam.y) * z;
-        const bx = (b.x - cam.x) * z, by = (b.y - cam.y) * z;
-        if ((ax < -60 && bx < -60) || (ax > viewW + 60 && bx > viewW + 60) || (ay < -60 && by < -60) || (ay > viewH + 60 && by > viewH + 60)) continue;
-        const alpha = 0.12 + Math.sin(t * 1.6 + i * 0.37) * 0.04;
-        graphics.lineStyle(Math.max(1, 1.2 * z), 0xb9f8ff, alpha);
-        graphics.moveTo(ax, ay);
-        graphics.lineTo(bx, by);
+    if (!game.water) return;
+    const tx0 = clamp(Math.floor(cam.x / T) - 1, 0, COLS - 1);
+    const ty0 = clamp(Math.floor(cam.y / T) - 1, 0, ROWS - 1);
+    const tx1 = clamp(Math.ceil((cam.x + visibleWorldW()) / T) + 1, 0, COLS);
+    const ty1 = clamp(Math.ceil((cam.y + visibleWorldH()) / T) + 1, 0, ROWS);
+    for (let ty = ty0; ty < ty1; ty++) {
+      for (let tx = tx0; tx < tx1; tx++) {
+        const i = tIdx(tx, ty);
+        if (!game.water[i] || game.bridges[i]) continue;
+        let shore = false;
+        for (const d of [[1,0],[-1,0],[0,1],[0,-1]]) {
+          const nx = tx + d[0], ny = ty + d[1];
+          if (!inBounds(nx, ny) || !game.water[tIdx(nx, ny)] || game.bridges[tIdx(nx, ny)]) { shore = true; break; }
+        }
+        if (!shore) continue;
+        const sx = (tileCenter(tx) - cam.x) * z;
+        const sy = (tileCenter(ty) - cam.y) * z;
+        const dash = T * z * 0.28;
+        const a = Math.sin(t * 1.8 + tx * 0.7 + ty * 0.31);
+        graphics.lineStyle(Math.max(1, 1.1 * z), 0xb9f8ff, 0.12 + a * 0.04);
+        graphics.moveTo(sx - dash, sy + a * 2);
+        graphics.lineTo(sx + dash, sy - a * 2);
       }
     }
   }
@@ -1251,7 +1395,20 @@ function makePlayer(id) {
     fallenHero: null,           // {level, xp} while the hero is dead and awaiting revival
     research: {},                // techId -> true once completed
     will: 0, willCooldowns: {},  // global Will power pool, fed by Will Hubs
+    societyPriority: 'balanced',
+    resourceBias: { food:1, wood:1, gold:1, stone:1, iron:1, fish:1 },
+    tally: {
+      gathered: { food:0, wood:0, gold:0, stone:0, iron:0, fish:0 },
+      unitsTrained: 0, kills: 0, unitsLost: 0, buildingsLost: 0,
+    },
   };
+}
+function makeStatsState(playerCount) {
+  const perPlayer = [];
+  for (let i = 0; i < playerCount; i++) {
+    perPlayer.push({ stockpile: [], gathered: [], strength: [], population: [], kills: [], losses: [], buildings: [] });
+  }
+  return { interval: 5, timer: 5, t: [], perPlayer };
 }
 function hasResearch(owner, id) { const p = game.players[owner]; return !!(p && p.research[id]); }
 function researchEffect(owner, key, fallback) {
@@ -1282,28 +1439,45 @@ function getLaunchOptions() {
   const resources = ($('opt-resources') && $('opt-resources').value) || 'standard';
   const starting = ($('opt-starting') && $('opt-starting').value) || 'standard';
   const seedText = ($('opt-seed') && $('opt-seed').value) || '';
-  return { mapId, enemyFactions, difficulty, resources, starting, seedText, seed: seedFromString(seedText) };
+  const playerColorId = clamp(parseInt((DOM.playerConfig && DOM.playerConfig.dataset.colorId) || '0', 10) || 0, 0, FACTION.length - 1);
+  const npcs = [];
+  for (let i = 1; i <= enemyFactions; i++) {
+    const row = $('npc-row-' + i);
+    npcs.push({
+      difficulty: (row && row.querySelector('[data-role="difficulty"]') && row.querySelector('[data-role="difficulty"]').value) || difficulty,
+      colorId: clamp(parseInt((row && row.dataset.colorId) || String(i), 10) || i, 0, FACTION.length - 1),
+      relation: (row && row.querySelector('[data-role="relation"]') && row.querySelector('[data-role="relation"]').value) || 'war',
+    });
+  }
+  return { mapId, enemyFactions, difficulty, resources, starting, seedText, seed: seedFromString(seedText), playerColorId, npcs };
 }
 
 function newGame(options) {
   const opts = options || getLaunchOptions();
-  const diff = difficultyForOptions(opts);
   const players = [];
   for (let i = 0; i <= opts.enemyFactions; i++) players.push(makePlayer(i));
   for (let i = 1; i < players.length; i++) {
+    const diff = difficultyForPlayerOptions(opts, i);
     for (const res of RESOURCE_TYPES) players[i].resources[res] = Math.round(players[i].resources[res] * diff.startRes);
   }
   const ais = new Array(players.length).fill(null);
   for (let i = 1; i < players.length; i++) {
+    const diff = difficultyForPlayerOptions(opts, i);
     ais[i] = { nextWaveTime: CONFIG.AI.FIRST_WAVE_DELAY * diff.firstWave + (i - 1) * 32, waveIndex: 0, decisionTimer: 1 + i * 0.45 };
   }
+  const factionStyles = [];
+  const chosen = [opts.playerColorId || 0].concat((opts.npcs || []).map((n, i) => n.colorId == null ? i + 1 : n.colorId));
+  for (let i = 0; i < players.length; i++) factionStyles[i] = Object.assign({}, FACTION[chosen[i] % FACTION.length]);
   // Every pair starts at war (matches the game's original always-hostile behavior).
   const relations = [], diplo = [];
   for (let a = 0; a < players.length; a++) {
     relations.push([]); diplo.push([]);
     for (let b = 0; b < players.length; b++) {
-      relations[a][b] = a === b ? 'peace' : 'war';
-      diplo[a][b] = { peaceSince: -1, tribute: 0, refusedUntil: -999 };
+      let rel = a === b ? 'peace' : 'war';
+      if (a === 0 && b > 0 && opts.npcs && opts.npcs[b - 1]) rel = opts.npcs[b - 1].relation || 'war';
+      if (b === 0 && a > 0 && opts.npcs && opts.npcs[a - 1]) rel = opts.npcs[a - 1].relation || 'war';
+      relations[a][b] = rel;
+      diplo[a][b] = { peaceSince: rel === 'war' ? -1 : 0, tribute: 0, refusedUntil: -999 };
     }
   }
   return {
@@ -1321,6 +1495,7 @@ function newGame(options) {
     nodeGrid: new Array(NTILES).fill(null),
     buildingGrid: new Array(NTILES).fill(null),  // tile -> building ref, for gate lookups + wall rendering
     players,
+    factionStyles,
     relations, diplo, diploVersion: 0, diplomacyOpen: false,
     spellTarget: null,                   // {casterId, spellId} or {playerCast, powerId} while aiming
     creepCamps: [],
@@ -1331,6 +1506,8 @@ function newGame(options) {
     placement: null,                     // {type, tx, ty, valid} while placing a building
     autoTaskTimer: 0,
     autoCombatTimer: 0,
+    autoPatrolTimer: 0,
+    stats: makeStatsState(players.length),
     ais,
     decor: null,
     underAttackAt: -999,
@@ -1404,6 +1581,7 @@ function generateWorld() {
   }
   g.decor = makeMapDecor(allTcs, preset);
   buildWaterGrid(allTcs);
+  ensureTownCenterConnectivity(allTcs);
 
   // Keep an open ring around each TC free of resources
   const reserved = new Uint8Array(NTILES);
@@ -1662,14 +1840,18 @@ function makeMapDecor(tcs, preset) {
   const pondCount = Math.round((preset.name.indexOf('Marsh') >= 0 ? 5 : 2 + game.options.enemyFactions) * resTune.decor);
   for (let i = 0; i < pondCount; i++) {
     const large = i < Math.max(1, game.options.enemyFactions);
-    decor.ponds.push({
-      x: T * scaleMapX(7 + hash01(seed, i, 109) * 34),
-      y: T * scaleMapY(7 + hash01(seed, i, 113) * 34),
-      rx: T * (large ? 3.2 + hash01(seed, i, 127) * 2.8 : 1.1 + hash01(seed, i, 127) * 1.8),
-      ry: T * (large ? 1.8 + hash01(seed, i, 131) * 2.2 : 0.7 + hash01(seed, i, 131) * 1.2),
-      a: hash01(seed, i, 137) * Math.PI,
-      large,
-    });
+    for (let attempt = 0; attempt < 12; attempt++) {
+      const salt = i * 31 + attempt;
+      const pond = {
+        x: T * scaleMapX(7 + hash01(seed, salt, 109) * 34),
+        y: T * scaleMapY(7 + hash01(seed, salt, 113) * 34),
+        rx: T * (large ? 3.2 + hash01(seed, salt, 127) * 2.8 : 1.8 + hash01(seed, salt, 127) * 1.2),
+        ry: T * (large ? 1.8 + hash01(seed, salt, 131) * 2.2 : 1.1 + hash01(seed, salt, 131) * 0.9),
+        a: hash01(seed, salt, 137) * Math.PI,
+        large,
+      };
+      if (pondFitsDecor(pond, decor)) { decor.ponds.push(pond); break; }
+    }
   }
   const ruinCount = Math.round((4 + game.options.enemyFactions * 2) * resTune.decor);
   for (let i = 0; i < ruinCount; i++) {
@@ -1733,6 +1915,20 @@ function makeWavyPath(points, salt) {
     }
   }
   return res;
+}
+
+function pondFitsDecor(pond, decor) {
+  const margin = pond.rx + T * 1.2;
+  if (pond.x < margin || pond.y < margin || pond.x > MAPW - margin || pond.y > MAPH - margin) return false;
+  for (const trail of decor.trails || []) {
+    for (const p of trail) {
+      if (dist(pond.x, pond.y, p.x, p.y) < pond.rx + T * 2) return false;
+    }
+  }
+  for (const clearing of decor.clearings || []) {
+    if (dist(pond.x, pond.y, clearing.x, clearing.y) < clearing.r + pond.rx + T * 4) return false;
+  }
+  return true;
 }
 
 /* ================================================================================
@@ -1807,17 +2003,38 @@ function markBridgeTile(tx, ty, radius) {
   }
 }
 
-function markBridgeSpan(wx, wy, ax, ay, bx, by) {
-  const tx = Math.floor(wx / T), ty = Math.floor(wy / T);
-  let dx = bx - ax, dy = by - ay;
-  if (Math.abs(dx) + Math.abs(dy) < 0.01) { dx = 1; dy = 0; }
-  const horizontal = Math.abs(dx) >= Math.abs(dy);
-  for (let off = -2; off <= 2; off++) {
-    for (let side = -1; side <= 1; side++) {
-      const x = tx + (horizontal ? off : side);
-      const y = ty + (horizontal ? side : off);
-      markBridgeTile(x, y, 0);
+function stampBridgeLine(ax, ay, bx, by, halfWidth) {
+  halfWidth = halfWidth == null ? 1 : halfWidth;
+  const dx = Math.abs(bx - ax), dy = Math.abs(by - ay);
+  const horizontal = dx >= dy;
+  const sx = ax < bx ? 1 : -1, sy = ay < by ? 1 : -1;
+  let err = dx - dy, x = ax, y = ay;
+  const tiles = [];
+  for (;;) {
+    for (let side = -halfWidth; side <= halfWidth; side++) {
+      const tx = x + (horizontal ? 0 : side);
+      const ty = y + (horizontal ? side : 0);
+      if (!inBounds(tx, ty)) continue;
+      if (game.water[tIdx(tx, ty)]) {
+        game.bridges[tIdx(tx, ty)] = 1;
+        tiles.push({ tx, ty });
+      }
     }
+    if (x === bx && y === by) break;
+    const e2 = err * 2;
+    if (e2 > -dy) { err -= dy; x += sx; }
+    if (e2 < dx) { err += dx; y += sy; }
+  }
+  if (tiles.length && game.decor) {
+    const minTx = Math.min(...tiles.map(t => t.tx)), maxTx = Math.max(...tiles.map(t => t.tx));
+    const minTy = Math.min(...tiles.map(t => t.ty)), maxTy = Math.max(...tiles.map(t => t.ty));
+    game.decor.bridgeSpans = game.decor.bridgeSpans || [];
+    game.decor.bridgeSpans.push({
+      tx: minTx,
+      ty: minTy,
+      len: (horizontal ? maxTx - minTx : maxTy - minTy) + 1,
+      horizontal,
+    });
   }
 }
 
@@ -1829,9 +2046,14 @@ function markTrailBridgeCrossings(trail) {
     if (water && !inWater) { inWater = true; start = i; }
     if ((!water || i === trail.length - 1) && inWater) {
       const end = water ? i : i - 1;
-      const mid = Math.floor((start + end) / 2);
-      const a = trail[Math.max(0, mid - 1)], b = trail[Math.min(trail.length - 1, mid + 1)];
-      if (!pointInLargePond(trail[mid].x, trail[mid].y)) markBridgeSpan(trail[mid].x, trail[mid].y, a.x, a.y, b.x, b.y);
+      const before = trail[Math.max(0, start - 1)];
+      const after = trail[Math.min(trail.length - 1, end + 1)];
+      stampBridgeLine(
+        clamp(Math.floor(before.x / T), 0, COLS - 1),
+        clamp(Math.floor(before.y / T), 0, ROWS - 1),
+        clamp(Math.floor(after.x / T), 0, COLS - 1),
+        clamp(Math.floor(after.y / T), 0, ROWS - 1),
+        1);
       inWater = false;
     }
   }
@@ -1861,6 +2083,7 @@ function buildWaterGrid(tcs) {
   const g = game;
   g.water.fill(0);
   g.bridges.fill(0);
+  if (g.decor) g.decor.bridgeSpans = [];
   const decor = g.decor || { streams: [], ponds: [], trails: [] };
   for (let ty = 0; ty < ROWS; ty++) {
     for (let tx = 0; tx < COLS; tx++) {
@@ -1885,7 +2108,6 @@ function buildWaterGrid(tcs) {
     }
   }
   for (const trail of decor.trails || []) {
-    if (trail.some(p => pointInLargePond(p.x, p.y))) continue;
     markTrailBridgeCrossings(trail);
   }
   for (const tc of tcs) {
@@ -1903,6 +2125,95 @@ function buildWaterGrid(tcs) {
 /* ================================================================================
  * PATHFINDING — A* over the tile grid (8-way, no corner cutting) + path following
  * ================================================================================ */
+function tcAccessTile(tc) {
+  return nearestPassableTile(tc.tx + Math.floor(tc.size / 2), tc.ty + Math.floor(tc.size / 2), 8, 'land', tc.owner);
+}
+
+function landReachable(a, b) {
+  if (!a || !b) return false;
+  const start = tIdx(a.tx, a.ty), goal = tIdx(b.tx, b.ty);
+  const seen = new Uint8Array(NTILES);
+  const q = [start];
+  seen[start] = 1;
+  for (let head = 0; head < q.length; head++) {
+    const cur = q[head];
+    if (cur === goal) return true;
+    const cx = cur % COLS, cy = (cur / COLS) | 0;
+    for (let d = 0; d < 4; d++) {
+      const nx = cx + DIRS[d][0], ny = cy + DIRS[d][1];
+      if (!inBounds(nx, ny)) continue;
+      const ni = tIdx(nx, ny);
+      if (seen[ni] || tileBlockedFor(nx, ny, 'land', 0)) continue;
+      seen[ni] = 1;
+      q.push(ni);
+    }
+  }
+  return false;
+}
+
+function findWaterCrossingPath(a, b) {
+  const start = tIdx(a.tx, a.ty), goal = tIdx(b.tx, b.ty);
+  const seen = new Uint8Array(NTILES);
+  const came = new Int32Array(NTILES);
+  came.fill(-1);
+  const q = [start];
+  seen[start] = 1;
+  for (let head = 0; head < q.length; head++) {
+    const cur = q[head];
+    if (cur === goal) break;
+    const cx = cur % COLS, cy = (cur / COLS) | 0;
+    for (let d = 0; d < 8; d++) {
+      const nx = cx + DIRS[d][0], ny = cy + DIRS[d][1];
+      if (!inBounds(nx, ny)) continue;
+      const ni = tIdx(nx, ny);
+      if (seen[ni]) continue;
+      const building = game.buildingGrid[ni];
+      if (building) continue;
+      if (game.blocked[ni] && !game.water[ni] && !game.bridges[ni]) continue;
+      seen[ni] = 1;
+      came[ni] = cur;
+      q.push(ni);
+    }
+  }
+  if (!seen[goal]) return null;
+  const path = [];
+  let cur = goal;
+  while (cur !== start && cur >= 0) {
+    path.push({ tx: cur % COLS, ty: (cur / COLS) | 0 });
+    cur = came[cur];
+  }
+  path.push({ tx: a.tx, ty: a.ty });
+  path.reverse();
+  return path;
+}
+
+function bridgeWateryRuns(path) {
+  if (!path || path.length < 2) return;
+  let start = -1;
+  for (let i = 0; i < path.length; i++) {
+    const idx = tIdx(path[i].tx, path[i].ty);
+    const wet = game.water[idx] && !game.bridges[idx];
+    if (wet && start < 0) start = i;
+    if ((!wet || i === path.length - 1) && start >= 0) {
+      const end = wet ? i : i - 1;
+      const a = path[Math.max(0, start - 1)];
+      const b = path[Math.min(path.length - 1, end + 1)];
+      stampBridgeLine(a.tx, a.ty, b.tx, b.ty, 1);
+      start = -1;
+    }
+  }
+}
+
+function ensureTownCenterConnectivity(tcs) {
+  const start = tcAccessTile(tcs[0]);
+  if (!start) return;
+  for (let i = 1; i < tcs.length; i++) {
+    const goal = tcAccessTile(tcs[i]);
+    if (!goal || landReachable(start, goal)) continue;
+    bridgeWateryRuns(findWaterCrossingPath(start, goal));
+  }
+}
+
 const DIRS = [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]];
 const PF = {
   g: new Float64Array(NTILES), f: new Float64Array(NTILES),
@@ -2133,6 +2444,24 @@ function createNode(type, tx, ty, opts) {
   game.mmDirty = true;
   return n;
 }
+function createFarmNode(b) {
+  const tx = b.tx + Math.floor(b.size / 2);
+  const ty = b.ty + Math.floor(b.size / 2);
+  const n = {
+    id: game.nextId++, kind: 'resource', type: 'food', tx, ty,
+    amount: CONFIG.FARM.YIELD_CAP, max: CONFIG.FARM.YIELD_CAP,
+    variant: 'farmplot', phase: rand(0, Math.PI * 2), tint: 0,
+    farmBuildingId: b.id,
+    dead: false,
+  };
+  b.farmNodeId = n.id;
+  game.nodes.push(n);
+  game.byId.set(n.id, n);
+  game.nodeGrid[tIdx(tx, ty)] = n;
+  game.blocked[tIdx(tx, ty)] = 1;
+  game.mmDirty = true;
+  return n;
+}
 function entRect(e) {
   if (e.kind === 'unit') return { x: e.x - e.radius, y: e.y - e.radius, w: e.radius * 2, h: e.radius * 2 };
   const s = e.size || 1;
@@ -2161,6 +2490,7 @@ function markDead(e) {
 }
 function damageEntity(target, amount, attacker) {
   if (!target || target.dead || game.result) return;
+  if (attacker && attacker.owner != null && attacker.owner !== target.owner) target.lastAttackerOwner = attacker.owner;
   target.hp -= amount;
   target.flash = 0.13;
   target.lastCombatAt = game.time;
@@ -2206,7 +2536,12 @@ function damageEntity(target, amount, attacker) {
 }
 function destroyEntity(e) {
   game.byId.delete(e.id);
+  const killerOwner = e.lastAttackerOwner;
+  if (killerOwner != null && killerOwner !== e.owner && game.players[killerOwner] && game.players[killerOwner].tally) {
+    game.players[killerOwner].tally.kills++;
+  }
   if (e.kind === 'unit') {
+    if (game.players[e.owner] && game.players[e.owner].tally) game.players[e.owner].tally.unitsLost++;
     if (e.transportId) {
       const ship = getAlive(e.transportId);
       if (ship && ship.cargo) arrRemove(ship.cargo, e.id);
@@ -2225,6 +2560,7 @@ function destroyEntity(e) {
       if (e.owner === 0) notify('Your Hero has fallen! Revive at the Guild Hall.', 'bad');
     }
   } else if (e.kind === 'building') {
+    if (game.players[e.owner] && game.players[e.owner].tally) game.players[e.owner].tally.buildingsLost++;
     arrRemove(game.buildings, e);
     const p = game.players[e.owner];
     for (const q of e.queue) {          // refund anything still queued
@@ -2234,6 +2570,10 @@ function destroyEntity(e) {
       else if (q.kind === 'research') refundCost(p, CONFIG.RESEARCH[q.id].cost);
     }
     e.queue.length = 0;
+    if (e.farmNodeId) {
+      const node = getAlive(e.farmNodeId);
+      if (node) markDead(node);
+    }
     rebuildBlocked();
     recomputePopCap(e.owner);
     if (p) p.lossLog.push(game.time);
@@ -2248,6 +2588,10 @@ function destroyEntity(e) {
       }
     }
   } else if (e.kind === 'resource') {
+    if (e.variant === 'farmplot' && e.farmBuildingId) {
+      const b = getAlive(e.farmBuildingId);
+      if (b) markDead(b);
+    }
     arrRemove(game.nodes, e);
     game.nodeGrid[tIdx(e.tx, e.ty)] = null;
     rebuildBlocked();
@@ -2588,7 +2932,10 @@ function findWaterSpawnTile(b) {
 function update(dt) {
   game.time += dt;
   updateTrainQueues(dt);
+  updateFarms(dt);
   updateAutoCombat(dt);
+  updateAutoPatrolAssignments(dt);
+  updateStats(dt);
   for (const u of game.units) if (!u.dead && !u.transportId) updateUnit(u, dt);
   applySeparation();
   updateGateDoors(dt);
@@ -2609,6 +2956,49 @@ function update(dt) {
     if (!getAlive(sel[i])) { sel.splice(i, 1); changed = true; }
   }
   if (changed) game.selectionVersion++;
+}
+
+function updateStats(dt) {
+  const s = game.stats;
+  if (!s) return;
+  s.timer -= dt;
+  if (s.timer > 0) return;
+  s.timer += s.interval;
+  s.t.push(game.time);
+  for (let owner = 0; owner < game.players.length; owner++) {
+    const p = game.players[owner];
+    const row = s.perPlayer[owner] || (s.perPlayer[owner] = { stockpile: [], gathered: [], strength: [], population: [], kills: [], losses: [], buildings: [] });
+    const stock = RESOURCE_TYPES.reduce((sum, r) => sum + (p.resources[r] || 0), 0);
+    const gathered = RESOURCE_TYPES.reduce((sum, r) => sum + ((p.tally && p.tally.gathered && p.tally.gathered[r]) || 0), 0);
+    row.stockpile.push(stock);
+    row.gathered.push(gathered);
+    row.strength.push(strengthOf(owner));
+    row.population.push(popUsed(owner));
+    row.kills.push((p.tally && p.tally.kills) || 0);
+    row.losses.push(((p.tally && p.tally.unitsLost) || 0) + ((p.tally && p.tally.buildingsLost) || 0));
+    row.buildings.push(game.buildings.filter(b => !b.dead && b.owner === owner).length);
+  }
+  if (s.t.length > 600) decimateStats(s);
+}
+
+function decimateStats(s) {
+  s.t = s.t.filter((_, i) => i % 2 === 0);
+  for (const row of s.perPlayer) {
+    for (const key in row) row[key] = row[key].filter((_, i) => i % 2 === 0);
+  }
+  s.interval *= 2;
+  s.timer = Math.min(s.timer, s.interval);
+}
+
+function updateFarms(dt) {
+  const cap = CONFIG.FARM.YIELD_CAP;
+  for (const n of game.nodes) {
+    if (n.dead || n.variant !== 'farmplot') continue;
+    const b = getAlive(n.farmBuildingId);
+    if (!b || !b.complete) { markDead(n); continue; }
+    n.max = cap;
+    if (n.amount < cap) n.amount = Math.min(cap, n.amount + CONFIG.FARM.REGROW_RATE * dt);
+  }
 }
 
 // Out-of-combat healing, batched to one pass per second.
@@ -2722,7 +3112,7 @@ function updateAutoCombat(dt) {
       if (u.guardX != null && dist(u.x, u.y, u.guardX, u.guardY) > T * 0.45) issueAutoAttackMove(u, u.guardX, u.guardY);
     } else if (u.autoCombat === 'guard') {
       if (u.guardX != null && dist(u.x, u.y, u.guardX, u.guardY) > T * 0.9) issueAutoAttackMove(u, u.guardX, u.guardY);
-    } else if (u.autoCombat === 'patrol') {
+    } else if (u.autoCombat === 'patrol' || u.autoCombat === 'autopatrol') {
       const dest = u.patrolToB ? u.patrolB : u.patrolA;
       if (dest) {
         if (dist(u.x, u.y, dest.x, dest.y) <= T * 0.8) u.patrolToB = !u.patrolToB;
@@ -2741,11 +3131,11 @@ function updateAutoCombat(dt) {
 
 function findAutoCombatTarget(u) {
   const radius = (u.autoCombat === 'hold' ? CONFIG.AUTO_COMBAT.HOLD_RADIUS :
-    u.autoCombat === 'patrol' ? CONFIG.AUTO_COMBAT.PATROL_RADIUS :
+    (u.autoCombat === 'patrol' || u.autoCombat === 'autopatrol') ? CONFIG.AUTO_COMBAT.PATROL_RADIUS :
     u.autoCombat === 'hunt' ? CONFIG.AUTO_COMBAT.HUNT_RADIUS :
     CONFIG.AUTO_COMBAT.GUARD_RADIUS) * T;
-  const cx = u.autoCombat === 'patrol' && u.patrolA && u.patrolB ? (u.patrolA.x + u.patrolB.x) / 2 : (u.guardX != null ? u.guardX : u.x);
-  const cy = u.autoCombat === 'patrol' && u.patrolA && u.patrolB ? (u.patrolA.y + u.patrolB.y) / 2 : (u.guardY != null ? u.guardY : u.y);
+  const cx = (u.autoCombat === 'patrol' || u.autoCombat === 'autopatrol') && u.patrolA && u.patrolB ? (u.patrolA.x + u.patrolB.x) / 2 : (u.guardX != null ? u.guardX : u.x);
+  const cy = (u.autoCombat === 'patrol' || u.autoCombat === 'autopatrol') && u.patrolA && u.patrolB ? (u.patrolA.y + u.patrolB.y) / 2 : (u.guardY != null ? u.guardY : u.y);
   let best = null, bs = Infinity;
   for (const e of game.units) {
     if (e.dead || e.transportId || !areHostile(u.owner, e.owner)) continue;
@@ -2860,7 +3250,7 @@ function recoverStuckUnit(u) {
 function combatLeashRange(u) {
   if (u.autoCombat === 'hold') return CONFIG.AUTO_COMBAT.HOLD_RADIUS + 0.8;
   if (u.autoCombat === 'guard') return CONFIG.AUTO_COMBAT.GUARD_RADIUS + 1;
-  if (u.autoCombat === 'patrol') return CONFIG.AUTO_COMBAT.PATROL_RADIUS + 1;
+  if (u.autoCombat === 'patrol' || u.autoCombat === 'autopatrol') return CONFIG.AUTO_COMBAT.PATROL_RADIUS + 1;
   if (u.autoCombat === 'hunt') return CONFIG.AUTO_COMBAT.HUNT_RADIUS + 1;
   return CONFIG.COMBAT.LEASH_RANGE;
 }
@@ -3009,12 +3399,16 @@ function updateGather(u, dt) {
       const p = game.players[u.owner];
       let rate = rd.gatherRate * CONFIG.AGES[p.age].gatherMult * researchEffect(u.owner, 'gatherMult', 1) * buildingBonus(u.owner, 'gatherMult', 1);
       if (node.type === 'fish') rate *= researchEffect(u.owner, 'fishGatherMult', 1);
-      if (u.owner > 0) rate *= CONFIG.AI.GATHER_MULT * currentDifficulty().gather;
+      if (node.variant === 'farmplot') rate *= CONFIG.FARM.GATHER_MULT;
+      if (u.owner > 0) rate *= CONFIG.AI.GATHER_MULT * currentDifficulty(u.owner).gather;
       const take = Math.min(rate * dt, rd.carryCapacity - u.carryAmount, node.amount);
       u.carryType = node.type;
       u.carryAmount += take;
       node.amount -= take;
-      if (node.amount <= 0.001) { node.amount = 0; markDead(node); }
+      if (node.amount <= 0.001) {
+        node.amount = 0;
+        if (node.variant !== 'farmplot') markDead(node);
+      }
       break;
     }
     case 'todrop': {
@@ -3027,7 +3421,10 @@ function updateGather(u, dt) {
       }
       if (inRangeOfEnt(u, drop, INT)) {
         const p = game.players[u.owner];
-        if (u.carryType && u.carryAmount > 0) p.resources[u.carryType] += u.carryAmount;
+        if (u.carryType && u.carryAmount > 0) {
+          p.resources[u.carryType] += u.carryAmount;
+          if (p.tally && p.tally.gathered && p.tally.gathered[u.carryType] != null) p.tally.gathered[u.carryType] += u.carryAmount;
+        }
         u.carryAmount = 0;
         u.gatherPhase = 'tonode';
         u.path = null;
@@ -3088,6 +3485,7 @@ function repairTick(u, b, dt) {
 function completeBuilding(b) {
   b.complete = true;
   b.buildProgress = CONFIG.BUILDINGS[b.type].buildTime;
+  if (CONFIG.BUILDINGS[b.type].farm && !b.farmNodeId) createFarmNode(b);
   recomputePopCap(b.owner);
   if (b.owner === 0) {
     notify(buildingDisplayName(b.type, b.owner) + ' complete', 'good');
@@ -3106,6 +3504,7 @@ function updateTrainQueues(dt) {
       const t = findSpawnTileForType(b, q.type);
       if (!t) { q.remaining = 0.5; continue; }   // exit blocked — retry shortly
       const u = createUnit(q.type, b.owner, t.x, t.y);
+      if (game.players[b.owner] && game.players[b.owner].tally) game.players[b.owner].tally.unitsTrained++;
       applyRallyOrder(b, u);
       b.queue.shift();
       if (b.owner === 0) game.selectionVersion++;
@@ -3113,6 +3512,7 @@ function updateTrainQueues(dt) {
       const t = findSpawnTileForType(b, 'hero');
       if (!t) { q.remaining = 0.5; continue; }
       const u = createUnit('hero', b.owner, t.x, t.y);
+      if (game.players[b.owner] && game.players[b.owner].tally) game.players[b.owner].tally.unitsTrained++;
       u.level = q.level;
       u.xp = q.xp;
       u.maxHp = unitMaxHp('hero', b.owner, u.level);
@@ -3348,6 +3748,68 @@ function tryUpgradeBuilding(b) {
   }
   return { ok: true };
 }
+function scaledCost(cost, fraction) {
+  const out = {};
+  if (!cost) return out;
+  for (const k in cost) out[k] = Math.max(0, Math.round(cost[k] * fraction));
+  return out;
+}
+function demolishBuilding(b) {
+  if (!b || b.dead || b.kind !== 'building' || b.owner !== 0) return { ok:false, reason:'Select one of your buildings' };
+  if (b.type === 'towncenter' && b.complete) return { ok:false, reason:'The Guild Hall cannot be demolished' };
+  const def = CONFIG.BUILDINGS[b.type];
+  const refund = b.complete ? scaledCost(def.cost, 0.3) : scaledCost(def.cost, 1);
+  refundCost(game.players[b.owner], refund);
+  for (const u of game.units) {
+    if (!u.dead && u.owner === b.owner && u.state === 'build' && u.buildId === b.id) villagerNoWork(u);
+  }
+  markDead(b);
+  game.selection = game.selection.filter(id => id !== b.id);
+  game.selectionVersion++;
+  notify((b.complete ? 'Demolished ' : 'Canceled ') + buildingDisplayName(b.type, b.owner) + ' and refunded ' + costText(refund), 'info');
+  return { ok:true };
+}
+function hasAdjacentOwnWallOrGate(b) {
+  const dirs = [[1,0],[-1,0],[0,1],[0,-1]];
+  for (const d of dirs) {
+    const tx = b.tx + d[0], ty = b.ty + d[1];
+    if (!inBounds(tx, ty)) continue;
+    const other = game.buildingGrid[tIdx(tx, ty)];
+    if (!other || other.dead || other.owner !== b.owner || other.id === b.id) continue;
+    const def = CONFIG.BUILDINGS[other.type];
+    if (def && (def.wall || def.gate)) return true;
+  }
+  return false;
+}
+function canConvertBuilding(b, targetType) {
+  if (!b || b.dead || b.owner !== 0) return { ok:false, reason:'Select one of your walls' };
+  const def = CONFIG.BUILDINGS[b.type];
+  if (!def.wall || !b.complete) return { ok:false, reason:'Only complete walls can be converted' };
+  const targetDef = CONFIG.BUILDINGS[targetType];
+  if (!targetDef) return { ok:false, reason:'Unknown conversion' };
+  const p = game.players[b.owner];
+  if (p.age < targetDef.ageReq) return { ok:false, reason:'Requires ' + ageDisplayName(targetDef.ageReq) };
+  if (targetType === 'watchtower' && !hasAdjacentOwnWallOrGate(b)) return { ok:false, reason:'Requires an adjacent wall or gate' };
+  const lack = lackText(p, targetDef.cost);
+  if (lack) return { ok:false, reason:lack };
+  return { ok:true, targetDef };
+}
+function tryConvertBuilding(b, targetType) {
+  const c = canConvertBuilding(b, targetType);
+  if (!c.ok) return c;
+  payCost(game.players[b.owner], c.targetDef.cost);
+  const frac = b.hp / b.maxHp;
+  b.type = targetType;
+  b.maxHp = c.targetDef.hp;
+  b.hp = Math.max(1, Math.round(frac * b.maxHp));
+  if (c.targetDef.gate) { b.locked = false; b.doorOpen = 0; }
+  if (c.targetDef.turret) { b.cooldown = 0; b.scanTimer = rand(0, CONFIG.COMBAT.TURRET_SCAN_INTERVAL); }
+  game.mmDirty = true;
+  terrainReady = false;
+  game.selectionVersion++;
+  notify('Converted wall to ' + buildingDisplayName(targetType, b.owner), 'good');
+  return { ok:true };
+}
 function toggleGateLock(b) {
   if (!CONFIG.BUILDINGS[b.type].gate) return;
   b.locked = !b.locked;
@@ -3525,7 +3987,7 @@ function hasAdjacentWaterRect(tx, ty, size) {
 function waveTargetSize(owner) {
   const A = CONFIG.AI;
   const ai = game.ais[owner];
-  const d = currentDifficulty();
+  const d = currentDifficulty(owner);
   return Math.min(Math.ceil((A.WAVE_BASE_SIZE + A.WAVE_SIZE_GROWTH * ai.waveIndex) * d.waveSize), Math.ceil(A.WAVE_MAX_SIZE * d.maxArmy));
 }
 
@@ -3586,7 +4048,7 @@ function launchWaveIfReady(owner) {
         else orderAttackMove(u, dest.x + rand(-spread, spread), dest.y + rand(-spread, spread));
       }
       ai.waveIndex++;
-      ai.nextWaveTime = game.time + A.WAVE_INTERVAL * currentDifficulty().waveInterval;
+      ai.nextWaveTime = game.time + A.WAVE_INTERVAL * currentDifficulty(owner).waveInterval;
       if (targetEntity.owner === 0) notify(factionName(owner) + ' attack wave incoming!', 'bad');
       else notify(factionName(owner) + ' marches on ' + factionName(targetEntity.owner) + '.', 'info');
       return;
@@ -3680,7 +4142,7 @@ function updateAI(dt) {
 
 function updateAIPlayer(dt, owner) {
   const A = CONFIG.AI, ai = game.ais[owner], p = game.players[owner];
-  const D = currentDifficulty();
+  const D = currentDifficulty(owner);
   if (!ai) return;
   if (game.time >= ai.nextWaveTime) launchWaveIfReady(owner);
   ai.decisionTimer -= dt;
@@ -3906,9 +4368,7 @@ function resourceNeedOrder(owner) {
   const p = game.players[owner];
   const ratios = owner > 0
     ? CONFIG.AI.GATHER_RATIOS[Math.min(p.age, CONFIG.AI.GATHER_RATIOS.length - 1)]
-    : (p.age === 0 ? { food:.42, wood:.36, gold:.08, stone:.08, iron:.04, fish:.02 }
-      : p.age === 1 ? { food:.32, wood:.24, gold:.22, stone:.10, iron:.09, fish:.03 }
-      : { food:.28, wood:.18, gold:.28, stone:.10, iron:.13, fish:.03 });
+    : (CONFIG.SOCIETY_PRIORITIES[p.societyPriority] || CONFIG.SOCIETY_PRIORITIES.balanced).ratios;
   const gatherers = {};
   for (const res of RESOURCE_TYPES) gatherers[res] = 0;
   let villCount = 0;
@@ -3924,7 +4384,7 @@ function resourceNeedOrder(owner) {
     const gatherGap = target - gatherers[res];
     const ageGap = ageCost && ageCost[res] ? Math.max(0, ageCost[res] - p.resources[res]) / 80 : 0;
     const reserveGap = res === 'fish' ? 0 : Math.max(0, 180 - p.resources[res]) / 140;
-    scores[res] = gatherGap + ageGap + reserveGap;
+    scores[res] = (gatherGap + ageGap + reserveGap) * (owner === 0 ? (p.resourceBias[res] || 1) : 1);
   }
   if (popUsed(owner) >= p.popCap - CONFIG.AUTO_TASK.HOUSE_BUFFER) scores.wood += 3;
   if (p.age >= 1) scores.gold += 1.1;
@@ -3968,6 +4428,10 @@ function autoAssignColonyNeeds(villagers) {
     }
   }
   const order = resourceNeedOrder(0);
+  if (free.length && order[0] === 'food' && !findNearestNode('food', free[0].x, free[0].y)) {
+    const b = placePlayerAutoBuilding('farm', free);
+    if (b) free = free.filter(v => v.buildId !== b.id);
+  }
   let assigned = villagers.length - free.length;
   for (const v of free) {
     if (v.carryAmount > 0) {
@@ -4010,6 +4474,7 @@ function gameInteractive() {
 }
 
 function initInput() {
+  bindSettingsControls();
   canvas.addEventListener('mousedown', e => {
     if (!gameInteractive()) return;
     if (e.button === 0) {
@@ -4076,9 +4541,26 @@ function initInput() {
   DOM.touchPause.addEventListener('click', togglePause);
   $('btn-resume').addEventListener('click', () => { if (appState === 'paused') togglePause(); });
   $('btn-pause-restart').addEventListener('click', startGame);
+  $('btn-pause-settings').addEventListener('click', () => openSettingsOverlay());
+  $('btn-start-settings').addEventListener('click', () => openSettingsOverlay());
+  $('btn-settings-close').addEventListener('click', () => closeSettingsOverlay());
+  $('btn-save-game').addEventListener('click', () => openSaveLoadOverlay('save'));
+  $('btn-load-game').addEventListener('click', () => openSaveLoadOverlay('load'));
+  $('btn-save-load-close').addEventListener('click', () => closeSaveLoadOverlay());
+  $('btn-pause-diplomacy').addEventListener('click', () => toggleDiplomacy(true));
+  $('btn-pause-stats').addEventListener('click', () => toggleStats(true));
+  DOM.btnStatistics.addEventListener('click', () => toggleStats(true));
+  $('btn-stats-close').addEventListener('click', () => toggleStats(false));
+  $('btn-quit-menu').addEventListener('click', quitToMenu);
   $('btn-random-seed').addEventListener('click', () => { $('opt-seed').value = String(seedFromString(Date.now() + ':' + Math.random())).slice(0, 9); });
+  $('opt-enemies').addEventListener('change', renderLaunchConfig);
+  $('opt-difficulty').addEventListener('change', renderLaunchConfig);
   DOM.btnDiplomacy.addEventListener('click', () => toggleDiplomacy());
   $('btn-diplo-close').addEventListener('click', () => toggleDiplomacy(false));
+  DOM.idleColumn.addEventListener('click', e => {
+    const btn = e.target.closest && e.target.closest('[data-idle-cat]');
+    if (btn) cycleIdleCategory(btn.dataset.idleCat);
+  });
   window.addEventListener('resize', sizeCanvas);
   $('btn-start').addEventListener('click', startGame);
   $('btn-restart').addEventListener('click', startGame);
@@ -4089,10 +4571,41 @@ function setTouchMode(mode) {
   updateTouchToolbar();
 }
 
+function syncSettingsControls() {
+  const touchSel = $('set-touch'), edge = $('set-edgepan'), speed = $('set-panspeed'), notif = $('set-notifications');
+  if (!touchSel) return;
+  touchSel.value = appSettings.touchControls || 'auto';
+  edge.checked = appSettings.edgePan !== false;
+  speed.value = String(appSettings.panSpeed || 1);
+  notif.checked = appSettings.notifications !== false;
+}
+
+function openSettingsOverlay() {
+  syncSettingsControls();
+  DOM.settingsOverlay.classList.remove('hidden');
+}
+
+function closeSettingsOverlay() {
+  DOM.settingsOverlay.classList.add('hidden');
+}
+
+function bindSettingsControls() {
+  const touchSel = $('set-touch'), edge = $('set-edgepan'), speed = $('set-panspeed'), notif = $('set-notifications');
+  if (!touchSel || touchSel._bound) return;
+  touchSel._bound = true;
+  const persist = () => { saveSettings(); updateTouchToolbar(); };
+  touchSel.addEventListener('change', () => { appSettings.touchControls = touchSel.value; persist(); });
+  edge.addEventListener('change', () => { appSettings.edgePan = edge.checked; persist(); });
+  speed.addEventListener('input', () => { appSettings.panSpeed = parseFloat(speed.value) || 1; persist(); });
+  notif.addEventListener('change', () => { appSettings.notifications = notif.checked; persist(); });
+  syncSettingsControls();
+}
+
 function updateTouchToolbar() {
   const hasTouch = (navigator.maxTouchPoints || 0) > 0;
   const coarse = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
-  const show = game && (coarse || hasTouch);
+  const pref = appSettings.touchControls || 'auto';
+  const show = game && (pref === 'on' || (pref === 'auto' && (coarse || hasTouch)));
   DOM.touchToolbar.classList.toggle('hidden', !show);
   const mode = (game && game.touchMode) || 'select';
   DOM.touchSelect.classList.toggle('active', mode === 'select');
@@ -4112,58 +4625,99 @@ function onWheelZoom(e) {
   setCameraZoom(targetWorldZoom() * factor, e.clientX, e.clientY);
 }
 
+function touchPointList(e) {
+  const pts = [];
+  for (let i = 0; i < e.touches.length; i++) pts.push(e.touches[i]);
+  return pts;
+}
+
+function touchMidpoint(a, b) {
+  return { x:(a.clientX + b.clientX) / 2, y:(a.clientY + b.clientY) / 2 };
+}
+
+function resetTouchGesture() {
+  touch.down = false; touch.id = null; touch.dragging = false; touch.panning = false; touch.gesture = null;
+  mouse.down = false; mouse.dragging = false;
+}
+
 function onTouchStart(e) {
-  if (!gameInteractive() || e.touches.length !== 1) return;
+  if (!gameInteractive()) return;
   e.preventDefault();
-  const t = e.changedTouches[0];
-  const p = screenToWorld(t.clientX, t.clientY);
+  const pts = touchPointList(e);
+  if (pts.length >= 2) {
+    const mid = touchMidpoint(pts[0], pts[1]);
+    touch.gesture = 'pinch';
+    touch.down = true;
+    touch.lastX = mid.x; touch.lastY = mid.y;
+    touch.lastDist = dist(pts[0].clientX, pts[0].clientY, pts[1].clientX, pts[1].clientY);
+    mouse.down = false; mouse.dragging = false;
+    return;
+  }
+  const t = pts[0];
+  touch.gesture = (game.touchMode === 'command') ? 'pan' : 'select';
   touch.down = true; touch.id = t.identifier; touch.dragging = false; touch.panning = false;
-  touch.startEntity = game.placement ? null : pickEntity(p.x, p.y);
   touch.x = touch.sx = mouse.x = mouse.sx = t.clientX;
   touch.y = touch.sy = mouse.y = mouse.sy = t.clientY;
   touch.lastX = t.clientX; touch.lastY = t.clientY;
+  mouse.down = touch.gesture === 'select';
+  mouse.dragging = false;
   mouse.inside = true;
 }
 
 function onTouchMove(e) {
   if (!touch.down) return;
   e.preventDefault();
-  let t = null;
-  for (const changed of e.changedTouches) if (changed.identifier === touch.id) t = changed;
+  const pts = touchPointList(e);
+  if (pts.length >= 2) {
+    const mid = touchMidpoint(pts[0], pts[1]);
+    const d = dist(pts[0].clientX, pts[0].clientY, pts[1].clientX, pts[1].clientY);
+    if (touch.gesture !== 'pinch') {
+      touch.gesture = 'pinch';
+      touch.lastDist = d; touch.lastX = mid.x; touch.lastY = mid.y;
+      mouse.down = false; mouse.dragging = false;
+      return;
+    }
+    const z = worldZoom();
+    game.camera.x -= (mid.x - touch.lastX) / z;
+    game.camera.y -= (mid.y - touch.lastY) / z;
+    if (touch.lastDist > 0 && d > 0) setCameraZoom(targetWorldZoom() * (d / touch.lastDist), mid.x, mid.y);
+    clampCamera();
+    touch.lastDist = d; touch.lastX = mid.x; touch.lastY = mid.y;
+    return;
+  }
+  if (touch.gesture === 'pinch') { resetTouchGesture(); return; }
+  const t = pts[0];
   if (!t) return;
   touch.x = mouse.x = t.clientX;
   touch.y = mouse.y = t.clientY;
   if (!touch.dragging && Math.abs(touch.x - touch.sx) + Math.abs(touch.y - touch.sy) > 8) touch.dragging = true;
-  if (touch.dragging && shouldTouchPan()) touch.panning = true;
-  if (touch.panning) {
+  if (touch.gesture === 'pan') {
     const z = worldZoom();
     game.camera.x -= (t.clientX - touch.lastX) / z;
     game.camera.y -= (t.clientY - touch.lastY) / z;
     clampCamera();
+  } else {
+    mouse.down = true;
+    mouse.dragging = touch.dragging;
   }
   touch.lastX = t.clientX; touch.lastY = t.clientY;
-}
-
-function shouldTouchPan() {
-  if (!game || game.placement) return false;
-  if (game.touchMode === 'command') return true;
-  return !touch.startEntity;
 }
 
 function onTouchEnd(e) {
   if (!touch.down) return;
   e.preventDefault();
-  let t = null;
-  for (const changed of e.changedTouches) if (changed.identifier === touch.id) t = changed;
-  if (t) { touch.x = mouse.x = t.clientX; touch.y = mouse.y = t.clientY; }
-  touch.down = false;
+  if (e.touches && e.touches.length >= 2) return;
+  if (touch.gesture === 'pinch') { resetTouchGesture(); return; }
+  const x = touch.x, y = touch.y;
+  const wasDragging = touch.dragging;
+  const wasPan = touch.gesture === 'pan';
+  resetTouchGesture();
   if (!gameInteractive()) return;
   if (game.placement) { tryPlacement(); return; }
-  if (touch.panning) { touch.panning = false; touch.startEntity = null; return; }
-  if (touch.dragging) boxSelect(touch.sx, touch.sy, touch.x, touch.y);
-  else if (game.touchMode === 'command') onRightClick(touch.x, touch.y);
-  else clickSelect(touch.x, touch.y);
-  touch.startEntity = null;
+  if (wasPan) return;
+  if (wasDragging) boxSelect(touch.sx, touch.sy, x, y);
+  else if (game.touchMode === 'command') onRightClick(x, y);
+  else clickSelect(x, y);
 }
 
 function onKeyDown(e) {
@@ -4174,6 +4728,9 @@ function onKeyDown(e) {
   if (code === 'Space') { togglePause(); return; }
   if (!gameInteractive()) return;
   if (code === 'Escape') {
+    if (!DOM.saveLoadOverlay.classList.contains('hidden')) { closeSaveLoadOverlay(); return; }
+    if (!DOM.settingsOverlay.classList.contains('hidden')) { closeSettingsOverlay(); return; }
+    if (!DOM.statsOverlay.classList.contains('hidden')) { toggleStats(false); return; }
     if (game.diplomacyOpen) { toggleDiplomacy(false); return; }
     if (game.spellTarget) { cancelSpellTargeting(); return; }
     if (game.placement) cancelPlacement();
@@ -4181,6 +4738,7 @@ function onKeyDown(e) {
     return;
   }
   if (code === 'KeyP') { toggleDiplomacy(); return; }
+  if (code === 'Period') { cycleIdleCategory('worker'); return; }
   if (code === 'Equal' || code === 'NumpadAdd') {
     e.preventDefault();
     setCameraZoom(targetWorldZoom() * CONFIG.CAMERA.ZOOM_STEP, viewW / 2, viewH / 2);
@@ -4267,6 +4825,13 @@ function boxSelect(sx1, sy1, sx2, sy2) {
     if (u.x >= x1 - u.radius && u.x <= x2 + u.radius &&
         u.y >= y1 - u.radius && u.y <= y2 + u.radius) ids.push(u.id);
   }
+  if (!ids.length) {
+    for (const b of game.buildings) {
+      if (b.dead || b.owner !== 0) continue;
+      const r = entRect(b);
+      if (r.x + r.w >= x1 && r.x <= x2 && r.y + r.h >= y1 && r.y <= y2) ids.push(b.id);
+    }
+  }
   game.selection = ids;
   game.selectionVersion++;
 }
@@ -4339,7 +4904,8 @@ function issueContextCommand(sel, target, wx, wy) {
   if (target && target.kind === 'building' && target.owner === 0) {
     const def = CONFIG.BUILDINGS[target.type];
     for (const u of sel) {
-      if (u.type === 'villager' && !target.complete) orderBuild(u, target);
+      if (u.type === 'villager' && target.complete && def.farm && target.farmNodeId && getAlive(target.farmNodeId)) orderGather(u, getAlive(target.farmNodeId));
+      else if (u.type === 'villager' && !target.complete) orderBuild(u, target);
       else if (u.type === 'villager' && target.hp < target.maxHp) orderBuild(u, target);   // repair
       else if (u.type === 'villager' && def.dropoff && u.carryAmount > 0) orderDeposit(u, target);
       else orderMove(u, entCenter(target).x, entCenter(target).y);
@@ -4385,6 +4951,7 @@ function autoCombatLabel(mode) {
   if (mode === 'hold') return 'Hold Position';
   if (mode === 'guard') return 'Guard';
   if (mode === 'patrol') return 'Patrol';
+  if (mode === 'autopatrol') return 'Auto Patrol';
   if (mode === 'hunt') return 'Hunt';
   if (mode === 'passive') return 'Stand Down';
   return 'Manual';
@@ -4394,6 +4961,7 @@ function autoCombatColor(mode) {
   if (mode === 'hold') return '#f0c766';
   if (mode === 'guard') return '#8ec5ff';
   if (mode === 'patrol') return '#ffd75e';
+  if (mode === 'autopatrol') return '#7fe0a7';
   if (mode === 'hunt') return '#ff8a8a';
   if (mode === 'passive') return '#b9a989';
   return '#8ec5ff';
@@ -4518,6 +5086,93 @@ function setPatrolFor(units) {
   }
   if (changed) game.selectionVersion++;
   return changed;
+}
+
+function setAutoPatrolFor(units) {
+  let changed = 0;
+  for (const u of units) {
+    if (!u || u.dead || u.owner !== 0 || !isMilitary(u.type)) continue;
+    u.autoCombat = 'autopatrol';
+    u.guardX = u.x; u.guardY = u.y;
+    u.patrolA = { x: u.x, y: u.y };
+    u.patrolB = passablePointNear(u.x, u.y, T * 3, -Math.PI / 2 + changed * 0.5, u.type);
+    u.patrolToB = true;
+    u.aggroHomeX = u.x; u.aggroHomeY = u.y;
+    u.autoPatrolCluster = null;
+    issueAutoAttackMove(u, u.patrolB.x, u.patrolB.y);
+    changed++;
+  }
+  if (changed) {
+    game.autoPatrolTimer = 0;
+    game.selectionVersion++;
+  }
+  return changed;
+}
+
+function workingVillagerClusters() {
+  const cells = new Map();
+  for (const v of game.units) {
+    if (v.dead || v.owner !== 0 || v.type !== 'villager') continue;
+    if (!(v.state === 'gather' || v.state === 'build')) continue;
+    const cx = Math.floor((v.x / T) / 8), cy = Math.floor((v.y / T) / 8);
+    const key = cx + ',' + cy;
+    let cell = cells.get(key);
+    if (!cell) cells.set(key, cell = { cx, cy, x:0, y:0, count:0, neighbors:[] });
+    cell.x += v.x; cell.y += v.y; cell.count++;
+  }
+  const seen = new Set(), clusters = [];
+  for (const [key, cell] of cells) {
+    if (seen.has(key)) continue;
+    const stack = [cell], group = [];
+    seen.add(key);
+    while (stack.length) {
+      const cur = stack.pop();
+      group.push(cur);
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        if (!dx && !dy) continue;
+        const nk = (cur.cx + dx) + ',' + (cur.cy + dy);
+        if (seen.has(nk) || !cells.has(nk)) continue;
+        seen.add(nk);
+        stack.push(cells.get(nk));
+      }
+    }
+    const total = group.reduce((n, c) => n + c.count, 0);
+    clusters.push({
+      id: group.map(c => c.cx + ',' + c.cy).sort().join('|'),
+      x: group.reduce((n, c) => n + c.x, 0) / total,
+      y: group.reduce((n, c) => n + c.y, 0) / total,
+      count: total,
+    });
+  }
+  return clusters.sort((a, b) => b.count - a.count);
+}
+
+function updateAutoPatrolAssignments(dt) {
+  if (game.result) return;
+  game.autoPatrolTimer -= dt;
+  if (game.autoPatrolTimer > 0) return;
+  game.autoPatrolTimer = CONFIG.AUTO_COMBAT.AUTOPATROL_RECHECK;
+  const patrollers = game.units.filter(u => !u.dead && u.owner === 0 && isMilitary(u.type) && u.autoCombat === 'autopatrol' && !u.transportId);
+  if (!patrollers.length) return;
+  const clusters = workingVillagerClusters();
+  if (!clusters.length) return;
+  const loads = clusters.map(c => ({ cluster:c, assigned:0, cap:Math.ceil(c.count / 2) + 1 }));
+  for (let i = 0; i < patrollers.length; i++) {
+    const u = patrollers[i];
+    loads.sort((a, b) => (a.assigned / a.cap) - (b.assigned / b.cap));
+    const slot = loads[0];
+    slot.assigned++;
+    const c = slot.cluster;
+    if (u.autoPatrolCluster === c.id && u.guardX != null && dist(u.guardX, u.guardY, c.x, c.y) < T * 3) continue;
+    const angle = (i * 1.618 + c.count * 0.37) % (Math.PI * 2);
+    const a = passablePointNear(c.x, c.y, T * 4.5, angle, u.type);
+    const b = passablePointNear(c.x, c.y, T * 4.5, angle + Math.PI, u.type);
+    u.autoPatrolCluster = c.id;
+    u.guardX = c.x; u.guardY = c.y;
+    u.patrolA = a; u.patrolB = b; u.patrolToB = true;
+    u.aggroHomeX = c.x; u.aggroHomeY = c.y;
+    if (u.state === 'idle' || u.state === 'attackmove' || u.state === 'move') issueAutoAttackMove(u, b.x, b.y);
+  }
 }
 
 function findNearestFriendlyFallback(owner, x, y) {
@@ -4917,7 +5572,7 @@ function updateCamera(delta) {
   if (keys.has('KeyW') || keys.has('ArrowUp'))    targetVY -= 1;
   if (keys.has('KeyS') || keys.has('ArrowDown'))  targetVY += 1;
   const z = worldZoom();
-  if (!targetVX && !targetVY && mouse.inside && document.hasFocus()) {
+  if (!targetVX && !targetVY && appSettings.edgePan && mouse.inside && document.hasFocus()) {
     const M = CONFIG.CAMERA.EDGE_MARGIN;
     targetVX = edgeScrollAxis(mouse.x, viewW, M);
     targetVY = edgeScrollAxis(mouse.y, viewH, M);
@@ -4929,7 +5584,7 @@ function updateCamera(delta) {
   cam.panVY = (cam.panVY || 0) + (targetVY - (cam.panVY || 0)) * mix;
   if (Math.abs(cam.panVX) < 0.002) cam.panVX = 0;
   if (Math.abs(cam.panVY) < 0.002) cam.panVY = 0;
-  const speed = targetVX || targetVY ? CONFIG.CAMERA.KEY_SPEED : CONFIG.CAMERA.EDGE_SPEED;
+  const speed = (targetVX || targetVY ? CONFIG.CAMERA.KEY_SPEED : CONFIG.CAMERA.EDGE_SPEED) * (appSettings.panSpeed || 1);
   cam.x += cam.panVX * speed * delta / z;
   cam.y += cam.panVY * speed * delta / z;
   clampCamera();
@@ -5121,35 +5776,71 @@ function drawTerrainStream(c, points, width) {
 function drawBridgeDecksOn(c) {
   if (!game || !game.bridges) return;
   c.save();
+  const spans = (game.decor && game.decor.bridgeSpans && game.decor.bridgeSpans.length) ? game.decor.bridgeSpans : [];
+  for (const sp of spans) {
+    const x = sp.tx * T, y = sp.ty * T;
+    const w = sp.horizontal ? sp.len * T : T;
+    const h = sp.horizontal ? T : sp.len * T;
+    c.fillStyle = 'rgba(55,34,18,0.62)';
+    c.fillRect(x + T * 0.04, y + T * 0.14, w - T * 0.08, h - T * 0.28);
+    c.fillStyle = '#7b4f2b';
+    c.strokeStyle = '#2b1b10';
+    c.lineWidth = 1.2;
+    if (sp.horizontal) {
+      for (let n = 0; n < 4; n++) {
+        const yy = y + T * (0.23 + n * 0.14);
+        c.fillRect(x + T * 0.02, yy, w - T * 0.04, T * 0.08);
+        c.strokeRect(x + T * 0.02, yy, w - T * 0.04, T * 0.08);
+      }
+      c.fillStyle = '#4b2d17';
+      c.fillRect(x + T * 0.1, y + T * 0.13, T * 0.08, T * 0.74);
+      c.fillRect(x + w - T * 0.18, y + T * 0.13, T * 0.08, T * 0.74);
+    } else {
+      for (let n = 0; n < 4; n++) {
+        const xx = x + T * (0.23 + n * 0.14);
+        c.fillRect(xx, y + T * 0.02, T * 0.08, h - T * 0.04);
+        c.strokeRect(xx, y + T * 0.02, T * 0.08, h - T * 0.04);
+      }
+      c.fillStyle = '#4b2d17';
+      c.fillRect(x + T * 0.13, y + T * 0.1, T * 0.74, T * 0.08);
+      c.fillRect(x + T * 0.13, y + h - T * 0.18, T * 0.74, T * 0.08);
+    }
+  }
+  c.restore();
+}
+
+function waterTileDeep(tx, ty) {
+  for (let yy = ty - 1; yy <= ty + 1; yy++) {
+    for (let xx = tx - 1; xx <= tx + 1; xx++) {
+      if (!inBounds(xx, yy) || !game.water[tIdx(xx, yy)] || game.bridges[tIdx(xx, yy)]) return false;
+    }
+  }
+  return true;
+}
+
+function drawWaterTilesOn(c) {
+  if (!game || !game.water) return;
+  c.save();
+  c.fillStyle = 'rgba(135,114,66,0.88)';
+  for (let ty = 0; ty < ROWS; ty++) for (let tx = 0; tx < COLS; tx++) {
+    const i = tIdx(tx, ty);
+    if (!game.water[i] || game.bridges[i]) continue;
+    c.fillRect(tx * T - 6, ty * T - 6, T + 12, T + 12);
+  }
   for (let ty = 0; ty < ROWS; ty++) {
     for (let tx = 0; tx < COLS; tx++) {
       const i = tIdx(tx, ty);
-      if (!game.bridges[i]) continue;
+      if (!game.water[i] || game.bridges[i]) continue;
       const x = tx * T, y = ty * T;
-      const horizontal = (inBounds(tx - 1, ty) && game.bridges[tIdx(tx - 1, ty)]) || (inBounds(tx + 1, ty) && game.bridges[tIdx(tx + 1, ty)]);
-      c.fillStyle = 'rgba(55,34,18,0.62)';
-      c.fillRect(x + T * 0.08, y + T * 0.18, T * 0.84, T * 0.64);
-      c.fillStyle = '#7b4f2b';
-      c.strokeStyle = '#2b1b10';
-      c.lineWidth = 1.2;
-      if (horizontal) {
-        for (let n = 0; n < 4; n++) {
-          const yy = y + T * (0.24 + n * 0.14);
-          c.fillRect(x + T * 0.05, yy, T * 0.9, T * 0.08);
-          c.strokeRect(x + T * 0.05, yy, T * 0.9, T * 0.08);
-        }
-        c.fillStyle = '#4b2d17';
-        c.fillRect(x + T * 0.16, y + T * 0.15, T * 0.08, T * 0.7);
-        c.fillRect(x + T * 0.76, y + T * 0.15, T * 0.08, T * 0.7);
-      } else {
-        for (let n = 0; n < 4; n++) {
-          const xx = x + T * (0.24 + n * 0.14);
-          c.fillRect(xx, y + T * 0.05, T * 0.08, T * 0.9);
-          c.strokeRect(xx, y + T * 0.05, T * 0.08, T * 0.9);
-        }
-        c.fillStyle = '#4b2d17';
-        c.fillRect(x + T * 0.15, y + T * 0.16, T * 0.7, T * 0.08);
-        c.fillRect(x + T * 0.15, y + T * 0.76, T * 0.7, T * 0.08);
+      c.fillStyle = waterTileDeep(tx, ty) ? '#1f667b' : '#2f8da0';
+      c.fillRect(x, y, T, T);
+      if (hash01(game.seed, tx, ty + 911) > 0.83) {
+        c.strokeStyle = 'rgba(204,249,244,0.32)';
+        c.lineWidth = 1;
+        c.beginPath();
+        c.moveTo(x + T * hash01(tx, ty, 921), y + T * hash01(tx, ty, 923));
+        c.lineTo(x + T * hash01(tx, ty, 929), y + T * hash01(tx, ty, 931));
+        c.stroke();
       }
     }
   }
@@ -5309,37 +6000,7 @@ function buildTerrainBackdrop() {
   }
 
   for (const trail of decor.trails) drawTerrainTrail(c, trail, T * 0.5);
-
-  for (const pond of decor.ponds) {
-    c.save();
-    c.translate(pond.x, pond.y);
-    c.rotate(pond.a);
-    const water = c.createRadialGradient(0, 0, 2, 0, 0, Math.max(pond.rx, pond.ry));
-    water.addColorStop(0, 'rgba(91,177,190,0.66)');
-    water.addColorStop(1, 'rgba(28,79,91,0.54)');
-    c.fillStyle = water;
-    c.beginPath(); c.ellipse(0, 0, pond.rx, pond.ry, 0, 0, Math.PI * 2); c.fill();
-    c.strokeStyle = 'rgba(204,249,244,0.24)';
-    c.lineWidth = 2;
-    c.beginPath(); c.ellipse(pond.rx * 0.18, -pond.ry * 0.18, pond.rx * 0.54, pond.ry * 0.28, 0, 0, Math.PI * 2); c.stroke();
-    c.strokeStyle = 'rgba(48,36,20,0.28)';
-    c.lineWidth = 4;
-    c.beginPath(); c.ellipse(0, 0, pond.rx * 1.02, pond.ry * 1.02, 0, 0, Math.PI * 2); c.stroke();
-    c.strokeStyle = 'rgba(211,220,153,0.22)';
-    c.lineWidth = 1.4;
-    for (let reed = 0; reed < 10; reed++) {
-      const salt = Math.floor(pond.x + pond.y);
-      const a = hash01(game.seed, salt, 333 + reed) * Math.PI * 2;
-      const px = Math.cos(a) * pond.rx * (0.84 + hash01(game.seed, salt, 351 + reed) * 0.18);
-      const py = Math.sin(a) * pond.ry * (0.84 + hash01(game.seed, salt, 371 + reed) * 0.18);
-      c.beginPath();
-      c.moveTo(px, py);
-      c.lineTo(px + Math.cos(a - 0.9) * T * 0.12, py - T * (0.18 + hash01(game.seed, salt, 391 + reed) * 0.18));
-      c.stroke();
-    }
-    c.restore();
-  }
-  for (const stream of decor.streams) drawTerrainStream(c, stream, stream.width || T * 0.18);
+  drawWaterTilesOn(c);
   drawBridgeDecksOn(c);
 
   for (const stone of decor.stones) {
@@ -5563,7 +6224,7 @@ function drawRallyPoints() {
     ctx.strokeStyle = '#2b1b10';
     ctx.lineWidth = 3;
     ctx.beginPath(); ctx.moveTo(to.x, to.y + 8); ctx.lineTo(to.x, to.y - 17); ctx.stroke();
-    ctx.fillStyle = b.rally.kind === 'attack' ? '#ff6b6b' : b.rally.kind === 'resource' ? '#f0c766' : FACTION[0].light;
+    ctx.fillStyle = b.rally.kind === 'attack' ? '#ff6b6b' : b.rally.kind === 'resource' ? '#f0c766' : factionStyle(0).light;
     fillPoly([[to.x, to.y - 17], [to.x + 18, to.y - 11], [to.x, to.y - 5]], ctx.fillStyle);
   }
   ctx.restore();
@@ -5572,7 +6233,19 @@ function drawRallyPoints() {
 function drawNode(n, x, y) {
   const cx = x + T / 2, cy = y + T / 2;
   const frac = clamp(n.amount / n.max, 0, 1);
-  if (n.type === 'wood') {
+  if (n.variant === 'farmplot') {
+    ctx.save();
+    ctx.globalAlpha = 0.72;
+    ctx.fillStyle = '#5f4a2e';
+    ctx.fillRect(x + T * 0.12, y + T * 0.18, T * 0.76, T * 0.62);
+    ctx.strokeStyle = frac > 0.66 ? '#d9d66f' : '#6e9a45';
+    ctx.lineWidth = 1.5;
+    for (let i = 0; i < 5; i++) {
+      const yy = y + T * (0.26 + i * 0.1);
+      ctx.beginPath(); ctx.moveTo(x + T * 0.18, yy); ctx.lineTo(x + T * 0.82, yy - T * 0.16); ctx.stroke();
+    }
+    ctx.restore();
+  } else if (n.type === 'wood') {
     drawShadow(cx, cy + T * 0.23, T * 0.36, T * 0.13, 0.34);
     ctx.save();
     ctx.shadowColor = 'rgba(9,28,11,0.42)';
@@ -5749,7 +6422,7 @@ function drawBanner(x, y, w, h, color) {
 function drawBuilding(b) {
   const def = CONFIG.BUILDINGS[b.type];
   const x = b.tx * T, y = b.ty * T, w = b.size * T;
-  const fac = FACTION[b.owner];
+  const fac = factionStyle(b.owner);
   const selected = game.selection.includes(b.id);
   const aura = ctx.createRadialGradient(x + w / 2, y + w * 0.55, 0, x + w / 2, y + w * 0.55, w * 0.78);
   aura.addColorStop(0, 'rgba(255,255,255,0)');
@@ -6026,6 +6699,31 @@ function drawBuildingBody(b, x, y, w, fac) {
       ctx.strokeStyle = '#8a6a1f'; ctx.lineWidth = 1; ctx.stroke();
     }
     drawBanner(x + w * 0.47, y + w * 0.02, w * 0.08, w * 0.16, fac.fill);
+  } else if (b.type === 'farm') {
+    const node = b.farmNodeId ? getAlive(b.farmNodeId) : null;
+    const growth = node ? clamp(node.amount / CONFIG.FARM.YIELD_CAP, 0, 1) : 0.35;
+    fillPoly([[x+w*.12,y+w*.78],[x+w*.5,y+w*.54],[x+w*.88,y+w*.78],[x+w*.72,y+w*.92],[x+w*.28,y+w*.92]], '#6e4c2b');
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(x + w * 0.14, y + w * 0.52, w * 0.72, w * 0.38);
+    ctx.clip();
+    for (let i = 0; i < 5; i++) {
+      const yy = y + w * (0.56 + i * 0.07);
+      ctx.strokeStyle = i % 2 ? '#4f6f2f' : '#7b5a2d';
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(x + w * 0.16, yy); ctx.lineTo(x + w * 0.84, yy - w * 0.17); ctx.stroke();
+      const cropH = w * (0.05 + growth * 0.16);
+      ctx.strokeStyle = growth > 0.66 ? '#d9d66f' : growth > 0.33 ? '#7fa34a' : '#4f7f3e';
+      for (let j = 0; j < 7; j++) {
+        const px = x + w * (0.2 + j * 0.09) + (i % 2) * 3;
+        const py = yy - w * 0.04 - j * w * 0.018;
+        ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px + 2, py - cropH); ctx.stroke();
+      }
+    }
+    ctx.restore();
+    fillPoly([[x+w*.56,y+w*.4],[x+w*.86,y+w*.52],[x+w*.8,y+w*.7],[x+w*.5,y+w*.56]], '#8f5a31');
+    ctx.strokeStyle = '#3a2115'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(x+w*.6,y+w*.43); ctx.lineTo(x+w*.78,y+w*.66); ctx.stroke();
   } else {          // storehouse
     fillPoly([[x+w*.16,y+w*.48],[x+w*.5,y+w*.32],[x+w*.84,y+w*.48],[x+w*.76,y+w*.86],[x+w*.24,y+w*.86]], bandit ? '#5a3420' : '#9a764a');
     fillPoly([[x+w*.13,y+w*.43],[x+w*.5,y+w*.22],[x+w*.87,y+w*.43],[x+w*.72,y+w*.55],[x+w*.28,y+w*.55]], bandit ? '#603025' : '#6e4c2b');
@@ -6724,7 +7422,7 @@ function drawGhost() {
   const x = pl.tx * T, y = pl.ty * T;
   ctx.save();
   ctx.globalAlpha = 0.45;
-  drawBuildingBody({ type: pl.type, owner: 0 }, x, y, w, FACTION[0]);
+  drawBuildingBody({ type: pl.type, owner: 0 }, x, y, w, factionStyle(0));
   ctx.restore();
   ctx.fillStyle = pl.valid ? 'rgba(90,220,130,0.3)' : 'rgba(235,70,70,0.4)';
   ctx.fillRect(x, y, w, w);
@@ -6762,25 +7460,20 @@ function rebuildMinimapTerrain() {
     }
     c.stroke();
   }
-  for (const stream of decor.streams) {
-    c.strokeStyle = 'rgba(64,164,187,0.78)';
-    c.lineWidth = Math.max(1, (stream.width || T * 0.18) * sc);
-    c.beginPath();
-    for (let i = 0; i < stream.length; i++) {
-      const x = stream[i].x * sc, y = stream[i].y * sc;
-      if (i) c.lineTo(x, y); else c.moveTo(x, y);
-    }
-    c.stroke();
-  }
-  for (const pond of decor.ponds) {
-    c.fillStyle = 'rgba(64,164,187,0.72)';
-    c.beginPath(); c.ellipse(pond.x * sc, pond.y * sc, Math.max(1, pond.rx * sc), Math.max(1, pond.ry * sc), pond.a, 0, Math.PI * 2); c.fill();
-  }
-  if (game.bridges) {
-    c.fillStyle = '#7b4f2b';
-    const pxBridge = Math.max(1, Math.ceil(T * sc));
+  if (game.water) {
+    const pxWater = Math.max(1, Math.ceil(T * sc));
+    c.fillStyle = 'rgba(64,164,187,0.82)';
     for (let ty = 0; ty < ROWS; ty++) for (let tx = 0; tx < COLS; tx++) {
-      if (game.bridges[tIdx(tx, ty)]) c.fillRect(Math.floor(tx * T * sc), Math.floor(ty * T * sc), pxBridge, pxBridge);
+      const i = tIdx(tx, ty);
+      if (game.water[i] && !game.bridges[i]) c.fillRect(Math.floor(tx * T * sc), Math.floor(ty * T * sc), pxWater, pxWater);
+    }
+  }
+  if (game.decor && game.decor.bridgeSpans) {
+    c.fillStyle = '#7b4f2b';
+    for (const sp of game.decor.bridgeSpans) {
+      c.fillRect(sp.tx * T * sc, sp.ty * T * sc,
+        Math.max(1, (sp.horizontal ? sp.len : 1) * T * sc),
+        Math.max(1, (sp.horizontal ? 1 : sp.len) * T * sc));
     }
   }
   const px = Math.ceil(T * sc);
@@ -6800,7 +7493,7 @@ function renderMinimap() {
   mmCtx.drawImage(mmTerrain, 0, 0, S, S);
   for (const b of game.buildings) {
     if (b.dead) continue;
-    mmCtx.fillStyle = FACTION[b.owner].fill;
+    mmCtx.fillStyle = factionStyle(b.owner).fill;
     const s = Math.max(3, b.size * T * sc);
     mmCtx.fillRect(b.tx * T * sc, b.ty * T * sc, s, s);
   }
@@ -6838,8 +7531,15 @@ let lastSelSignature = '';
 let lastDiploVersionSynced = -1;
 let uiUpdaters = [];
 const notifRecent = new Map();
+const idleCycle = { worker:-1, military:-1, scout:-1 };
+let currentStatsMetric = 'stockpile';
+const STATS_METRICS = {
+  stockpile:'Stockpile', gathered:'Gathered', strength:'Strength', population:'Population',
+  kills:'Kills', losses:'Losses', buildings:'Buildings',
+};
 
 function notify(text, kind) {
+  if (appSettings && appSettings.notifications === false) return;
   const now = (typeof performance !== 'undefined') ? performance.now() : Date.now();
   const last = notifRecent.get(text);
   if (last && now - last < 1500) return;   // de-duplicate spam
@@ -6856,7 +7556,7 @@ function notify(text, kind) {
 }
 
 function toggleDiplomacy(force) {
-  if (!game || appState !== 'playing') return;
+  if (!game || (appState !== 'playing' && appState !== 'paused')) return;
   const open = force != null ? force : !game.diplomacyOpen;
   game.diplomacyOpen = open;
   DOM.diplomacyOverlay.classList.toggle('hidden', !open);
@@ -6864,55 +7564,229 @@ function toggleDiplomacy(force) {
 }
 function rebuildDiplomacyPanel() {
   const rows = DOM.diplomacyRows;
-  rows.innerHTML = '';
+  rows._cards = rows._cards || {};
+  const active = new Set();
   for (let owner = 1; owner < game.players.length; owner++) {
+    active.add(String(owner));
+    if (!rows._cards[owner]) rows._cards[owner] = createDiplomacyCard(owner);
+    updateDiplomacyCard(owner, rows._cards[owner]);
+  }
+  for (const key in rows._cards) {
+    if (!active.has(key)) {
+      rows._cards[key].row.remove();
+      delete rows._cards[key];
+    }
+  }
+}
+
+function createDiplomacyCard(owner) {
+  const row = document.createElement('div');
+  row.className = 'diplo-row';
+  row.innerHTML =
+    '<div class="diplo-row-head">' +
+      '<span class="diplo-swatch"></span>' +
+      '<span class="diplo-name"></span>' +
+      '<span class="diplo-badge"></span>' +
+    '</div>' +
+    '<div class="diplo-strength"></div>' +
+    '<div class="diplo-strength-bar"><div></div></div>' +
+    '<div class="diplo-status"></div>' +
+    '<div class="diplo-actions"></div>' +
+    '<div class="diplo-tribute"></div>';
+  DOM.diplomacyRows.appendChild(row);
+  const refs = {
+    row,
+    swatch: row.querySelector('.diplo-swatch'),
+    name: row.querySelector('.diplo-name'),
+    badge: row.querySelector('.diplo-badge'),
+    strength: row.querySelector('.diplo-strength'),
+    bar: row.querySelector('.diplo-strength-bar > div'),
+    status: row.querySelector('.diplo-status'),
+    actions: row.querySelector('.diplo-actions'),
+    tribute: row.querySelector('.diplo-tribute'),
+    buttons: {},
+  };
+  const addAction = (key, label, action) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'diplo-btn';
+    btn.textContent = label;
+    btn.addEventListener('click', () => {
+      const r = action();
+      if (r && !r.ok && r.reason) notify(r.reason, 'warn');
+      rebuildDiplomacyPanel();
+    });
+    refs.actions.appendChild(btn);
+    refs.buttons[key] = btn;
+  };
+  addAction('peace', 'Offer Peace', () => offerPeace(owner));
+  addAction('ally', 'Propose Alliance', () => offerAlliance(owner));
+  addAction('war', 'Declare War', () => declareWar(owner));
+  const amount = document.createElement('select');
+  amount.className = 'diplo-btn';
+  amount.innerHTML = '<option value="25">25</option><option value="50">50</option><option value="100" selected>100</option>';
+  refs.tribute.appendChild(amount);
+  refs.amount = amount;
+  for (const res of RESOURCE_TYPES) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'diplo-btn tribute';
+    btn.textContent = RES_LABELS[res];
+    btn.addEventListener('click', () => {
+      const r = sendTribute(owner, res, parseInt(refs.amount.value, 10));
+      if (r && !r.ok && r.reason) notify(r.reason, 'warn');
+      rebuildDiplomacyPanel();
+    });
+    refs.tribute.appendChild(btn);
+    refs.buttons['tribute:' + res] = btn;
+  }
+  return refs;
+}
+
+function setDiploButton(btn, check) {
+  btn.disabled = !check.ok;
+  btn.title = check.ok ? '' : (check.reason || '');
+}
+
+function updateDiplomacyCard(owner, refs) {
     const rel = game.relations[0][owner];
     const myS = strengthOf(0), theirS = strengthOf(owner);
     const hint = theirS > myS * 1.15 ? 'Stronger' : theirS < myS * 0.85 ? 'Weaker' : 'Even';
-    const row = document.createElement('div');
-    row.className = 'diplo-row';
-    row.innerHTML =
-      '<div class="diplo-row-head">' +
-        '<span class="diplo-swatch" style="background:' + FACTION[owner].fill + '"></span>' +
-        '<span class="diplo-name">' + factionName(owner) + '</span>' +
-        '<span class="diplo-badge ' + rel + '">' + rel + '</span>' +
-      '</div>' +
-      '<div class="diplo-strength">Relative strength: ' + hint + '</div>' +
-      '<div class="diplo-actions"></div>';
-    const actions = row.querySelector('.diplo-actions');
-    const addBtn = (label, extraClass, check, action) => {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'diplo-btn' + (extraClass ? ' ' + extraClass : '');
-      btn.textContent = label;
-      const c = check();
-      btn.disabled = !c.ok;
-      if (!c.ok && c.reason) btn.title = c.reason;
-      btn.addEventListener('click', () => {
-        const r = action();
-        if (r && !r.ok && r.reason) notify(r.reason, 'warn');
-        rebuildDiplomacyPanel();
-      });
-      actions.appendChild(btn);
-    };
-    addBtn('Offer Peace', '', () => canOfferPeace(owner), () => offerPeace(owner));
-    addBtn('Propose Alliance', '', () => canOfferAlliance(owner), () => offerAlliance(owner));
-    addBtn('Declare War', '', () => (rel === 'war' ? { ok: false, reason: 'Already at war' } : { ok: true }), () => declareWar(owner));
-    for (const res of RESOURCE_TYPES) {
-      addBtn('Tribute ' + CONFIG.DIPLOMACY.TRIBUTE_LOT + ' ' + RES_LABELS[res], 'tribute',
-        () => canSendTribute(owner, res, CONFIG.DIPLOMACY.TRIBUTE_LOT),
-        () => sendTribute(owner, res, CONFIG.DIPLOMACY.TRIBUTE_LOT));
-    }
-    rows.appendChild(row);
-  }
+  const ds = diploState(owner);
+  refs.swatch.style.background = factionStyle(owner).fill;
+  refs.name.textContent = factionName(owner);
+  refs.badge.className = 'diplo-badge ' + rel;
+  refs.badge.textContent = rel;
+  refs.strength.textContent = 'Relative strength: ' + hint;
+  refs.bar.style.width = clamp(theirS / Math.max(1, myS + theirS), 0.06, 0.94) * 100 + '%';
+  const peace = ds.peaceSince >= 0 ? Math.floor(game.time - ds.peaceSince) + 's peace' : 'No peace treaty';
+  const refused = game.time < ds.refusedUntil ? ' | Refusal ' + Math.ceil(ds.refusedUntil - game.time) + 's' : '';
+  refs.status.textContent = peace + ' | Tribute ' + Math.floor(ds.tribute || 0) + refused;
+  setDiploButton(refs.buttons.peace, canOfferPeace(owner));
+  setDiploButton(refs.buttons.ally, canOfferAlliance(owner));
+  setDiploButton(refs.buttons.war, rel === 'war' ? { ok:false, reason:'Already at war' } : { ok:true });
+  for (const res of RESOURCE_TYPES) setDiploButton(refs.buttons['tribute:' + res], canSendTribute(owner, res, parseInt(refs.amount.value, 10)));
 }
 
 function entityName(e) {
   if (e.kind === 'unit') return unitDisplayName(e.type, e.owner);
   if (e.kind === 'building') return buildingDisplayName(e.type, e.owner) + (e.complete ? '' : ' (Foundation)');
   if (e.kind === 'site') return e.name;
+  if (e.kind === 'resource' && e.variant === 'farmplot') return 'Farm Plot';
   if (e.kind === 'resource' && e.variant === 'chicken') return 'Chicken';
   return NODE_NAMES[e.type];
+}
+
+function idleUnitsByCategory() {
+  const cats = { worker: [], military: [], scout: [] };
+  if (!game) return cats;
+  for (const u of game.units) {
+    if (u.dead || u.owner !== 0 || u.transportId || u.state !== 'idle') continue;
+    if (u.type === 'villager' || u.type === 'settler') cats.worker.push(u);
+    else if (u.type === 'scout' || unitMovesOnWater(u)) cats.scout.push(u);
+    else if (isMilitary(u.type) && !u.autoCombat) cats.military.push(u);
+    else cats.scout.push(u);
+  }
+  return cats;
+}
+
+function updateIdleColumn() {
+  if (!DOM.idleColumn || !game || (appState !== 'playing' && appState !== 'paused')) {
+    if (DOM.idleColumn) DOM.idleColumn.classList.add('hidden');
+    return;
+  }
+  const cats = idleUnitsByCategory();
+  const specs = [
+    ['worker', 'Idle workers'],
+    ['military', 'Idle fighters'],
+    ['scout', 'Idle scouts and other units'],
+  ];
+  let html = '';
+  for (const spec of specs) {
+    const count = cats[spec[0]].length;
+    if (!count) continue;
+    html += '<button type="button" class="idle-btn ' + spec[0] + '" data-idle-cat="' + spec[0] + '" title="' + spec[1] + '">' +
+      '<span class="idle-badge">' + count + '</span></button>';
+  }
+  DOM.idleColumn.classList.toggle('hidden', !html);
+  if (DOM.idleColumn._last !== html) { DOM.idleColumn._last = html; DOM.idleColumn.innerHTML = html; }
+}
+
+function toggleStats(force) {
+  if (!game) return;
+  const open = force != null ? force : DOM.statsOverlay.classList.contains('hidden');
+  DOM.statsOverlay.classList.toggle('hidden', !open);
+  if (open) renderStatsOverlay();
+}
+
+function renderStatsOverlay() {
+  if (!game || !DOM.statsCanvas) return;
+  let tabs = '';
+  for (const key in STATS_METRICS) {
+    tabs += '<button type="button" class="metric-tab' + (key === currentStatsMetric ? ' active' : '') + '" data-metric="' + key + '">' + STATS_METRICS[key] + '</button>';
+  }
+  DOM.statsTabs.innerHTML = tabs;
+  DOM.statsTabs.onclick = ev => {
+    const btn = ev.target.closest && ev.target.closest('[data-metric]');
+    if (!btn) return;
+    currentStatsMetric = btn.dataset.metric;
+    renderStatsOverlay();
+  };
+  const c = DOM.statsCanvas;
+  const g = c.getContext('2d');
+  const W = c.width, H = c.height, pad = 34;
+  g.clearRect(0, 0, W, H);
+  g.fillStyle = 'rgba(12,9,6,0.92)';
+  g.fillRect(0, 0, W, H);
+  const stats = game.stats;
+  const times = stats.t;
+  if (!times.length) {
+    g.fillStyle = '#b9a989';
+    g.font = '14px Georgia, serif';
+    g.fillText('No samples yet', pad, H / 2);
+    return;
+  }
+  let maxY = 1;
+  for (const row of stats.perPlayer) for (const v of row[currentStatsMetric] || []) maxY = Math.max(maxY, v);
+  const minT = times[0], maxT = Math.max(times[times.length - 1], minT + 1);
+  g.strokeStyle = 'rgba(231,196,125,0.25)';
+  g.lineWidth = 1;
+  g.beginPath();
+  g.moveTo(pad, pad); g.lineTo(pad, H - pad); g.lineTo(W - pad, H - pad); g.stroke();
+  g.fillStyle = '#b9a989';
+  g.font = '11px Georgia, serif';
+  g.fillText(formatTime(minT), pad, H - 10);
+  g.textAlign = 'right';
+  g.fillText(formatTime(maxT), W - pad, H - 10);
+  g.fillText(Math.ceil(maxY), pad - 6, pad + 4);
+  g.textAlign = 'left';
+  for (let owner = 0; owner < stats.perPlayer.length; owner++) {
+    const arr = stats.perPlayer[owner][currentStatsMetric] || [];
+    if (!arr.length) continue;
+    const style = factionStyle(owner);
+    g.strokeStyle = style.light || style.fill;
+    g.lineWidth = owner === 0 ? 2.4 : 1.8;
+    g.beginPath();
+    for (let i = 0; i < arr.length; i++) {
+      const x = pad + ((times[i] - minT) / (maxT - minT)) * (W - pad * 2);
+      const y = H - pad - (arr[i] / maxY) * (H - pad * 2);
+      if (i) g.lineTo(x, y); else g.moveTo(x, y);
+    }
+    g.stroke();
+  }
+  DOM.statsLegend.innerHTML = game.players.map((p, i) =>
+    '<div class="chip"><span class="diplo-swatch" style="background:' + factionStyle(i).fill + '"></span> ' + factionName(i) + '</div>').join('');
+}
+
+function cycleIdleCategory(cat) {
+  const cats = idleUnitsByCategory();
+  const list = cats[cat] || [];
+  if (!list.length) return;
+  idleCycle[cat] = ((idleCycle[cat] == null ? -1 : idleCycle[cat]) + 1) % list.length;
+  const u = list[idleCycle[cat]];
+  game.selection = [u.id];
+  game.selectionVersion++;
+  centerCameraOn(u.x, u.y);
 }
 
 function uiSync() {
@@ -6938,7 +7812,9 @@ function uiSync() {
     lastDiploVersionSynced = game.diploVersion;
     rebuildDiplomacyPanel();
   }
+  if (!DOM.statsOverlay.classList.contains('hidden')) renderStatsOverlay();
   for (const f of uiUpdaters) f();
+  updateIdleColumn();
   canvas.style.cursor = game.placement ? 'crosshair' : 'default';
 }
 
@@ -7009,7 +7885,7 @@ function buildSingleSelection(e) {
   } else if (!e.complete) {
     html += '<div class="statline" id="sel-buildprog"></div>';
   } else if (e.kind === 'building' && e.type === 'towncenter' && isOwn) {
-    html += '<div id="sel-pop-work"></div>';
+    html += '<div id="sel-pop-work"></div><div id="sel-priority-controls"></div>';
   }
   if (e.kind === 'building' && e.type === 'willhub' && isOwn && e.complete) {
     html += '<div class="statline" id="sel-will"></div>';
@@ -7081,6 +7957,7 @@ function buildSingleSelection(e) {
   }
   if (e.kind === 'building' && e.type === 'towncenter' && isOwn && e.complete) {
     const workEl = $('sel-pop-work');
+    buildPriorityControls($('sel-priority-controls'), e.owner);
     uiUpdaters.push(() => {
       if (e.dead) return;
       const h = populationWorkHtml(e.owner);
@@ -7104,7 +7981,7 @@ function buildSingleSelection(e) {
     });
   }
   // context-sensitive action buttons
-  if (isOwn && e.kind === 'building' && e.complete) buildBuildingButtons(e);
+  if (isOwn && e.kind === 'building') buildBuildingButtons(e);
   if (isOwn && e.kind === 'unit' && e.type === 'villager') buildVillagerButtons();
   if (isOwn && e.kind === 'unit' && isMilitary(e.type)) buildMilitaryButtons();
   if (isOwn && e.kind === 'unit' && e.knownSpells && e.knownSpells.length) buildCasterButtons(e);
@@ -7153,17 +8030,57 @@ function populationWorkHtml(owner) {
     '</div>';
 }
 
+function buildPriorityControls(container, owner) {
+  if (!container) return;
+  const p = game.players[owner];
+  let html = '<div class="chips">';
+  for (const key in CONFIG.SOCIETY_PRIORITIES) {
+    const def = CONFIG.SOCIETY_PRIORITIES[key];
+    html += '<button type="button" class="chip priority-chip" data-priority="' + key + '">' + def.label + '</button>';
+  }
+  html += '</div><div class="chips">';
+  for (const res of RESOURCE_TYPES) {
+    const val = p.resourceBias[res] || 1;
+    const label = val < 1 ? 'Low' : val > 1 ? 'High' : 'Normal';
+    html += '<button type="button" class="chip bias-chip" data-res="' + res + '">' + RES_LABELS[res] + ': ' + label + '</button>';
+  }
+  html += '</div>';
+  container.innerHTML = html;
+  container.addEventListener('click', ev => {
+    const pri = ev.target.closest && ev.target.closest('[data-priority]');
+    const bias = ev.target.closest && ev.target.closest('[data-res]');
+    if (pri) {
+      p.societyPriority = pri.dataset.priority;
+      game.selectionVersion++;
+    } else if (bias) {
+      const res = bias.dataset.res;
+      const cur = p.resourceBias[res] || 1;
+      p.resourceBias[res] = cur < 1 ? 1 : cur > 1 ? 0.5 : 1.6;
+      game.selectionVersion++;
+    }
+  });
+  uiUpdaters.push(() => {
+    for (const btn of container.querySelectorAll('[data-priority]')) btn.classList.toggle('selected', btn.dataset.priority === p.societyPriority);
+    for (const btn of container.querySelectorAll('[data-res]')) {
+      const val = p.resourceBias[btn.dataset.res] || 1;
+      btn.textContent = RES_LABELS[btn.dataset.res] + ': ' + (val < 1 ? 'Low' : val > 1 ? 'High' : 'Normal');
+    }
+  });
+}
+
 function buildMultiSelection(ents) {
   const counts = {};
   let hasVillager = false;
   let hasMilitary = false;
+  let ownBuildings = [];
   for (const e of ents) {
     const nm = entityName(e);
     counts[nm] = (counts[nm] || 0) + 1;
     if (e.kind === 'unit' && e.type === 'villager') hasVillager = true;
     if (e.kind === 'unit' && e.owner === 0 && isMilitary(e.type)) hasMilitary = true;
+    if (e.kind === 'building' && e.owner === 0) ownBuildings.push(e);
   }
-  let html = '<div class="sel-name">' + ents.length + ' units selected</div><div class="chips">';
+  let html = '<div class="sel-name">' + ents.length + ' selected</div><div class="chips">';
   for (const nm in counts) html += '<div class="chip">' + nm + ' ×' + counts[nm] + '</div>';
   html += '</div>';
   const autoCount = ents.filter(e => e.kind === 'unit' && e.owner === 0 && e.type === 'villager' && e.autoNeeds).length;
@@ -7173,6 +8090,21 @@ function buildMultiSelection(ents) {
   DOM.selPanel.innerHTML = html;
   if (hasVillager) buildVillagerButtons();
   if (hasMilitary) buildMilitaryButtons();
+  if (ownBuildings.length && ownBuildings.length === ents.length) {
+    const firstType = ownBuildings[0].type;
+    const sameType = ownBuildings.every(b => b.type === firstType);
+    const def = CONFIG.BUILDINGS[firstType];
+    if (sameType && def && def.upgradesTo) {
+      const nextDef = CONFIG.BUILDINGS[def.upgradesTo];
+      makeBtn('Upgrade All to ' + buildingDisplayName(def.upgradesTo, 0), nextDef.cost,
+        () => ownBuildings.some(b => canUpgradeBuilding(b).ok) ? { ok:true } : canUpgradeBuilding(ownBuildings[0]),
+        () => {
+          let upgraded = 0;
+          for (const b of ownBuildings) if (tryUpgradeBuilding(b).ok) upgraded++;
+          if (upgraded) notify('Upgraded ' + upgraded + ' building' + (upgraded === 1 ? '' : 's'), 'good');
+        });
+    }
+  }
 }
 
 function makeBtn(title, costObj, check, action) {
@@ -7191,6 +8123,31 @@ function makeBtn(title, costObj, check, action) {
     if (btn._dis !== !c.ok) { btn._dis = !c.ok; btn.classList.toggle('disabled', !c.ok); }
     const tip = c.ok ? '' : c.reason;
     if (btn._tip !== tip) { btn._tip = tip; btn.title = tip; }
+  });
+  return btn;
+}
+
+function makeConfirmBtn(title, confirmTitle, costObj, check, action, key) {
+  const btn = makeBtn(title, costObj, check, () => {
+    const now = game.time || 0;
+    game.confirmActions = game.confirmActions || {};
+    const armedUntil = game.confirmActions[key] || 0;
+    if (armedUntil < now) {
+      game.confirmActions[key] = now + 3;
+      game.selectionVersion++;
+      return;
+    }
+    game.confirmActions[key] = 0;
+    action();
+  });
+  uiUpdaters.push(() => {
+    const armed = game.confirmActions && (game.confirmActions[key] || 0) >= (game.time || 0);
+    const label = armed ? confirmTitle : title;
+    if (btn._confirmLabel !== label) {
+      btn._confirmLabel = label;
+      const titleEl = btn.querySelector('.bt');
+      if (titleEl) titleEl.textContent = label;
+    }
   });
   return btn;
 }
@@ -7255,6 +8212,13 @@ function addActionQueue(building) {
 
 function buildBuildingButtons(b) {
   const def = CONFIG.BUILDINGS[b.type];
+  if (!b.complete) {
+    makeConfirmBtn('Cancel Build (full refund)', 'Confirm Cancel?', def.cost,
+      () => b.owner === 0 && !b.dead ? { ok:true } : { ok:false, reason:'Select one of your foundations' },
+      () => { demolishBuilding(b); },
+      'cancel:' + b.id);
+    return;
+  }
   if (b.type === 'blacksmith') buildBlacksmithButtons(b);
   if (def.researches) {
     for (const rid of def.researches) {
@@ -7298,6 +8262,14 @@ function buildBuildingButtons(b) {
       () => canUpgradeBuilding(b),
       () => { tryUpgradeBuilding(b); });
   }
+  if (def.wall) {
+    makeBtn('Convert to Gate', CONFIG.BUILDINGS.gate.cost,
+      () => canConvertBuilding(b, 'gate'),
+      () => { tryConvertBuilding(b, 'gate'); });
+    makeBtn('Convert to Watch Tower', CONFIG.BUILDINGS.watchtower.cost,
+      () => canConvertBuilding(b, 'watchtower'),
+      () => { tryConvertBuilding(b, 'watchtower'); });
+  }
   if (def.gate) {
     makeBtn(b.locked ? 'Unlock Gate' : 'Lock Gate', null,
       () => ({ ok: true }),
@@ -7305,6 +8277,10 @@ function buildBuildingButtons(b) {
   }
   if (def.market) buildMarketButtons(b);
   if (b.type === 'willhub') buildWillhubButtons(b);
+  makeConfirmBtn('Demolish', 'Confirm?', scaledCost(def.cost, 0.3),
+    () => b.owner === 0 && !b.dead ? { ok:true } : { ok:false, reason:'Select one of your buildings' },
+    () => { demolishBuilding(b); },
+    'demolish:' + b.id);
 }
 
 function buildWillhubButtons(b) {
@@ -7378,7 +8354,7 @@ function buildVillagerButtons() {
       if (!res.ok) notify('Auto Needs enabled; waiting for reachable work', 'info');
       else notify('Auto Needs enabled for ' + vills.length + ' apprentice' + (vills.length === 1 ? '' : 's'), 'good');
     });
-  for (const bt of ['house', 'storehouse', 'barracks', 'blacksmith', 'shipyard', 'market', 'palisade', 'stonewall', 'gate', 'watchtower']) {
+  for (const bt of ['house', 'farm', 'storehouse', 'barracks', 'blacksmith', 'shipyard', 'market', 'palisade', 'stonewall', 'gate', 'watchtower']) {
     const def = CONFIG.BUILDINGS[bt];
     if (!def.buildable) continue;
     makeBtn('Build ' + buildingDisplayName(bt, 0), def.cost,
@@ -7429,6 +8405,13 @@ function buildMilitaryButtons() {
       const changed = setPatrolFor(units);
       if (changed) notify('Patrol route set for ' + changed + ' fighter' + (changed === 1 ? '' : 's'), 'good');
     });
+  makeBtn('Auto Patrol', null,
+    () => selectedMilitaryUnits().length ? { ok: true } : { ok: false, reason: 'Select Guild fighters first' },
+    () => {
+      const units = selectedMilitaryUnits();
+      const changed = setAutoPatrolFor(units);
+      if (changed) notify('Auto patrol set for ' + changed + ' fighter' + (changed === 1 ? '' : 's'), 'good');
+    });
   makeBtn('Hunt', null,
     () => selectedMilitaryUnits().length ? { ok: true } : { ok: false, reason: 'Select Guild fighters first' },
     () => {
@@ -7470,6 +8453,256 @@ function buildMilitaryButtons() {
 /* ================================================================================
  * GAME FLOW — start / pause / end / restart
  * ================================================================================ */
+const SAVE_SLOT_COUNT = 4;
+let saveLoadMode = 'save';
+
+function saveSlotKey(slot) { return 'albion.save.' + slot; }
+
+function serializeGame() {
+  return {
+    v: 1,
+    savedAt: new Date().toISOString(),
+    options: game.options,
+    seed: game.seed,
+    rngState: game.rngState,
+    time: game.time,
+    nextId: game.nextId,
+    players: game.players,
+    relations: game.relations,
+    diplo: game.diplo,
+    diploVersion: game.diploVersion,
+    units: game.units,
+    buildings: game.buildings,
+    nodes: game.nodes,
+    sites: game.sites,
+    ambient: game.ambient,
+    creepCamps: game.creepCamps,
+    zones: game.zones,
+    camera: game.camera,
+    touchMode: game.touchMode,
+    stats: game.stats,
+    factionStyles: game.factionStyles,
+    water: Array.from(game.water || []),
+    bridges: Array.from(game.bridges || []),
+    decor: game.decor,
+    meta: {
+      date: new Date().toLocaleString(),
+      map: currentMapPreset().name,
+      age: ageDisplayName(game.players[0].age),
+      elapsed: formatTime(game.time),
+    },
+  };
+}
+
+function rebuildEntityIndexes() {
+  game.byId = new Map();
+  game.nodeGrid = new Array(NTILES).fill(null);
+  game.buildingGrid = new Array(NTILES).fill(null);
+  game.blocked = new Uint8Array(NTILES);
+  for (const e of [...game.units, ...game.buildings, ...game.nodes, ...(game.sites || [])]) {
+    if (e && !e.dead) game.byId.set(e.id, e);
+  }
+  for (const n of game.nodes) if (!n.dead && inBounds(n.tx, n.ty)) game.nodeGrid[tIdx(n.tx, n.ty)] = n;
+  rebuildBlocked();
+  let maxId = 0;
+  for (const e of [...game.units, ...game.buildings, ...game.nodes, ...(game.sites || [])]) if (e && e.id > maxId) maxId = e.id;
+  game.nextId = Math.max(game.nextId || 1, maxId + 1);
+  for (let owner = 0; owner < game.players.length; owner++) recomputePopCap(owner);
+}
+
+function deserializeGame(data) {
+  if (!data || data.v !== 1) throw new Error('Unsupported save file');
+  const base = newGame(data.options || {});
+  Object.assign(base, {
+    time: data.time || 0,
+    seed: data.seed || seedFromString((data.options && data.options.seedText) || ''),
+    rngState: data.rngState || data.seed || 1,
+    nextId: data.nextId || 1,
+    players: data.players || base.players,
+    relations: data.relations || base.relations,
+    diplo: data.diplo || base.diplo,
+    diploVersion: data.diploVersion || 0,
+    units: data.units || [],
+    buildings: data.buildings || [],
+    nodes: data.nodes || [],
+    sites: data.sites || [],
+    ambient: data.ambient || [],
+    creepCamps: data.creepCamps || [],
+    zones: data.zones || [],
+    camera: data.camera || base.camera,
+    touchMode: data.touchMode || 'select',
+    stats: data.stats || makeStatsState((data.players || base.players).length),
+    factionStyles: data.factionStyles || base.factionStyles,
+    decor: data.decor || null,
+    projectiles: [], effects: [], pings: [], deadList: [],
+    selection: [], selectionVersion: 0, controlGroups: {},
+    placement: null, spellTarget: null,
+    autoTaskTimer: 0, autoCombatTimer: 0, autoPatrolTimer: 0,
+    underAttackAt: -999, lastNoResNotify: {}, result: null,
+    water: Uint8Array.from(data.water || new Array(NTILES).fill(0)),
+    bridges: Uint8Array.from(data.bridges || new Array(NTILES).fill(0)),
+    blocked: new Uint8Array(NTILES),
+    nodeGrid: new Array(NTILES).fill(null),
+    buildingGrid: new Array(NTILES).fill(null),
+    byId: new Map(),
+    mmDirty: true,
+  });
+  game = base;
+  rebuildEntityIndexes();
+  terrainReady = false;
+  mmTerrain = null;
+  return game;
+}
+
+function slotInfo(slot) {
+  try {
+    const raw = localStorage.getItem(saveSlotKey(slot));
+    if (!raw) return null;
+    const data = JSON.parse(raw);
+    return data.meta || { date:data.savedAt || 'Saved game', map:'Unknown map', age:'Unknown age', elapsed:formatTime(data.time || 0) };
+  } catch (err) {
+    return { date:'Corrupt slot', map:'Unreadable', age:'', elapsed:'' };
+  }
+}
+
+function saveGameToSlot(slot) {
+  if (!game) return;
+  if (localStorage.getItem(saveSlotKey(slot)) && !window.confirm('Overwrite save slot ' + slot + '?')) return;
+  localStorage.setItem(saveSlotKey(slot), JSON.stringify(serializeGame()));
+  renderSaveLoadSlots();
+  renderStartLoadSlots();
+  notify('Game saved to slot ' + slot, 'good');
+}
+
+function loadGameFromSlot(slot) {
+  const raw = localStorage.getItem(saveSlotKey(slot));
+  if (!raw) return;
+  deserializeGame(JSON.parse(raw));
+  appState = 'playing';
+  lastSelSignature = '__loaded__';
+  uiUpdaters = [];
+  DOM.screenStart.classList.add('hidden');
+  DOM.screenEnd.classList.add('hidden');
+  DOM.pauseOverlay.classList.add('hidden');
+  DOM.diplomacyOverlay.classList.add('hidden');
+  DOM.statsOverlay.classList.add('hidden');
+  DOM.settingsOverlay.classList.add('hidden');
+  DOM.saveLoadOverlay.classList.add('hidden');
+  DOM.statsOverlay.classList.add('hidden');
+  DOM.settingsOverlay.classList.add('hidden');
+  DOM.saveLoadOverlay.classList.add('hidden');
+  DOM.topBar.classList.remove('hidden');
+  DOM.bottomPanel.classList.remove('hidden');
+  sizeCanvas();
+  updateTouchToolbar();
+  notify('Loaded save slot ' + slot, 'good');
+}
+
+function deleteSaveSlot(slot) {
+  localStorage.removeItem(saveSlotKey(slot));
+  renderSaveLoadSlots();
+  renderStartLoadSlots();
+}
+
+function slotRowsHtml(mode) {
+  let html = '';
+  for (let slot = 1; slot <= SAVE_SLOT_COUNT; slot++) {
+    const info = slotInfo(slot);
+    html += '<div class="slot-row" data-slot="' + slot + '">' +
+      '<span class="slot-title">Slot ' + slot + '</span>' +
+      '<span class="slot-meta">' + (info ? (info.map + ' | ' + info.age + ' | ' + info.elapsed + ' | ' + info.date) : 'Empty') + '</span>' +
+      (mode === 'save' ? '<button type="button" class="mini-btn" data-action="save">Save</button>' : '') +
+      '<button type="button" class="mini-btn" data-action="load" ' + (info ? '' : 'disabled') + '>Load</button>' +
+      '<button type="button" class="mini-btn" data-action="delete" ' + (info ? '' : 'disabled') + '>Delete</button>' +
+      '</div>';
+  }
+  return html;
+}
+
+function wireSlotList(container, mode) {
+  if (!container) return;
+  container.innerHTML = slotRowsHtml(mode);
+  container.onclick = ev => {
+    const btn = ev.target.closest && ev.target.closest('[data-action]');
+    const row = ev.target.closest && ev.target.closest('[data-slot]');
+    if (!btn || !row || btn.disabled) return;
+    const slot = parseInt(row.dataset.slot, 10);
+    if (btn.dataset.action === 'save') saveGameToSlot(slot);
+    else if (btn.dataset.action === 'load') loadGameFromSlot(slot);
+    else if (btn.dataset.action === 'delete') deleteSaveSlot(slot);
+  };
+}
+
+function renderSaveLoadSlots() { wireSlotList(DOM.saveLoadSlots, saveLoadMode); }
+function renderStartLoadSlots() { wireSlotList(DOM.startLoadSlots, 'load'); }
+
+function openSaveLoadOverlay(mode) {
+  saveLoadMode = mode || 'save';
+  DOM.saveLoadTitle.textContent = saveLoadMode === 'save' ? 'SAVE GAME' : 'LOAD GAME';
+  renderSaveLoadSlots();
+  DOM.saveLoadOverlay.classList.remove('hidden');
+}
+function closeSaveLoadOverlay() { DOM.saveLoadOverlay.classList.add('hidden'); }
+
+function colorSwatchesHtml(selected, disabled) {
+  let html = '<div class="swatches">';
+  for (let i = 0; i < FACTION.length; i++) {
+    const dis = disabled && disabled.has(i) && i !== selected;
+    html += '<button type="button" class="swatch-btn' + (i === selected ? ' selected' : '') + '" data-color-id="' + i + '" ' +
+      (dis ? 'disabled ' : '') + 'title="' + FACTION[i].name + '" style="background:' + FACTION[i].fill + '"></button>';
+  }
+  return html + '</div>';
+}
+
+function selectedLaunchColors() {
+  const colors = [];
+  colors.push(clamp(parseInt((DOM.playerConfig && DOM.playerConfig.dataset.colorId) || '0', 10) || 0, 0, FACTION.length - 1));
+  const count = clamp(parseInt(($('opt-enemies') && $('opt-enemies').value) || '1', 10) || 1, 1, 3);
+  for (let i = 1; i <= count; i++) {
+    const row = $('npc-row-' + i);
+    colors.push(clamp(parseInt((row && row.dataset.colorId) || String(i), 10) || i, 0, FACTION.length - 1));
+  }
+  return colors;
+}
+
+function renderLaunchConfig() {
+  if (!DOM.playerConfig || !DOM.npcConfig) return;
+  const count = clamp(parseInt(($('opt-enemies') && $('opt-enemies').value) || '1', 10) || 1, 1, 3);
+  const oldColors = selectedLaunchColors();
+  const playerColor = oldColors[0] == null ? 0 : oldColors[0];
+  const taken = new Set(oldColors.slice(0, count + 1));
+  DOM.playerConfig.dataset.colorId = String(playerColor);
+  DOM.playerConfig.innerHTML = '<div class="npc-row" data-owner="0"><span class="npc-title">Player</span>' + colorSwatchesHtml(playerColor, taken) + '</div>';
+  let html = '';
+  for (let i = 1; i <= count; i++) {
+    const oldRow = $('npc-row-' + i);
+    const diff = (oldRow && oldRow.querySelector('[data-role="difficulty"]') && oldRow.querySelector('[data-role="difficulty"]').value) || (($('opt-difficulty') && $('opt-difficulty').value) || 'standard');
+    const rel = (oldRow && oldRow.querySelector('[data-role="relation"]') && oldRow.querySelector('[data-role="relation"]').value) || 'war';
+    const color = oldColors[i] == null ? i : oldColors[i];
+    html += '<div class="npc-row" id="npc-row-' + i + '" data-owner="' + i + '" data-color-id="' + color + '">' +
+      '<span class="npc-title">Faction ' + i + '</span>' +
+      '<label>Difficulty <select data-role="difficulty">' +
+      Object.keys(DIFFICULTY_PRESETS).map(k => '<option value="' + k + '"' + (k === diff ? ' selected' : '') + '>' + DIFFICULTY_PRESETS[k].label + '</option>').join('') +
+      '</select></label>' +
+      '<label>Relation <select data-role="relation">' +
+      ['war','peace','ally'].map(k => '<option value="' + k + '"' + (k === rel ? ' selected' : '') + '>' + k.charAt(0).toUpperCase() + k.slice(1) + '</option>').join('') +
+      '</select></label>' +
+      colorSwatchesHtml(color, taken) +
+      '</div>';
+  }
+  DOM.npcConfig.innerHTML = html;
+  for (const host of [DOM.playerConfig, DOM.npcConfig]) {
+    host.onclick = ev => {
+      const btn = ev.target.closest && ev.target.closest('[data-color-id]');
+      if (!btn || btn.disabled) return;
+      const row = btn.closest('[data-owner]');
+      if (!row) return;
+      row.dataset.colorId = btn.dataset.colorId;
+      renderLaunchConfig();
+    };
+  }
+}
+
 function startGame() {
   sizeCanvas();
   game = newGame(getLaunchOptions());
@@ -7486,6 +8719,9 @@ function startGame() {
   DOM.screenEnd.classList.add('hidden');
   DOM.pauseOverlay.classList.add('hidden');
   DOM.diplomacyOverlay.classList.add('hidden');
+  DOM.statsOverlay.classList.add('hidden');
+  DOM.settingsOverlay.classList.add('hidden');
+  DOM.saveLoadOverlay.classList.add('hidden');
   DOM.topBar.classList.remove('hidden');
   DOM.bottomPanel.classList.remove('hidden');
   sizeCanvas();
@@ -7510,6 +8746,22 @@ function updatePauseMenu() {
   DOM.pauseAge.textContent = ageDisplayName(game.players[0].age);
   DOM.pauseSeed.textContent = game.options.seedText || String(game.seed);
   DOM.pauseStart.textContent = startingForOptions(game.options).label;
+}
+
+function quitToMenu() {
+  appState = 'menu';
+  if (game) game.diplomacyOpen = false;
+  DOM.pauseOverlay.classList.add('hidden');
+  DOM.diplomacyOverlay.classList.add('hidden');
+  DOM.statsOverlay.classList.add('hidden');
+  DOM.settingsOverlay.classList.add('hidden');
+  DOM.saveLoadOverlay.classList.add('hidden');
+  DOM.topBar.classList.add('hidden');
+  DOM.bottomPanel.classList.add('hidden');
+  DOM.idleColumn.classList.add('hidden');
+  DOM.screenEnd.classList.add('hidden');
+  DOM.screenStart.classList.remove('hidden');
+  renderStartLoadSlots();
 }
 
 function endGame(result) {
@@ -7562,6 +8814,8 @@ function frame(now) {
 // ---- boot
 initInput();
 sizeCanvas();
+renderLaunchConfig();
+renderStartLoadSlots();
 AlbionFramework.load();
 requestAnimationFrame(frame);
 
