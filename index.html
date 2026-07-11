@@ -420,6 +420,23 @@ const CONFIG = {
     obelisk:    { name:'Old Kingdom Obelisk', hp:2000, size:5, cost:{stone:520,iron:180,gold:420}, buildTime:78,
                   ageReq:2, buildable:true, unique:true,
                   bonus:{hpMult:1.08,researchTimeMult:0.78}, revealOnComplete:true },
+
+    // Fortifications — walls block movement by simply being buildings; gates carry a
+    // friendly/hostile passability flag; watchtowers/guardtowers fire like a unit would.
+    palisade:   { name:'Palisade Wall', hp:220, size:1, cost:{wood:12}, buildTime:5,
+                  ageReq:0, buildable:true, wall:true, dragBuild:true, upgradesTo:'stonewall' },
+    stonewall:  { name:'Stone Wall', hp:650, size:1, cost:{stone:18}, buildTime:9,
+                  ageReq:1, buildable:true, wall:true, dragBuild:true, upgradesTo:'fortwall' },
+    fortwall:   { name:'Fortified Wall', hp:1250, size:1, cost:{stone:24,iron:10}, buildTime:12,
+                  ageReq:2, buildable:false, wall:true },
+    gate:       { name:'Guild Gate', hp:520, size:1, cost:{wood:30,stone:20}, buildTime:10,
+                  ageReq:0, buildable:true, gate:true },
+    watchtower: { name:'Watch Tower', hp:480, size:2, cost:{wood:60,stone:80}, buildTime:20,
+                  ageReq:1, buildable:true, turret:true, upgradesTo:'guardtower',
+                  attack:{ damage:7, range:5.5, cooldown:1.9, projectileSpeed:460 } },
+    guardtower: { name:'Guard Tower', hp:820, size:2, cost:{stone:140,iron:60}, buildTime:26,
+                  ageReq:2, buildable:false, turret:true,
+                  attack:{ damage:12, range:6.2, cooldown:1.8, projectileSpeed:480 } },
   },
 
   FORGE: {
@@ -479,6 +496,8 @@ const CONFIG = {
     CHASE_REPATH_INTERVAL: 0.6,        // seconds between path refreshes while chasing
     LEASH_RANGE: 11,                   // tiles a unit chases beyond where it auto-acquired
     PROJECTILE_LENGTH: 13,             // px, visual arrow length
+    WALL_FALLBACK_RANGE: 14,           // tiles — retarget radius when a chase target is walled off
+    TURRET_SCAN_INTERVAL: 0.4,         // seconds between turret target scans
   },
 
   AUTO_COMBAT: {
@@ -637,6 +656,12 @@ const THEME = {
       willhub: ['Brightwood Will Hub', 'Bandit Hex Circle', 'Hobbe Totem Den', 'Wraith Spire'],
       guildspire: ['Heroes Guild Spire', 'Bandit King Trophy', 'Hobbe Idol Heap', 'Bone Crown Spire'],
       obelisk: ['Old Kingdom Obelisk', 'Bandit War Monument', 'Hobbe Standing Stone', 'Necromancer Obelisk'],
+      palisade: ['Palisade Wall', 'Bandit Stakewall', 'Hobbe Bramblewall', 'Bone Palisade'],
+      stonewall: ['Stone Wall', 'Bandit Rampart', 'Hobbe Rockwall', 'Grave Rampart'],
+      fortwall: ['Fortified Wall', 'Bandit Bastion Wall', 'Hobbe Warwall', 'Wraith Rampart'],
+      gate: ['Guild Gate', 'Bandit Gate', 'Hobbe Gate', 'Bone Gate'],
+      watchtower: ['Watch Tower', 'Bandit Lookout', 'Hobbe Perch', 'Grave Spire'],
+      guardtower: ['Guard Tower', 'Bandit Bastion', 'Hobbe Stronghold', 'Wraith Tower'],
     },
   },
 };
@@ -1019,6 +1044,7 @@ function newGame(options) {
     water: new Uint8Array(NTILES),       // 1 = deep water; land units need bridges, ships need water
     bridges: new Uint8Array(NTILES),     // 1 = bridge deck over water
     nodeGrid: new Array(NTILES).fill(null),
+    buildingGrid: new Array(NTILES).fill(null),  // tile -> building ref, for gate lookups + wall rendering
     players,
     camera: { x: 0, y: 0, zoom: defaultWorldZoom(), targetZoom: defaultWorldZoom(), panVX: 0, panVY: 0, zoomAnchor: null },
     selection: [], selectionVersion: 0,
@@ -1388,30 +1414,40 @@ function makeWavyPath(points, salt) {
 function rebuildBlocked() {
   const g = game;
   g.blocked.fill(0);
+  g.buildingGrid.fill(null);
   for (const n of g.nodes) if (!n.dead) g.blocked[tIdx(n.tx, n.ty)] = 1;
   for (const b of g.buildings) {
     if (b.dead) continue;
     for (let ty = b.ty; ty < b.ty + b.size; ty++)
       for (let tx = b.tx; tx < b.tx + b.size; tx++)
-        if (inBounds(tx, ty)) g.blocked[tIdx(tx, ty)] = 1;
+        if (inBounds(tx, ty)) { g.blocked[tIdx(tx, ty)] = 1; g.buildingGrid[tIdx(tx, ty)] = b; }
   }
   g.mmDirty = true;
 }
 function movementModeForType(type) { return unitMovesOnWaterType(type) ? 'water' : 'land'; }
-function tileBlockedFor(tx, ty, mode) {
+// askerOwner is optional: when supplied, an unlocked gate not hostile to that owner reads as passable.
+// Callers with no specific unit (placement checks, generic blocked queries) omit it — gates stay solid.
+function tileBlockedFor(tx, ty, mode, askerOwner) {
   if (!inBounds(tx, ty)) return true;
   const i = tIdx(tx, ty);
-  if (game.blocked[i] === 1) return true;
+  if (game.blocked[i] === 1) {
+    let passableGate = false;
+    if (askerOwner != null) {
+      const b = game.buildingGrid[i];
+      if (b && !b.dead && !b.locked && CONFIG.BUILDINGS[b.type].gate && !areHostile(askerOwner, b.owner)) passableGate = true;
+    }
+    if (!passableGate) return true;
+  }
   const water = game.water && game.water[i] === 1;
   const bridge = game.bridges && game.bridges[i] === 1;
   if (mode === 'water') return !water || bridge;
   return water && !bridge;
 }
 function isBlockedTile(tx, ty) { return tileBlockedFor(tx, ty, 'land'); }
-function blockedAtWorld(x, y) { return blockedAtWorldFor(x, y, 'land'); }
-function blockedAtWorldFor(x, y, typeOrMode) {
+function blockedAtWorld(x, y, owner) { return blockedAtWorldFor(x, y, 'land', owner); }
+function blockedAtWorldFor(x, y, typeOrMode, owner) {
   const mode = typeOrMode === 'water' || typeOrMode === 'land' ? typeOrMode : movementModeForType(typeOrMode);
-  return tileBlockedFor(Math.floor(x / T), Math.floor(y / T), mode);
+  return tileBlockedFor(Math.floor(x / T), Math.floor(y / T), mode, owner);
 }
 function hasWalkableNeighbor(tx, ty) {
   for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
@@ -1420,13 +1456,13 @@ function hasWalkableNeighbor(tx, ty) {
   }
   return false;
 }
-function nearestPassableTile(tx, ty, maxR, mode) {
-  if (!tileBlockedFor(tx, ty, mode)) return { tx, ty };
+function nearestPassableTile(tx, ty, maxR, mode, owner) {
+  if (!tileBlockedFor(tx, ty, mode, owner)) return { tx, ty };
   maxR = maxR || 8;
   for (let r = 1; r <= maxR; r++) {
     for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
       if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
-      if (!tileBlockedFor(tx + dx, ty + dy, mode)) return { tx: tx + dx, ty: ty + dy };
+      if (!tileBlockedFor(tx + dx, ty + dy, mode, owner)) return { tx: tx + dx, ty: ty + dy };
     }
   }
   return null;
@@ -1576,7 +1612,7 @@ function pfHeapPop() {
   return top;
 }
 // Returns a list of {tx,ty} steps (start tile excluded), [] if already at goal, or null.
-function findPathTiles(sx, sy, goalTest, hx, hy, mode) {
+function findPathTiles(sx, sy, goalTest, hx, hy, mode, owner) {
   if (goalTest(sx, sy)) return [];
   mode = mode || 'land';
   PF.gen += 2;
@@ -1602,9 +1638,9 @@ function findPathTiles(sx, sy, goalTest, hx, hy, mode) {
       const nx = cx + dx, ny = cy + dy;
       if (!inBounds(nx, ny)) continue;
       const ni = ny * COLS + nx;
-      if (tileBlockedFor(nx, ny, mode)) continue;
+      if (tileBlockedFor(nx, ny, mode, owner)) continue;
       // no cutting corners around blocked tiles
-      if (dx && dy && (tileBlockedFor(nx, cy, mode) || tileBlockedFor(cx, ny, mode))) continue;
+      if (dx && dy && (tileBlockedFor(nx, cy, mode, owner) || tileBlockedFor(cx, ny, mode, owner))) continue;
       const ng = PF.g[cur] + (dx && dy ? 1.4142 : 1);
       const st = PF.state[ni];
       if (st === CLOSED) continue;
@@ -1630,12 +1666,13 @@ function computePath(u, spec) {
   const sx = clamp(Math.floor(u.x / T), 0, COLS - 1);
   const sy = clamp(Math.floor(u.y / T), 0, ROWS - 1);
   const mode = movementModeForType(u.type);
+  const owner = u.owner;
   let goalTest, hx, hy, exactEnd = null;
   if (spec.kind === 'point') {
     let ttx = clamp(Math.floor(spec.x / T), 0, COLS - 1);
     let tty = clamp(Math.floor(spec.y / T), 0, ROWS - 1);
-    if (tileBlockedFor(ttx, tty, mode)) {
-      const nw = nearestPassableTile(ttx, tty, 12, mode);
+    if (tileBlockedFor(ttx, tty, mode, owner)) {
+      const nw = nearestPassableTile(ttx, tty, 12, mode, owner);
       if (!nw) return false;
       ttx = nw.tx; tty = nw.ty;
     } else {
@@ -1646,10 +1683,10 @@ function computePath(u, spec) {
     hx = ttx; hy = tty;
   } else {
     const rtx = spec.tx, rty = spec.ty, rw = spec.w, rh = spec.h;
-    goalTest = (x, y) => x >= rtx - 1 && x <= rtx + rw && y >= rty - 1 && y <= rty + rh && !tileBlockedFor(x, y, mode);
+    goalTest = (x, y) => x >= rtx - 1 && x <= rtx + rw && y >= rty - 1 && y <= rty + rh && !tileBlockedFor(x, y, mode, owner);
     hx = Math.floor(rtx + rw / 2); hy = Math.floor(rty + rh / 2);
   }
-  const tiles = findPathTiles(sx, sy, goalTest, hx, hy, mode);
+  const tiles = findPathTiles(sx, sy, goalTest, hx, hy, mode, owner);
   if (!tiles) return false;
   u.path = tiles.map(t => ({ x: tileCenter(t.tx), y: tileCenter(t.ty) }));
   if (exactEnd) {
@@ -1668,7 +1705,7 @@ function followPath(u, dt) {
   let repathed = false;
   while (u.pathIdx < u.path.length && remaining > 1e-6) {
     const wp = u.path[u.pathIdx];
-    if (blockedAtWorldFor(wp.x, wp.y, u.type)) {          // e.g. a foundation was just placed on the route
+    if (blockedAtWorldFor(wp.x, wp.y, u.type, u.owner)) {          // e.g. a foundation was just placed on the route
       const spec = u.pathSpec;
       if (repathed || !spec || !computePath(u, spec)) { u.path = null; return 'blocked'; }
       repathed = true;
@@ -1734,12 +1771,14 @@ function createBuilding(type, owner, tx, ty, complete) {
     hp: d.hp, maxHp: d.hp,
     complete: !!complete, buildProgress: complete ? d.buildTime : 0,
     queue: [], rally: null, flash: 0, dead: false,
+    locked: false, doorOpen: 0,          // gates only, harmless elsewhere
+    cooldown: 0, scanTimer: rand(0, 0.4), // turrets only
   };
   game.buildings.push(b);
   game.byId.set(b.id, b);
   for (let y2 = ty; y2 < ty + d.size; y2++)
     for (let x2 = tx; x2 < tx + d.size; x2++)
-      if (inBounds(x2, y2)) game.blocked[tIdx(x2, y2)] = 1;
+      if (inBounds(x2, y2)) { game.blocked[tIdx(x2, y2)] = 1; game.buildingGrid[tIdx(x2, y2)] = b; }
   game.mmDirty = true;
   return b;
 }
@@ -2151,6 +2190,8 @@ function update(dt) {
   updateAutoCombat(dt);
   for (const u of game.units) if (!u.dead && !u.transportId) updateUnit(u, dt);
   applySeparation();
+  updateGateDoors(dt);
+  updateBuildingCombat(dt);
   updateProjectiles(dt);
   updateEffects(dt);
   updateAutoNeeds(dt);
@@ -2325,7 +2366,7 @@ function recoverStuckUnit(u) {
     const a = base + i * Math.PI * 0.25;
     const nx = clamp(u.x + Math.cos(a) * step, u.radius, MAPW - u.radius);
     const ny = clamp(u.y + Math.sin(a) * step, u.radius, MAPH - u.radius);
-    if (blockedAtWorld(nx, ny)) continue;
+    if (blockedAtWorld(nx, ny, u.owner)) continue;
     u.x = nx; u.y = ny;
     u.unstuckAttempts = 0;
     if (u.pathSpec) computePath(u, u.pathSpec);
@@ -2377,7 +2418,14 @@ function updateAttack(u, dt) {
     if (!u.path || u.repathTimer <= 0) {
       u.repathTimer = CONFIG.COMBAT.CHASE_REPATH_INTERVAL;
       const spec = t.kind === 'unit' ? { kind: 'point', x: t.x, y: t.y } : rectSpecFor(t);
-      computePath(u, spec);
+      if (!computePath(u, spec)) {
+        // Target is walled off — don't camp here forever repathing; take the fight to
+        // whatever hostile asset is actually reachable instead (often the wall itself).
+        const fallback = findNearestEnemyAsset(u.owner, u.x, u.y, CONFIG.COMBAT.WALL_FALLBACK_RANGE * T, t.id);
+        if (fallback) { orderAttack(u, fallback); return; }
+        u.state = 'idle'; u.targetId = 0;
+        return;
+      }
     }
     followPath(u, dt);
   }
@@ -2702,6 +2750,40 @@ function tryForgeUpgrade(owner, kind) {
   return { ok: true };
 }
 
+// Wall/tower tier upgrade, done in place: keeps the current HP fraction, swaps stats/art.
+function canUpgradeBuilding(b) {
+  const def = CONFIG.BUILDINGS[b.type];
+  const nextType = def.upgradesTo;
+  if (!nextType) return { ok: false, reason: 'No upgrade available' };
+  if (!b.complete) return { ok: false, reason: 'Still under construction' };
+  const nextDef = CONFIG.BUILDINGS[nextType];
+  const p = game.players[b.owner];
+  if (p.age < nextDef.ageReq) return { ok: false, reason: 'Requires ' + ageDisplayName(nextDef.ageReq) };
+  const lack = lackText(p, nextDef.cost);
+  if (lack) return { ok: false, reason: lack };
+  return { ok: true, nextType, nextDef };
+}
+function tryUpgradeBuilding(b) {
+  const c = canUpgradeBuilding(b);
+  if (!c.ok) return c;
+  payCost(game.players[b.owner], c.nextDef.cost);
+  const frac = b.hp / b.maxHp;
+  b.type = c.nextType;
+  b.maxHp = c.nextDef.hp;
+  b.hp = Math.max(1, Math.round(frac * b.maxHp));
+  game.mmDirty = true;
+  if (b.owner === 0) {
+    notify(buildingDisplayName(c.nextType, b.owner) + ' upgrade complete', 'good');
+    game.selectionVersion++;
+  }
+  return { ok: true };
+}
+function toggleGateLock(b) {
+  if (!CONFIG.BUILDINGS[b.type].gate) return;
+  b.locked = !b.locked;
+  if (b.owner === 0) game.selectionVersion++;
+}
+
 /* ------------------------------- projectiles & effects ------------------------------- */
 function updateProjectiles(dt) {
   const arr = game.projectiles;
@@ -2731,6 +2813,54 @@ function updateProjectiles(dt) {
       pr.x += dx / d * step;
       pr.y += dy / d * step;
     }
+  }
+}
+
+// Cosmetic door swing — passability itself comes from tileBlockedFor's gate check.
+function updateGateDoors(dt) {
+  for (const b of game.buildings) {
+    if (b.dead || !b.complete || !CONFIG.BUILDINGS[b.type].gate) continue;
+    let nearFriendly = false;
+    if (!b.locked) {
+      for (const u of game.units) {
+        if (u.dead || u.transportId || areHostile(b.owner, u.owner)) continue;
+        if (distToEnt(u, b) <= 1.5 * T) { nearFriendly = true; break; }
+      }
+    }
+    const target = nearFriendly ? 1 : 0;
+    b.doorOpen += clamp(target - b.doorOpen, -1, 1) * Math.min(1, dt * 3);
+  }
+}
+
+// Turrets attack like a unit would, but tick on the buildings list instead of updateUnit.
+function updateBuildingCombat(dt) {
+  if (game.result) return;
+  for (const b of game.buildings) {
+    if (b.dead || !b.complete) continue;
+    const atk = CONFIG.BUILDINGS[b.type].attack;
+    if (!atk) continue;
+    if (b.cooldown > 0) b.cooldown -= dt;
+    b.scanTimer -= dt;
+    if (b.scanTimer > 0) continue;
+    b.scanTimer = CONFIG.COMBAT.TURRET_SCAN_INTERVAL;
+    if (b.cooldown > 0) continue;
+    const c = entCenter(b);
+    let best = null, bd = Infinity;
+    for (const e of game.units) {
+      if (e.dead || e.transportId || !areHostile(b.owner, e.owner)) continue;
+      const d = dist(c.x, c.y, e.x, e.y);
+      if (d > atk.range * T || d >= bd) continue;
+      bd = d; best = e;
+    }
+    if (!best) continue;
+    b.cooldown = atk.cooldown;
+    const fy = c.y - b.size * T * 0.3;
+    game.projectiles.push({
+      x: c.x, y: fy, tx: best.x, ty: best.y, targetId: best.id,
+      speed: atk.projectileSpeed, damage: atk.damage, owner: b.owner, attackerId: b.id,
+      magic: false,
+      angle: Math.atan2(best.y - fy, best.x - c.x),
+    });
   }
 }
 
@@ -2771,9 +2901,9 @@ function applySeparation() {
       const aShare = aMoving && !bMoving ? 1 - BIAS : (!aMoving && bMoving ? BIAS : 0.5);
       const bShare = 1 - aShare;
       const ax = a.x - nx * push * aShare, ay = a.y - ny * push * aShare;
-      if (!blockedAtWorldFor(ax, ay, a.type)) { a.x = ax; a.y = ay; }
+      if (!blockedAtWorldFor(ax, ay, a.type, a.owner)) { a.x = ax; a.y = ay; }
       const bx = b.x + nx * push * bShare, by = b.y + ny * push * bShare;
-      if (!blockedAtWorldFor(bx, by, b.type)) { b.x = bx; b.y = by; }
+      if (!blockedAtWorldFor(bx, by, b.type, b.owner)) { b.x = bx; b.y = by; }
     }
   }
 }
@@ -3263,7 +3393,10 @@ function initInput() {
   canvas.addEventListener('mousedown', e => {
     if (!gameInteractive()) return;
     if (e.button === 0) {
-      if (game.placement) { tryPlacement(); return; }
+      if (game.placement) {
+        if (CONFIG.BUILDINGS[game.placement.type].dragBuild) { beginWallDrag(); return; }
+        tryPlacement(); return;
+      }
       mouse.down = true; mouse.dragging = false;
       mouse.sx = e.clientX; mouse.sy = e.clientY;
     } else if (e.button === 2) {
@@ -3283,6 +3416,10 @@ function initInput() {
   window.addEventListener('mouseup', e => {
     if (e.button !== 0) return;
     mmDragging = false;
+    if (game && game.placement && game.placement.dragging) {
+      if (gameInteractive()) commitWallDrag(); else game.placement = null;
+      return;
+    }
     if (!mouse.down) return;
     mouse.down = false;
     const wasDragging = mouse.dragging;
@@ -3783,11 +3920,11 @@ function fallBackFor(units) {
   return units.length;
 }
 
-function findNearestEnemyAsset(owner, x, y, maxDist) {
+function findNearestEnemyAsset(owner, x, y, maxDist, excludeId) {
   maxDist = maxDist == null ? Infinity : maxDist;
   let best = null, bs = Infinity;
   for (const e of game.units) {
-    if (e.dead || e.transportId || !areHostile(owner, e.owner)) continue;
+    if (e.dead || e.transportId || e.id === excludeId || !areHostile(owner, e.owner)) continue;
     const d = dist(x, y, e.x, e.y);
     if (d > maxDist) continue;
     const priority = e.type === 'villager' ? 170 : isMilitary(e.type) ? 105 : 60;
@@ -3796,7 +3933,7 @@ function findNearestEnemyAsset(owner, x, y, maxDist) {
     if (score < bs) { bs = score; best = e; }
   }
   for (const b of game.buildings) {
-    if (b.dead || !areHostile(owner, b.owner)) continue;
+    if (b.dead || b.id === excludeId || !areHostile(owner, b.owner)) continue;
     const c = entCenter(b);
     const d = dist(x, y, c.x, c.y);
     if (d > maxDist) continue;
@@ -3937,7 +4074,7 @@ function enterPlacement(type) {
   if (p.age < def.ageReq) { notify('Requires ' + ageDisplayName(def.ageReq), 'warn'); return; }
   const lack = lackText(p, def.cost);
   if (lack) { notify(lack, 'warn'); return; }
-  game.placement = { type, tx: 0, ty: 0, valid: false };
+  game.placement = { type, tx: 0, ty: 0, valid: false, dragging: false, dragStartTx: 0, dragStartTy: 0, line: null };
   updatePlacement();
 }
 function updatePlacement() {          // runs every frame so the ghost tracks mouse + camera
@@ -3949,6 +4086,60 @@ function updatePlacement() {          // runs every frame so the ghost tracks mo
   pl.tx = clamp(Math.round(wx / T - def.size / 2), 0, COLS - def.size);
   pl.ty = clamp(Math.round(wy / T - def.size / 2), 0, ROWS - def.size);
   pl.valid = canPlaceBuilding(pl.type, pl.tx, pl.ty);
+  if (def.dragBuild && pl.dragging) pl.line = wallDragLine(pl.dragStartTx, pl.dragStartTy, pl.tx, pl.ty, pl.type);
+}
+// Manhattan L-shaped run (horizontal leg then vertical leg) from a drag start tile to the cursor tile.
+function wallDragLine(sx, sy, ex, ey, type) {
+  const tiles = [];
+  const seen = new Set();
+  const push = (tx, ty) => {
+    const key = tx + ',' + ty;
+    if (seen.has(key)) return;
+    seen.add(key);
+    tiles.push({ tx, ty, valid: canPlaceBuilding(type, tx, ty) });
+  };
+  const stepX = ex >= sx ? 1 : -1;
+  for (let x = sx; x !== ex; x += stepX) push(x, sy);
+  push(ex, sy);
+  const stepY = ey >= sy ? 1 : -1;
+  for (let y = sy; y !== ey; y += stepY) push(ex, y);
+  push(ex, ey);
+  return tiles;
+}
+function beginWallDrag() {
+  const pl = game.placement;
+  if (!pl) return;
+  pl.dragging = true;
+  pl.dragStartTx = pl.tx;
+  pl.dragStartTy = pl.ty;
+  updatePlacement();
+}
+function commitWallDrag() {
+  const pl = game.placement;
+  game.placement = null;
+  if (!pl || !pl.line) return;
+  const def = CONFIG.BUILDINGS[pl.type];
+  const p = game.players[0];
+  const built = [];
+  for (const seg of pl.line) {
+    if (!canPlaceBuilding(pl.type, seg.tx, seg.ty)) continue;
+    if (!canAfford(p, def.cost)) break;
+    payCost(p, def.cost);
+    built.push(createBuilding(pl.type, 0, seg.tx, seg.ty, false));
+  }
+  if (!built.length) { notify('Cannot build there', 'warn'); return; }
+  const villagers = game.selection.map(getAlive)
+    .filter(u => u && u.kind === 'unit' && u.type === 'villager' && u.owner === 0);
+  for (const v of villagers) {
+    let best = null, bd = Infinity;
+    for (const b of built) {
+      const d = dist(v.x, v.y, (b.tx + 0.5) * T, (b.ty + 0.5) * T);
+      if (d < bd) { bd = d; best = b; }
+    }
+    if (best) orderBuild(v, best);
+  }
+  invalidatePathsThroughTiles(new Set(built.map(b => tIdx(b.tx, b.ty))));
+  game.selectionVersion++;
 }
 function tryPlacement() {
   const pl = game.placement;
@@ -3965,12 +4156,25 @@ function tryPlacement() {
     const u = getAlive(id);
     if (u && u.kind === 'unit' && u.type === 'villager' && u.owner === 0) orderBuild(u, b);
   }
+  invalidatePathsThroughTiles(new Set([tIdx(b.tx, b.ty)]));
   game.placement = null;
   game.selectionVersion++;
 }
 function cancelPlacement() {
   game.placement = null;
   game.selectionVersion++;
+}
+// Units mid-route through a tile that just became blocked drop their stale path;
+// they'll repath fresh next tick instead of walking into the new obstacle.
+function invalidatePathsThroughTiles(tileSet) {
+  if (!tileSet || !tileSet.size) return;
+  for (const u of game.units) {
+    if (u.dead || !u.path) continue;
+    for (let i = u.pathIdx; i < u.path.length; i++) {
+      const wp = u.path[i];
+      if (tileSet.has(tIdx(Math.floor(wp.x / T), Math.floor(wp.y / T)))) { u.path = null; break; }
+    }
+  }
 }
 
 /* ------------------------------- camera ------------------------------- */
@@ -5073,6 +5277,77 @@ function drawBuildingBody(b, x, y, w, fac) {
     ctx.beginPath(); ctx.moveTo(x+w*.34,y+w*.76); ctx.lineTo(x+w*.66,y+w*.34); ctx.moveTo(x+w*.66,y+w*.76); ctx.lineTo(x+w*.34,y+w*.34); ctx.stroke();
     ctx.fillStyle = 'rgba(20,13,8,0.38)';
     ctx.beginPath(); ctx.ellipse(x+w*.5, y+w*.63, w*.18, w*.08, 0, 0, Math.PI*2); ctx.fill();
+  } else if (b.type === 'palisade' || b.type === 'stonewall' || b.type === 'fortwall') {
+    const stone = b.type !== 'palisade';
+    const base = stone ? (bandit ? '#5a5850' : '#9a9487') : (bandit ? '#4a2f1a' : '#8a5a31');
+    const baseDark = shadeColor(base, -34);
+    const top = stone ? (bandit ? '#726f64' : '#c9c0ad') : (bandit ? '#6c4227' : '#b9a57d');
+    if (stone) {
+      fillPoly([[x+w*.08,y+w*.9],[x+w*.08,y+w*.22],[x+w*.92,y+w*.22],[x+w*.92,y+w*.9]], base);
+      ctx.strokeStyle = baseDark; ctx.lineWidth = 2;
+      ctx.strokeRect(x+w*.08, y+w*.22, w*.84, w*.68);
+      for (let i = 0; i < 3; i++) {
+        const cx = x + w * (0.16 + i * 0.28);
+        ctx.fillStyle = top;
+        ctx.fillRect(cx, y + w * 0.1, w * 0.16, w * 0.14);
+        ctx.strokeRect(cx, y + w * 0.1, w * 0.16, w * 0.14);
+      }
+      if (b.type === 'fortwall') {
+        ctx.strokeStyle = bandit ? '#2a251f' : '#5c6a70'; ctx.lineWidth = 2.4;
+        ctx.beginPath(); ctx.moveTo(x+w*.08, y+w*.55); ctx.lineTo(x+w*.92, y+w*.55); ctx.stroke();
+      }
+    } else {
+      for (let i = 0; i < 5; i++) {
+        const lx = x + w * (0.12 + i * 0.19);
+        ctx.strokeStyle = baseDark; ctx.lineWidth = w * 0.09;
+        ctx.beginPath(); ctx.moveTo(lx, y + w * 0.9); ctx.lineTo(lx, y + w * 0.14); ctx.stroke();
+        ctx.fillStyle = top;
+        ctx.beginPath(); ctx.moveTo(lx - w * 0.045, y + w * 0.14); ctx.lineTo(lx, y); ctx.lineTo(lx + w * 0.045, y + w * 0.14); ctx.closePath(); ctx.fill();
+      }
+    }
+  } else if (b.type === 'gate') {
+    const open = clamp(b.doorOpen || 0, 0, 1);
+    const gbase = bandit ? '#5a4128' : '#8a6a3e';
+    const gdark = shadeColor(gbase, -34);
+    ctx.fillStyle = gbase;
+    ctx.fillRect(x + w * 0.04, y + w * 0.14, w * 0.14, w * 0.76);
+    ctx.fillRect(x + w * 0.82, y + w * 0.14, w * 0.14, w * 0.76);
+    ctx.strokeStyle = gdark; ctx.lineWidth = 2;
+    ctx.strokeRect(x + w * 0.04, y + w * 0.14, w * 0.14, w * 0.76);
+    ctx.strokeRect(x + w * 0.82, y + w * 0.14, w * 0.14, w * 0.76);
+    fillPoly([[x+w*.02,y+w*.2],[x+w*.5,y+w*.04],[x+w*.98,y+w*.2],[x+w*.98,y+w*.3],[x+w*.5,y+w*.14],[x+w*.02,y+w*.3]], gdark);
+    const doorW = w * 0.36, doorH = w * 0.7;
+    ctx.save();
+    ctx.translate(x + w * 0.2, y + w * 0.9);
+    ctx.rotate(-open * 1.1);
+    ctx.fillStyle = shadeColor(gbase, 10);
+    ctx.fillRect(0, -doorH, doorW, doorH);
+    ctx.strokeStyle = gdark; ctx.strokeRect(0, -doorH, doorW, doorH);
+    ctx.restore();
+    ctx.save();
+    ctx.translate(x + w * 0.8, y + w * 0.9);
+    ctx.rotate(open * 1.1);
+    ctx.fillStyle = shadeColor(gbase, 10);
+    ctx.fillRect(-doorW, -doorH, doorW, doorH);
+    ctx.strokeStyle = gdark; ctx.strokeRect(-doorW, -doorH, doorW, doorH);
+    ctx.restore();
+    if (b.locked) { ctx.fillStyle = '#ffd75e'; ctx.beginPath(); ctx.arc(x + w * 0.5, y + w * 0.55, w * 0.06, 0, Math.PI * 2); ctx.fill(); }
+  } else if (b.type === 'watchtower' || b.type === 'guardtower') {
+    const guard = b.type === 'guardtower';
+    const stoneTower = guard;
+    const body = stoneTower ? (bandit ? '#5a5850' : '#9a9487') : (bandit ? '#5a3f26' : '#9a764a');
+    const bodyDark = shadeColor(body, -34);
+    const cap = stoneTower ? (bandit ? '#726f64' : '#c9c0ad') : (bandit ? '#6c4227' : '#b9a57d');
+    fillPoly([[x+w*.28,y+w*.86],[x+w*.34,y+w*.14],[x+w*.66,y+w*.14],[x+w*.72,y+w*.86]], body);
+    ctx.strokeStyle = bodyDark; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(x+w*.28,y+w*.86); ctx.lineTo(x+w*.34,y+w*.14); ctx.lineTo(x+w*.66,y+w*.14); ctx.lineTo(x+w*.72,y+w*.86); ctx.closePath(); ctx.stroke();
+    ctx.fillStyle = cap;
+    ctx.fillRect(x + w * 0.18, y + w * 0.08, w * 0.64, w * 0.12);
+    ctx.strokeRect(x + w * 0.18, y + w * 0.08, w * 0.64, w * 0.12);
+    for (let i = 0; i < 4; i++) ctx.fillRect(x + w * (0.2 + i * 0.16), y + w * 0.02, w * 0.08, w * 0.08);
+    ctx.fillStyle = '#2b1b10';
+    ctx.fillRect(x + w * 0.46, y + w * 0.42, w * 0.08, w * 0.16);
+    drawBanner(x + w * 0.47, y - w * 0.02, w * 0.06, w * 0.16, fac.fill);
   } else {          // storehouse
     fillPoly([[x+w*.16,y+w*.48],[x+w*.5,y+w*.32],[x+w*.84,y+w*.48],[x+w*.76,y+w*.86],[x+w*.24,y+w*.86]], bandit ? '#5a3420' : '#9a764a');
     fillPoly([[x+w*.13,y+w*.43],[x+w*.5,y+w*.22],[x+w*.87,y+w*.43],[x+w*.72,y+w*.55],[x+w*.28,y+w*.55]], bandit ? '#603025' : '#6e4c2b');
@@ -5084,23 +5359,25 @@ function drawBuildingBody(b, x, y, w, fac) {
     }
     drawBanner(x + w * 0.47, y + w * 0.06, w * 0.1, w * 0.18, fac.fill);
   }
-  ctx.save();
-  ctx.globalAlpha = 0.16;
-  ctx.strokeStyle = '#fff6d2';
-  ctx.lineWidth = 1.4;
-  ctx.beginPath();
-  ctx.moveTo(x + w * 0.2, y + w * 0.47);
-  ctx.quadraticCurveTo(x + w * 0.5, y + w * 0.29, x + w * 0.8, y + w * 0.47);
-  ctx.stroke();
-  ctx.restore();
-  ctx.globalAlpha = 0.22;
-  ctx.strokeStyle = '#fff7d8';
-  ctx.lineWidth = 1.2;
-  ctx.beginPath();
-  ctx.moveTo(x + w * 0.17, y + w * 0.35);
-  ctx.quadraticCurveTo(x + w * 0.46, y + w * 0.18, x + w * 0.82, y + w * 0.34);
-  ctx.stroke();
-  ctx.globalAlpha = 1;
+  if (!CONFIG.BUILDINGS[b.type].wall && !CONFIG.BUILDINGS[b.type].gate && !CONFIG.BUILDINGS[b.type].turret) {
+    ctx.save();
+    ctx.globalAlpha = 0.16;
+    ctx.strokeStyle = '#fff6d2';
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.moveTo(x + w * 0.2, y + w * 0.47);
+    ctx.quadraticCurveTo(x + w * 0.5, y + w * 0.29, x + w * 0.8, y + w * 0.47);
+    ctx.stroke();
+    ctx.restore();
+    ctx.globalAlpha = 0.22;
+    ctx.strokeStyle = '#fff7d8';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(x + w * 0.17, y + w * 0.35);
+    ctx.quadraticCurveTo(x + w * 0.46, y + w * 0.18, x + w * 0.82, y + w * 0.34);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
   ctx.restore();
 }
 
@@ -5558,10 +5835,36 @@ function drawEffects() {
   }
 }
 
+function costText(cost) {
+  if (!cost) return '';
+  return Object.keys(cost).map(k => cost[k] + (RES_EMOJI[k] || k)).join(' ');
+}
 function drawGhost() {
   const pl = game.placement;
   const def = CONFIG.BUILDINGS[pl.type];
-  const x = pl.tx * T, y = pl.ty * T, w = def.size * T;
+  const w = def.size * T;
+  if (pl.dragging && pl.line && pl.line.length) {
+    const totalCost = {};
+    for (const seg of pl.line) {
+      const x = seg.tx * T, y = seg.ty * T;
+      ctx.fillStyle = seg.valid ? 'rgba(90,220,130,0.3)' : 'rgba(235,70,70,0.4)';
+      ctx.fillRect(x, y, w, w);
+      ctx.strokeStyle = seg.valid ? '#6ee7a0' : '#ff6b6b';
+      ctx.lineWidth = 1.4;
+      ctx.strokeRect(x + 1, y + 1, w - 2, w - 2);
+      if (seg.valid && def.cost) for (const k in def.cost) totalCost[k] = (totalCost[k] || 0) + def.cost[k];
+    }
+    const p = screenToWorld(mouse.x, mouse.y);
+    ctx.save();
+    ctx.font = 'bold 12px Georgia, serif';
+    ctx.fillStyle = 'rgba(20,12,4,0.8)';
+    ctx.fillText(pl.line.length + ' tiles · ' + costText(totalCost), p.x + 15, p.y - 9);
+    ctx.fillStyle = '#fff3d6';
+    ctx.fillText(pl.line.length + ' tiles · ' + costText(totalCost), p.x + 14, p.y - 10);
+    ctx.restore();
+    return;
+  }
+  const x = pl.tx * T, y = pl.ty * T;
   ctx.save();
   ctx.globalAlpha = 0.45;
   drawBuildingBody({ type: pl.type, owner: 0 }, x, y, w, FACTION[0]);
@@ -6031,6 +6334,17 @@ function buildBuildingButtons(b) {
         () => {});
     }
   }
+  if (def.upgradesTo) {
+    const nextDef = CONFIG.BUILDINGS[def.upgradesTo];
+    makeBtn('Upgrade to ' + buildingDisplayName(def.upgradesTo, b.owner), nextDef.cost,
+      () => canUpgradeBuilding(b),
+      () => { tryUpgradeBuilding(b); });
+  }
+  if (def.gate) {
+    makeBtn(b.locked ? 'Unlock Gate' : 'Lock Gate', null,
+      () => ({ ok: true }),
+      () => { toggleGateLock(b); });
+  }
 }
 
 function buildBlacksmithButtons(b) {
@@ -6065,7 +6379,7 @@ function buildVillagerButtons() {
       if (!res.ok) notify('Auto Needs enabled; waiting for reachable work', 'info');
       else notify('Auto Needs enabled for ' + vills.length + ' apprentice' + (vills.length === 1 ? '' : 's'), 'good');
     });
-  for (const bt of ['house', 'storehouse', 'barracks', 'blacksmith', 'shipyard']) {
+  for (const bt of ['house', 'storehouse', 'barracks', 'blacksmith', 'shipyard', 'palisade', 'stonewall', 'gate', 'watchtower']) {
     const def = CONFIG.BUILDINGS[bt];
     if (!def.buildable) continue;
     makeBtn('Build ' + buildingDisplayName(bt, 0), def.cost,
