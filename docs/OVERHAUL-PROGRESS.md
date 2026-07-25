@@ -20,7 +20,7 @@ if the push fails, mark the row `done (push pending)` and say so in the log.
 |---|---|---|---|---|
 | Bootstrap | `.gitignore`, baseline commit of the 68 MB asset/`index.html` backlog, these two docs, push | **done, pushed** | `dd3e70a` Bootstrap the overhaul: baseline commit, gitignore, and shared plan docs | 2026-07-25 |
 | 0 | Instrumentation: frame timing ring buffer + `?perf` HUD, capture BEFORE numbers | **done, pushed** | `a0dd101` Overhaul phase 0: add frame timing instrumentation and perf HUD | 2026-07-25 |
-| 1 | Kill the three-state terrain pop-in (single preload gate, all-or-nothing material gate) | pending | | |
+| 1 | Kill the three-state terrain pop-in (single preload gate, all-or-nothing material gate) | **done, pushed** | Overhaul phase 1: single art preload gate, one terrain rebuild | 2026-07-25 |
 | 2 | Fix dark/low-contrast terrain (brightness normalization, softer washes/outlines, painterly relayer) | pending | | |
 | 3 | Asset weight: `tools/downscale_terrain.py`, 384²/512² re-export, delete 2 dead PNGs | pending | | |
 | 4 | Render hot path: pre-baked tinted atlases, aura/glow sprites, `shadowBlur` purge, minimap 10 Hz, cached atmosphere, `MAX_DPR` 1.5, remove PixiJS | pending | | |
@@ -193,6 +193,56 @@ Object.defineProperty(CanvasRenderingContext2D.prototype,'filter',
   {configurable:true, get:d.get, set(v){ d.set.call(this,'none'); }});
 ```
 
+### Phase 1 — done 2026-07-25
+
+**What changed** (Phase 1 only; no contrast or Phase 2 changes mixed in)
+
+- Removed the independent meadow, terrain-material, and transition `onload` invalidations. One
+  `Promise.allSettled` preloader now calls `decode()` for all 15 `ALBION_ART` images: the three sprite
+  atlases, meadow, all eight material images, and all three transition images.
+- Added the single `artReady` gate. Once every decode has either fulfilled or rejected, the
+  preloader sets `artReady = true` and `terrainReady = false`, producing one art-triggered backdrop
+  rebuild without allowing one failed image to hang startup.
+- `drawHexTerrainMaterials()` now returns `false` unless both terrain data and the full art gate are
+  ready. Once through the gate it builds the complete 8-material/3-transition pattern cache together
+  and returns `true` unconditionally, so no partially textured frame can suppress the painterly
+  fallback.
+- Removed the Phase 0 `console.count('buildTerrainBackdrop')` instrumentation only after the
+  throttled verification below succeeded. The throwaway CDP verification harness and its state
+  captures were also kept out of the repository.
+
+**Verification**
+
+- Served the working tree with `python -m http.server` and launched Edge through CDP with
+  `Network.setCacheDisabled`, service-worker bypass, and
+  `Network.emulateNetworkConditions` at **32 Mbps** (4,194,304 bytes/s, 20 ms latency). After
+  `document.readyState === 'complete'`, immediately started Greatwood with three enemy factions.
+  Result: **exactly 1** console-counted `buildTerrainBackdrop` call, `artReady === true`, all
+  **8 material patterns** and **3 transition patterns** present on that build, and zero page errors.
+  The run transferred 51,770,429 encoded bytes over 18 local HTTP responses (49.37 MiB), consistent
+  with the Phase 0 cold-load payload.
+- Repeated as a stricter early-start stress run by calling `startGame()` at the first moment the
+  script was callable, before the document finished loading. This deliberately preserved the
+  loading transition: call 1 had `artReady === false` and rendered the complete painterly procedural
+  backdrop; call 2 was the **single** art-triggered rebuild with all 8+3 patterns. Captured thumbnails
+  were visually inspected: only those two states appeared, with one clean full-map swap and no bare
+  or partially textured hex-grid state.
+- Extracted the inline script and compiled it with Node after the code change; `git diff --check`
+  also passed.
+
+**Findings worth carrying forward**
+
+1. With the documented post-load start timing, the art gate is already resolved and the raw backdrop
+   call count is one. If a game is forced to start before load completion, the raw call count is two:
+   the initial procedural build plus exactly one art-ready **rebuild**. That distinction is expected
+   and is what preserves the painterly loading state without reintroducing partial textures.
+2. Phase 1 added a net eight lines before `buildTerrainBackdrop()` after removing the temporary
+   counter. Current anchors are `drawHexTerrainMaterials()` at line 7252 and
+   `buildTerrainBackdrop()` at line 7330; continue to resolve anchors from `dd3e70a` and inspect
+   surrounding code before editing.
+3. No render-performance change is expected here. The Phase 0 fps baseline remains authoritative;
+   Phase 4's per-entity `ctx.filter` removal is still the main performance win.
+
 ---
 
 ## Continuation prompt
@@ -203,48 +253,57 @@ Copy this verbatim into a fresh agent/session to continue the work.
 Continue the Albion Skirmish overhaul in c:\Users\Eclipse\.claude\Workspaces\Age Of Empires.
 
 Read docs/OVERHAUL-PLAN.md (the full frozen spec) and docs/OVERHAUL-PROGRESS.md (status, baseline
-numbers, phase log) before touching anything. Bootstrap and Phase 0 are complete and pushed:
-frame-timing instrumentation, a ?perf HUD, perfStats() in the console, and a measured baseline are
-all in place.
+numbers, phase log) before touching anything. Bootstrap, Phase 0, and Phase 1 are complete and
+pushed. Phase 1 replaced all per-image terrain invalidations with one `Promise.allSettled`/`decode()`
+art gate, made the material gate all-or-nothing, and removed the temporary rebuild counter.
 
-Execute **Phase 1 — Kill the three-state pop-in (load sequencing)** exactly as specified in the plan:
-  - Replace the per-image onload handlers (baseline lines 1216-1228 — meadow, every ALBION_ART.terrain
-    material, every ALBION_ART.transitions image, each currently setting terrainReady = false) with a
-    single preloader: Promise.allSettled over all ALBION_ART images calling img.decode(). allSettled
-    so one 404 cannot hang the game; decode() to force off-main-thread decode. On resolve set
-    artReady = true; terrainReady = false; -> exactly one rebuild.
-  - drawHexTerrainMaterials (baseline line 7244): make the gate all-or-nothing. Top becomes
-    `if (!game.terrain || !artReady) return false;` and the return at 7319 becomes unconditional
-    `true`, so the pattern cache builds once instead of partially.
-  - Optionally notify('Painting the world…') in startGame() when !artReady.
-  - REMOVE the temporary console.count('buildTerrainBackdrop') line from buildTerrainBackdrop() —
-    but only after you have used it to verify the rebuild count dropped to 1.
+Execute **Phase 2 — Fix the dark, low-contrast final look** exactly as specified in the plan. Keep
+the painterly fallback intact and group the tuning values as named constants at the top of
+`buildTerrainBackdrop()`:
+  - At material-pattern build time, draw each material to a 384x384 offscreen canvas. Measure mean
+    luminance from a 64x64 thumbnail with `getImageData`, compute
+    `k = clamp(0.52 / meanLuma, 0.95, 1.4)`, then redraw with
+    `ctx.filter = 'brightness(k) saturate(1.05)'` before `createPattern`. Store `k` per material for
+    debugging. This same 384x384 canvas is the Phase 3 downscale target, but do NOT change asset files
+    yet.
+  - Keep the `#f5ead0` elevation highlight at `abs(e-.5)*.18`; reduce the `#07100a` shadow to
+    `abs(e-.5)*.09`.
+  - Reduce hex-outline alpha from .08 to .035.
+  - Reduce transition stroke alpha from .68 to .48 for authored transition patterns and from .28 to
+    .16 for generic material blends.
+  - Restore painterly character above the textures: always run the meadow soft-light pass with
+    `globalAlpha = drewSemanticTerrain ? .14 : .26`; likewise un-gate the sun-dapple ellipse and
+    painterly stroke passes at roughly 50% of their fallback alphas. Keep the per-tile grass loop and
+    the multiply shade-blob pass gated off over textures.
+  - In `drawAtmosphere()`, reduce the vignette edge stop from rgba(8,7,5,0.42) to
+    rgba(8,7,5,0.20).
 
-Verification for this phase, and it matters how you run it: a local file:// load already shows only
-1 rebuild because every image decodes before the first frame, so it proves nothing. You MUST verify
-over throttled HTTP — `python -m http.server` plus CDP Network.emulateNetworkConditions at ~32 Mbps
-with Network.setCacheDisabled, starting a game immediately after load. Baseline there is 7 rebuilds;
-the target is 1. Also confirm only two visual states appear (painterly procedural backdrop, then one
-clean swap to textures).
+Verify with `tools/capture_art_preview.mjs` using its repeatable seed. Inspect the screenshot against
+the full Phase 2 checklist: no visible hex lattice at default zoom; meadow reads green rather than
+olive-black; snow and sand are not blown out; soft-light dapple remains visible. Syntax-check the
+inline script, capture page errors, and record the actual per-material brightness factors in the
+phase log. Do not mix Phase 3 asset resizing or Phase 4 performance work into this commit.
 
 Baseline to beat (full detail in the progress doc): idle pan 255.1 ms avg / 399.8 ms p95 (3.9 fps) on
 a 4-player Greatwood map; ~100v100 battle 1006.9 ms avg (1.0 fps); applySeparation 2.49 ms of a
-3.05 ms sim tick; 49.5 MB over 20 requests; 7 terrain rebuilds per throttled load.
+3.05 ms sim tick; 49.5 MB over 20 requests. Phase 1's 32 Mbps/cache-disabled verification produced
+exactly 1 backdrop build when starting immediately after document load. An early-start stress run
+produced the intended two states only: initial painterly backdrop, then one complete 8-material /
+3-transition texture rebuild.
 
 Carry-overs:
-  - Plan line numbers are exact as of dd3e70a; Phase 0 added ~115 lines to index.html, all after
-    line 7322, so anchors below that have shifted. Resolve with `git show dd3e70a:index.html` and
-    confirm by reading the surrounding code before editing.
+  - Plan line numbers are exact as of dd3e70a. Phase 1 added a net 8 lines before the terrain builder;
+    current anchors are drawHexTerrainMaterials at line 7252 and buildTerrainBackdrop at line 7330.
+    Resolve with `git show dd3e70a:index.html` and confirm by reading surrounding code before editing.
   - Judge render performance by fps / the HUD's interval line, NOT by frameMs or renderMs. Canvas
     raster runs off the JS timeline, so those two under-report badly and swing run to run.
   - ctx.filter is worth ~14x at idle and ~13x in battle; shadowBlur under 1.5x. That is Phase 4, not
-    Phase 1 — do not start it early, but do not be surprised when Phase 1 and 2 barely move fps.
+    Phase 2 — do not start it early, and do not expect this visual phase to materially move fps.
   - Do NOT rename internal ids or localStorage keys (breaks saves).
-  - Do not mix Phase 2 changes into the Phase 1 commit.
+  - Do not resize or delete terrain assets yet; that is Phase 3.
 
-When Phase 1 is done: log the results (actual rebuild count over throttled HTTP, plus whether the
-two-state load holds) in docs/OVERHAUL-PROGRESS.md, flip the Phase 1 row to done, regenerate this
-"Continuation prompt" section for Phase 2, commit as "Overhaul phase 1: single art preload gate,
-one terrain rebuild", and push to origin main. Do not begin the next phase until the doc is updated
-and pushed.
+When Phase 2 is done: log the screenshot checklist, actual brightness factors, and verification
+results in docs/OVERHAUL-PROGRESS.md; flip the Phase 2 row to done; regenerate this "Continuation
+prompt" section for Phase 3; commit as "Overhaul phase 2: brighten terrain and restore painterly
+character"; and push to origin main. Do not begin Phase 3 until the doc is updated and pushed.
 ```

@@ -1217,15 +1217,24 @@ ALBION_ART.buildings.src = 'assets/sprites/albion-buildings.png';
 ALBION_ART.units.src = 'assets/sprites/albion-units-animated.png';
 ALBION_ART.resources.src = 'assets/sprites/albion-resources-biomes.png';
 ALBION_ART.meadow.src = 'assets/art/albion-meadow-v2.png';
-ALBION_ART.meadow.onload = () => { terrainReady = false; };
 for (const key in ALBION_ART.terrain) {
   ALBION_ART.terrain[key].src = 'assets/terrain/materials/hex-' + key + '.png';
-  ALBION_ART.terrain[key].onload = () => { terrainReady = false; };
 }
 ALBION_ART.transitions.meadowMud.src = 'assets/terrain/transitions/meadow-mud.png';
 ALBION_ART.transitions.meadowRock.src = 'assets/terrain/transitions/meadow-rock.png';
 ALBION_ART.transitions.sandWater.src = 'assets/terrain/transitions/sand-water.png';
-for (const key in ALBION_ART.transitions) ALBION_ART.transitions[key].onload = () => { terrainReady = false; };
+const albionArtImages = [
+  ALBION_ART.buildings,
+  ALBION_ART.units,
+  ALBION_ART.resources,
+  ALBION_ART.meadow,
+  ...Object.values(ALBION_ART.terrain),
+  ...Object.values(ALBION_ART.transitions),
+];
+Promise.allSettled(albionArtImages.map(image => image.decode())).then(() => {
+  artReady = true;
+  terrainReady = false;
+});
 
 function $(id) { return document.getElementById(id); }
 const canvas = $('game-canvas');
@@ -1524,6 +1533,7 @@ function saveSettings() {
 var appState = 'menu';   // 'menu' | 'playing' | 'paused' | 'victory' | 'defeat'
 var game = null;         // all mutable game state (rebuilt by newGame)
 let dpr = 1, mmDpr = 1, viewW = 800, viewH = 600, mmSize = CONFIG.UI.MINIMAP_SIZE;
+let artReady = false;
 let terrainReady = false;
 let pathBuffersReady = false;
 
@@ -7235,14 +7245,12 @@ function hexTerrainPath(c, cx, cy, radius) {
   c.closePath();
 }
 
-// Cached across every buildTerrainBackdrop() call — image onload handlers flip
-// terrainReady false once per asset as they finish loading, which can trigger several
-// backdrop rebuilds in a row during startup. Keying by art key here means only newly-
-// completed images pay the createPattern()/strip-crop cost on a given rebuild.
+// Cached across buildTerrainBackdrop() calls. The all-or-nothing art gate populates
+// these together on the first art-ready build, then later game rebuilds reuse them.
 const hexMaterialPatternCache = { patterns: {}, transitionPatterns: {} };
 
 function drawHexTerrainMaterials(c) {
-  if (!game.terrain) return false;
+  if (!game.terrain || !artReady) return false;
   const patterns = hexMaterialPatternCache.patterns, transitionPatterns = hexMaterialPatternCache.transitionPatterns;
   for (const key in ALBION_ART.terrain) {
     if (patterns[key]) continue;
@@ -7316,11 +7324,10 @@ function drawHexTerrainMaterials(c) {
     }
   }
   c.restore();
-  return Object.keys(patterns).length > 0;
+  return true;
 }
 
 function buildTerrainBackdrop() {
-  console.count('buildTerrainBackdrop');   // TEMP (phase 0): proves the phase 1 rebuild fix — remove at the end of phase 1
   terrainCanvas.width = MAPW;
   terrainCanvas.height = MAPH;
   const c = terrainCtx;
