@@ -1,0 +1,12 @@
+# Stray Edge browser profile created by tools/capture_art_preview.mjs (~30 MB, 549 files).
+# Regenerated on demand; never commit it.
+.edge-art-preview/
+
+# Python bytecode from tools/
+__pycache__/
+*.pyc
+
+# OS cruft
+Thumbs.db
+desktop.ini
+.DS_Store

@@ -1,0 +1,57 @@
+{
+  "units": {
+    "file": "albion-units-animated.png",
+    "cell": 256,
+    "gutter": 24,
+    "columns": [
+      "idle",
+      "walkA",
+      "walkB",
+      "action"
+    ],
+    "rows": {
+      "villager": 0,
+      "scout": 1,
+      "settler": 2,
+      "hero": 3,
+      "militia": 4,
+      "archer": 5,
+      "spearman": 6,
+      "knight": 7,
+      "mage": 8,
+      "acolyte": 9,
+      "cavarcher": 10,
+      "ballista": 11,
+      "wolf": 12,
+      "hobbeWild": 13,
+      "balverine": 14,
+      "ram": 15,
+      "ship": 16,
+      "trader": 17,
+      "blacksmithNpc": 18,
+      "barkeep": 19
+    },
+    "validatedCells": 80
+  },
+  "resources": {
+    "file": "albion-resources-biomes.png",
+    "cell": 256,
+    "gutter": 18,
+    "columns": {
+      "food": 0,
+      "wood": 1,
+      "gold": 2,
+      "stone": 3,
+      "iron": 4,
+      "fish": 5
+    },
+    "rows": {
+      "temperate": 0,
+      "forest": 1,
+      "marsh": 2,
+      "dry": 3,
+      "snow": 4
+    },
+    "validatedCells": 30
+  }
+}

@@ -7,5 +7,7 @@ Generated screenshots for the current Albion Skirmish build.
 - `fortifications.png`: close-up of a stone wall line with a gate and Watch/Guard towers, plus a leveled unit roster showing rank pips.
 - `diplomacy.png`: the Diplomacy panel — relation badges, strength hints, and offer/tribute buttons per faction.
 - `production-queue.png`: a Training Yard's compact progress queue tiles alongside its research and train buttons.
+- `terrain-procedural-preview.png`: deterministic procedural terrain preview showing the hex material tessellation, roads, forest floor, rock transitions, safe starting clearing, and terrain-colored minimap.
+- `fable-biome-animation-preview.png`: browser-audited gallery of the five resource/structure biome treatments and the padded animated unit atlas rendered through the live game.
 
 Regenerate with Playwright or the integrated browser whenever visual systems change.

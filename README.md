@@ -12,6 +12,8 @@ Albion Skirmish is a browser-playable RTS prototype inspired by Fable: The Lost 
 
 ![Compact production queue](docs/screenshots/production-queue.png)
 
+![Procedural hex terrain](docs/screenshots/terrain-procedural-preview.png)
+
 ## Running
 
 Open [index.html](index.html) in a modern browser. The game is self-contained and does not require a build step.
@@ -26,13 +28,22 @@ Open [index.html](index.html) in a modern browser. The game is self-contained an
 - Land units cannot cross deep water except at bridges; larger bodies of water require ferries from an Albion Dock.
 - Production buildings show compact square queue tiles with progress and click-to-cancel refunds.
 - Touch controls support select-mode marquee, command-mode pan, and two-finger pan/pinch zoom.
-- Animated vector sprites with walk bob, leg stride, directional attack swings, impact sparks, building dust puffs, ferry wake, and cargo pips.
+- Bleed-safe painted NPC atlases give every gameplay unit real idle, two-phase walk, and action frames; world sites also host animated traders, blacksmiths, and barkeeps.
+- Directional mirroring, impact sparks, building dust puffs, ferry wake, cargo pips, and vector fallbacks remain layered around the authored animation frames.
 
 ### Fortifications
 - Palisade, Stone, and Fortified walls — drag-build a whole line in one click-drag, upgrade a tier in place without losing HP%.
 - Buildings can be box-selected, canceled for a full foundation refund, demolished for a partial refund, batch-upgraded, and walls can convert into gates or compact watch towers.
 - Guild Gates let friendly units (and allies) pass through while blocking hostiles; lockable, with an animated door swing.
 - Watch Towers and Guard Towers fire arrows at hostiles automatically.
+
+### Procedural terrain
+- Deterministic elevation, moisture, temperature, slope, biome, variant, and boundary data is generated for every simulation tile from the map seed.
+- Eight project-local terrain materials are clipped into a seamless visual hex tessellation, with authored meadow/mud, meadow/rock, and sand/water boundary textures.
+- Roads are cheaper to traverse; forest, mud, rock, snow, and sand have distinct movement effort; marsh, shallow water, and cliffs can require traversal equipment.
+- Trailcraft Kits unlock wading routes, while Mountaineering Gear unlocks cliff and harsh winter crossings. Weighted A* accounts for the same terrain costs used by movement.
+- Advanced launch controls cover landform, biome diversity, forest cover, terrain gates, road density, and start fairness in addition to water and map-size settings.
+- Building foundations respect terrain buildability and slope, while resources and completed structures visibly adapt to temperate, evergreen, marsh, dry/coastal, or frozen ground; the minimap and terrain readout expose the same live tile properties.
 
 ### Progression
 - Units gain XP from kills and level up (Heroes to 8, everyone else to 5), with rank-pip indicators, out-of-combat HP regen, and Temple Acolytes who heal allies even mid-fight.
@@ -66,6 +77,7 @@ Screenshots are generated from the current local build and stored in [docs/scree
 - [Fortifications: walls, gate, and towers](docs/screenshots/fortifications.png)
 - [Diplomacy panel](docs/screenshots/diplomacy.png)
 - [Compact production queue](docs/screenshots/production-queue.png)
+- [Procedural hex terrain](docs/screenshots/terrain-procedural-preview.png)
 
 ## Notes
 
