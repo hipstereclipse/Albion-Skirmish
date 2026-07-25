@@ -21,7 +21,7 @@ if the push fails, mark the row `done (push pending)` and say so in the log.
 | Bootstrap | `.gitignore`, baseline commit of the 68 MB asset/`index.html` backlog, these two docs, push | **done, pushed** | `dd3e70a` Bootstrap the overhaul: baseline commit, gitignore, and shared plan docs | 2026-07-25 |
 | 0 | Instrumentation: frame timing ring buffer + `?perf` HUD, capture BEFORE numbers | **done, pushed** | `a0dd101` Overhaul phase 0: add frame timing instrumentation and perf HUD | 2026-07-25 |
 | 1 | Kill the three-state terrain pop-in (single preload gate, all-or-nothing material gate) | **done, pushed** | Overhaul phase 1: single art preload gate, one terrain rebuild | 2026-07-25 |
-| 2 | Fix dark/low-contrast terrain (brightness normalization, softer washes/outlines, painterly relayer) | pending | | |
+| 2 | Fix dark/low-contrast terrain (brightness normalization, softer washes/outlines, painterly relayer) | **done, pushed** | Overhaul phase 2: brighten terrain and restore painterly character | 2026-07-25 |
 | 3 | Asset weight: `tools/downscale_terrain.py`, 384²/512² re-export, delete 2 dead PNGs | pending | | |
 | 4 | Render hot path: pre-baked tinted atlases, aura/glow sprites, `shadowBlur` purge, minimap 10 Hz, cached atmosphere, `MAX_DPR` 1.5, remove PixiJS | pending | | |
 | 5 | Sim hot path: spatial hash for `applySeparation`, allocation-free A\* costs | pending | | |
@@ -243,6 +243,63 @@ Object.defineProperty(CanvasRenderingContext2D.prototype,'filter',
 3. No render-performance change is expected here. The Phase 0 fps baseline remains authoritative;
    Phase 4's per-entity `ctx.filter` removal is still the main performance win.
 
+### Phase 2 — done 2026-07-25
+
+**What changed** (Phase 2 only; no Phase 3 asset resizing or Phase 4 render work mixed in)
+
+- Grouped the terrain-look knobs at the top of `buildTerrainBackdrop()`: the 384² material bake,
+  64² luminance sample, 0.52 target, 0.95–1.4 brightness clamp, 1.05 saturation, elevation wash
+  strengths, outline/transition alphas, and textured/fallback painterly strengths.
+- Each of the eight material sources is now drawn once to a 384² offscreen canvas. A 64² thumbnail
+  is read with `getImageData()` using Rec. 709 luma weights, then the material is redrawn through
+  `brightness(k) saturate(1.05)` before `createPattern()`. The cache retains `k` in
+  `hexMaterialPatternCache.brightnessFactors` for debugging.
+- Kept the cream elevation highlight at `.18`, reduced the near-black low-elevation wash to `.09`,
+  reduced hex outlines to `.035`, and reduced authored/generic transition strokes to `.48`/`.16`.
+- The meadow soft-light overlay now also runs over authored materials at `.14` (`.26` on the
+  procedural fallback). The 950-ellipse sun-dapple and 170-stroke painterly passes also run over
+  textures at half strength. The per-tile grass, broad fallback color patches, and multiply
+  shade-blob pass remain skipped over authored textures.
+- Reduced the atmosphere vignette edge from `rgba(8,7,5,0.42)` to `rgba(8,7,5,0.20)`.
+- Made `tools/capture_art_preview.mjs` genuinely repeatable by setting seed
+  `overhaul-art-preview-v1`. Because the harness loads via `file://`, its Edge launch now explicitly
+  allows same-file canvas access so Phase 2's required `getImageData()` audit can run. The harness
+  also reports the seed, material factors, and final page-error count.
+
+**Actual material brightness factors**
+
+| Material | `k` |
+|---|---:|
+| meadow | 1.400000 |
+| forest | 1.400000 |
+| mud | 1.400000 |
+| sand | 0.950000 |
+| rock | 1.400000 |
+| snow | 0.950000 |
+| water | 1.400000 |
+| road | 1.400000 |
+
+**Verification**
+
+- Inline script compilation via Node: **clean**. `tools/capture_art_preview.mjs` also passes
+  `node --check`; `git diff --check` passes.
+- Ran the seeded preview twice. Both captures produced SHA-256
+  `A18190155AF45B9945F8323D891E0521502484D20B9CAB60BED065C898C84542`, proving the new seed and
+  gallery are repeatable. The final CDP audit covered all five visual biomes, all eight material
+  factors, and reported **0 page errors**.
+- Screenshot checklist at the harness's default `.78` gallery zoom:
+  - **Pass — no visible hex lattice:** uniform material fields do not show repeated honeycomb
+    outlines; the stepped edges between intentionally different material bands remain readable.
+  - **Pass — meadow reads green:** meadow/forest are clearly green rather than olive-black, while
+    forest and mud remain darker than meadow.
+  - **Pass — snow and sand retain detail:** both clamp at `k = .95`; surface grain, footprints, and
+    painterly variation remain visible instead of clipping to white/flat cream.
+  - **Pass — soft-light dapple remains visible:** low-strength mottling and the half-alpha ellipse/
+    stroke accents remain visible above the material textures.
+- The updated repeatable reference is
+  `docs/screenshots/fable-biome-animation-preview.png`. No terrain PNG dimensions, deployed asset
+  files, internal ids, or localStorage keys changed in this phase.
+
 ---
 
 ## Continuation prompt
@@ -253,57 +310,58 @@ Copy this verbatim into a fresh agent/session to continue the work.
 Continue the Albion Skirmish overhaul in c:\Users\Eclipse\.claude\Workspaces\Age Of Empires.
 
 Read docs/OVERHAUL-PLAN.md (the full frozen spec) and docs/OVERHAUL-PROGRESS.md (status, baseline
-numbers, phase log) before touching anything. Bootstrap, Phase 0, and Phase 1 are complete and
-pushed. Phase 1 replaced all per-image terrain invalidations with one `Promise.allSettled`/`decode()`
-art gate, made the material gate all-or-nothing, and removed the temporary rebuild counter.
+numbers, phase log) before touching anything. Bootstrap and Phases 0–2 are complete and pushed.
+Phase 2 now normalizes all eight terrain materials through a 384x384 runtime bake, restores the
+painterly overlays above authored textures, softens elevation/outline/transition darkness, and
+halves the atmosphere vignette. Its repeatable art seed is `overhaul-art-preview-v1`.
 
-Execute **Phase 2 — Fix the dark, low-contrast final look** exactly as specified in the plan. Keep
-the painterly fallback intact and group the tuning values as named constants at the top of
-`buildTerrainBackdrop()`:
-  - At material-pattern build time, draw each material to a 384x384 offscreen canvas. Measure mean
-    luminance from a 64x64 thumbnail with `getImageData`, compute
-    `k = clamp(0.52 / meanLuma, 0.95, 1.4)`, then redraw with
-    `ctx.filter = 'brightness(k) saturate(1.05)'` before `createPattern`. Store `k` per material for
-    debugging. This same 384x384 canvas is the Phase 3 downscale target, but do NOT change asset files
-    yet.
-  - Keep the `#f5ead0` elevation highlight at `abs(e-.5)*.18`; reduce the `#07100a` shadow to
-    `abs(e-.5)*.09`.
-  - Reduce hex-outline alpha from .08 to .035.
-  - Reduce transition stroke alpha from .68 to .48 for authored transition patterns and from .28 to
-    .16 for generic material blends.
-  - Restore painterly character above the textures: always run the meadow soft-light pass with
-    `globalAlpha = drewSemanticTerrain ? .14 : .26`; likewise un-gate the sun-dapple ellipse and
-    painterly stroke passes at roughly 50% of their fallback alphas. Keep the per-tile grass loop and
-    the multiply shade-blob pass gated off over textures.
-  - In `drawAtmosphere()`, reduce the vignette edge stop from rgba(8,7,5,0.42) to
-    rgba(8,7,5,0.20).
+Execute **Phase 3 — Asset weight** exactly as specified in the frozen plan:
+  - Add `tools/downscale_terrain.py` using Pillow, mirroring the structure/style of
+    `tools/build_sprite_atlases.py`.
+  - Resize every `assets/terrain/materials/hex-*.png` and
+    `assets/art/albion-meadow-v2.png` to exactly 384x384. Resize
+    `assets/terrain/transitions/*.png` to exactly 512x512. Write optimized PNGs in place with
+    `optimize=True`; keep all relative paths unchanged. Target <=150 KB per material and <=250 KB
+    per transition.
+  - Do NOT resize any sprite atlas. `buildingSlices`, `unitCellSize:256`, and
+    `assets/sprites/atlas-manifest.json` depend on the current atlas dimensions.
+  - Delete only the two grep-confirmed dead deployed assets:
+    `assets/art/albion-meadow.png` and `assets/sprites/albion-units.png`. Keep
+    `assets/sprites/albion-resources-v2.png`, which is an input to `build_sprite_atlases.py`.
+  - A lossless/palette reduction pass on remaining sprite atlases is optional; do not let it expand
+    scope or change atlas dimensions.
 
-Verify with `tools/capture_art_preview.mjs` using its repeatable seed. Inspect the screenshot against
-the full Phase 2 checklist: no visible hex lattice at default zoom; meadow reads green rather than
-olive-black; snow and sand are not blown out; soft-light dapple remains visible. Syntax-check the
-inline script, capture page errors, and record the actual per-material brightness factors in the
-phase log. Do not mix Phase 3 asset resizing or Phase 4 performance work into this commit.
+Run the new tool and verify every output's dimensions and byte size. Re-run
+`tools/capture_art_preview.mjs`; inspect the same Phase 2 checklist, confirm its audit still covers
+all 8 materials/5 visual biomes with 0 page errors, and record the post-resize brightness factors.
+Measure the cache-disabled HTTP payload after resizing and record actual request/byte totals against
+the current 49.5 MB baseline. Syntax-check the inline script and Python tool, run `git diff --check`,
+and grep once more to prove the two deleted assets are unreferenced. Do not begin Phase 4 render work.
 
 Baseline to beat (full detail in the progress doc): idle pan 255.1 ms avg / 399.8 ms p95 (3.9 fps) on
 a 4-player Greatwood map; ~100v100 battle 1006.9 ms avg (1.0 fps); applySeparation 2.49 ms of a
-3.05 ms sim tick; 49.5 MB over 20 requests. Phase 1's 32 Mbps/cache-disabled verification produced
-exactly 1 backdrop build when starting immediately after document load. An early-start stress run
-produced the intended two states only: initial painterly backdrop, then one complete 8-material /
-3-transition texture rebuild.
+3.05 ms sim tick; cache-disabled page payload 49.5 MB over 20 requests. Phase 3 is an asset/payload
+phase, so no fps movement is expected.
 
 Carry-overs:
-  - Plan line numbers are exact as of dd3e70a. Phase 1 added a net 8 lines before the terrain builder;
-    current anchors are drawHexTerrainMaterials at line 7252 and buildTerrainBackdrop at line 7330.
-    Resolve with `git show dd3e70a:index.html` and confirm by reading surrounding code before editing.
-  - Judge render performance by fps / the HUD's interval line, NOT by frameMs or renderMs. Canvas
-    raster runs off the JS timeline, so those two under-report badly and swing run to run.
-  - ctx.filter is worth ~14x at idle and ~13x in battle; shadowBlur under 1.5x. That is Phase 4, not
-    Phase 2 — do not start it early, and do not expect this visual phase to materially move fps.
+  - The baseline commit `dd3e70a` permanently retains the full-size originals in git history, so the
+    Phase 3 tool should overwrite the working-tree asset paths in place.
+  - The Phase 2 runtime already downsamples each material to 384x384 before measuring/building its
+    pattern. The Phase 3 source export uses the same target, so the visual result should remain close;
+    use the seeded preview to catch resampling or tiling regressions.
+  - Current Phase 2 factors are meadow/forest/mud/rock/water/road = 1.4 and sand/snow = .95. The
+    preview harness prints them, its seed, and page errors.
+  - `tools/capture_art_preview.mjs` loads `file://` and now launches Edge with
+    `--allow-file-access-from-files` because the required `getImageData()` luminance audit otherwise
+    taints the canvas. Do not remove that flag while Phase 2 normalization remains runtime code.
+  - Payload baseline is 49.5 MB, not the repo's 68 MB on-disk asset total; record both deployed
+    payload and working-tree size distinctly.
   - Do NOT rename internal ids or localStorage keys (breaks saves).
-  - Do not resize or delete terrain assets yet; that is Phase 3.
+  - Do NOT start the `ctx.filter`, `shadowBlur`, minimap, DPR, or Pixi work; all of that is Phase 4.
 
-When Phase 2 is done: log the screenshot checklist, actual brightness factors, and verification
-results in docs/OVERHAUL-PROGRESS.md; flip the Phase 2 row to done; regenerate this "Continuation
-prompt" section for Phase 3; commit as "Overhaul phase 2: brighten terrain and restore painterly
-character"; and push to origin main. Do not begin Phase 3 until the doc is updated and pushed.
+When Phase 3 is done: log exact before/after file sizes, cache-disabled payload, dimensions, deletion
+verification, screenshot checklist, brightness factors, syntax/page-error results, and tool command
+in docs/OVERHAUL-PROGRESS.md; flip the Phase 3 row to done; regenerate this continuation prompt for
+Phase 4; commit as "Overhaul phase 3: shrink terrain asset payload"; and push to origin main. Do not
+begin Phase 4 until the doc is updated and pushed.
 ```

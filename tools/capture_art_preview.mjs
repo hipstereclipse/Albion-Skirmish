@@ -14,6 +14,7 @@ const browser = spawn(edge, [
   '--headless=new',
   '--disable-gpu',
   '--hide-scrollbars',
+  '--allow-file-access-from-files',
   '--window-size=1600,900',
   `--remote-debugging-port=${port}`,
   `--user-data-dir=${profile}`,
@@ -80,6 +81,7 @@ for (let attempt = 0; attempt < 80; attempt++) {
 }
 
 const gallery = `(() => {
+  document.querySelector('#opt-seed').value = 'overhaul-art-preview-v1';
   document.querySelector('#opt-map').value = 'snowspire';
   startGame();
   appState = 'paused';
@@ -154,6 +156,9 @@ const audit = await send('Runtime.evaluate', {
     ambientNpcs:(game.ambient || []).filter(item => item.kind === 'worldNpc').length,
     visualBiomes:Array.from(new Set(game.buildings.map(buildingVisualBiome))).sort(),
     resourceBiomes:Array.from(new Set(game.nodes.slice(-15).map(node => node.visualBiome || terrainVisualFamilyAt(node.tx,node.ty)))).sort(),
+    seed:game.options.seedText,
+    materialBrightnessFactors:Object.fromEntries(Object.entries(hexMaterialPatternCache.brightnessFactors)
+      .map(([key,value]) => [key,Number(value.toFixed(6))])),
   })`,
   returnByValue: true,
 });
@@ -162,6 +167,7 @@ fs.writeFileSync(output, Buffer.from(shot.data, 'base64'));
 if (pageErrors.length) throw new Error(`Page errors: ${pageErrors.join(' | ')}`);
 console.log(`Captured ${path.relative(root, output)} ${JSON.stringify(result.result.value)}`);
 console.log(`Audit ${JSON.stringify(audit.result.value)}`);
+console.log(`Page errors ${pageErrors.length}`);
 
 await send('Browser.close').catch(() => {});
 ws.close();

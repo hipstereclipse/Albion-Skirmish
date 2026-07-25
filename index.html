@@ -7247,15 +7247,54 @@ function hexTerrainPath(c, cx, cy, radius) {
 
 // Cached across buildTerrainBackdrop() calls. The all-or-nothing art gate populates
 // these together on the first art-ready build, then later game rebuilds reuse them.
-const hexMaterialPatternCache = { patterns: {}, transitionPatterns: {} };
+const hexMaterialPatternCache = { patterns: {}, transitionPatterns: {}, brightnessFactors: {} };
 
-function drawHexTerrainMaterials(c) {
+function drawHexTerrainMaterials(c, look) {
   if (!game.terrain || !artReady) return false;
+  const {
+    MATERIAL_PATTERN_SIZE,
+    MATERIAL_LUMA_SAMPLE_SIZE,
+    MATERIAL_TARGET_LUMA,
+    MATERIAL_BRIGHTNESS_MIN,
+    MATERIAL_BRIGHTNESS_MAX,
+    MATERIAL_SATURATION,
+    ELEVATION_HIGHLIGHT_ALPHA,
+    ELEVATION_SHADOW_ALPHA,
+    HEX_OUTLINE_ALPHA,
+    AUTHORED_TRANSITION_ALPHA,
+    GENERIC_TRANSITION_ALPHA,
+  } = look;
   const patterns = hexMaterialPatternCache.patterns, transitionPatterns = hexMaterialPatternCache.transitionPatterns;
   for (const key in ALBION_ART.terrain) {
     if (patterns[key]) continue;
     const image = ALBION_ART.terrain[key];
-    if (image.complete && image.naturalWidth) patterns[key] = c.createPattern(image, 'repeat');
+    if (image.complete && image.naturalWidth) {
+      const material = document.createElement('canvas');
+      material.width = material.height = MATERIAL_PATTERN_SIZE;
+      const materialCtx = material.getContext('2d');
+      materialCtx.imageSmoothingEnabled = true;
+      materialCtx.imageSmoothingQuality = 'high';
+      materialCtx.drawImage(image, 0, 0, MATERIAL_PATTERN_SIZE, MATERIAL_PATTERN_SIZE);
+
+      const thumbnail = document.createElement('canvas');
+      thumbnail.width = thumbnail.height = MATERIAL_LUMA_SAMPLE_SIZE;
+      const thumbnailCtx = thumbnail.getContext('2d', { willReadFrequently:true });
+      thumbnailCtx.drawImage(material, 0, 0, MATERIAL_LUMA_SAMPLE_SIZE, MATERIAL_LUMA_SAMPLE_SIZE);
+      const pixels = thumbnailCtx.getImageData(0, 0, MATERIAL_LUMA_SAMPLE_SIZE, MATERIAL_LUMA_SAMPLE_SIZE).data;
+      let lumaTotal = 0;
+      for (let i = 0; i < pixels.length; i += 4) {
+        lumaTotal += (.2126 * pixels[i] + .7152 * pixels[i + 1] + .0722 * pixels[i + 2]) / 255;
+      }
+      const meanLuma = lumaTotal / (pixels.length / 4);
+      const brightness = clamp(MATERIAL_TARGET_LUMA / meanLuma, MATERIAL_BRIGHTNESS_MIN, MATERIAL_BRIGHTNESS_MAX);
+      hexMaterialPatternCache.brightnessFactors[key] = brightness;
+
+      materialCtx.clearRect(0, 0, MATERIAL_PATTERN_SIZE, MATERIAL_PATTERN_SIZE);
+      materialCtx.filter = `brightness(${brightness}) saturate(${MATERIAL_SATURATION})`;
+      materialCtx.drawImage(image, 0, 0, MATERIAL_PATTERN_SIZE, MATERIAL_PATTERN_SIZE);
+      materialCtx.filter = 'none';
+      patterns[key] = c.createPattern(material, 'repeat');
+    }
   }
   for (const key in ALBION_ART.transitions) {
     if (transitionPatterns[key]) continue;
@@ -7283,11 +7322,12 @@ function drawHexTerrainMaterials(c) {
       c.fillStyle = patterns[rule.texture] || fallback[rule.texture] || rule.minimap;
       c.fillRect(cx - radius - 1, cy - radius - 1, radius * 2 + 2, radius * 2 + 2);
       const elevation = game.terrain.elevation[i] || 0;
-      c.globalAlpha = Math.abs(elevation - .5) * .18;
+      c.globalAlpha = Math.abs(elevation - .5) *
+        (elevation > .5 ? ELEVATION_HIGHLIGHT_ALPHA : ELEVATION_SHADOW_ALPHA);
       c.fillStyle = elevation > .5 ? '#f5ead0' : '#07100a';
       c.fillRect(cx - radius, cy - radius, radius * 2, radius * 2);
       c.restore();
-      c.globalAlpha = .08;
+      c.globalAlpha = HEX_OUTLINE_ALPHA;
       c.strokeStyle = elevation > .68 ? '#efe1bd' : '#182313';
       c.lineWidth = .65;
       hexTerrainPath(c, cx, cy, radius);
@@ -7313,7 +7353,8 @@ function drawHexTerrainMaterials(c) {
         if (there.id === here.id) continue;
         const transitionKey = TERRAIN_TRANSITIONS[here.key + ':' + there.key];
         const a1 = edge * Math.PI / 3, a2 = (edge + 1) * Math.PI / 3;
-        c.globalAlpha = transitionKey && transitionPatterns[transitionKey] ? .68 : .28;
+        c.globalAlpha = transitionKey && transitionPatterns[transitionKey]
+          ? AUTHORED_TRANSITION_ALPHA : GENERIC_TRANSITION_ALPHA;
         c.strokeStyle = (transitionKey && transitionPatterns[transitionKey]) || patterns[there.texture] || there.minimap;
         c.lineWidth = radius * (transitionKey ? .35 : CONFIG.TERRAIN.TRANSITION_BAND);
         c.beginPath();
@@ -7328,6 +7369,20 @@ function drawHexTerrainMaterials(c) {
 }
 
 function buildTerrainBackdrop() {
+  const MATERIAL_PATTERN_SIZE = 384;
+  const MATERIAL_LUMA_SAMPLE_SIZE = 64;
+  const MATERIAL_TARGET_LUMA = .52;
+  const MATERIAL_BRIGHTNESS_MIN = .95;
+  const MATERIAL_BRIGHTNESS_MAX = 1.4;
+  const MATERIAL_SATURATION = 1.05;
+  const ELEVATION_HIGHLIGHT_ALPHA = .18;
+  const ELEVATION_SHADOW_ALPHA = .09;
+  const HEX_OUTLINE_ALPHA = .035;
+  const AUTHORED_TRANSITION_ALPHA = .48;
+  const GENERIC_TRANSITION_ALPHA = .16;
+  const TEXTURED_MEADOW_ALPHA = .14;
+  const FALLBACK_MEADOW_ALPHA = .26;
+  const TEXTURED_PAINTERLY_ALPHA_SCALE = .5;
   terrainCanvas.width = MAPW;
   terrainCanvas.height = MAPH;
   const c = terrainCtx;
@@ -7341,13 +7396,25 @@ function buildTerrainBackdrop() {
   c.fillStyle = sky;
   c.fillRect(0, 0, MAPW, MAPH);
 
-  const drewSemanticTerrain = drawHexTerrainMaterials(c);
+  const drewSemanticTerrain = drawHexTerrainMaterials(c, {
+    MATERIAL_PATTERN_SIZE,
+    MATERIAL_LUMA_SAMPLE_SIZE,
+    MATERIAL_TARGET_LUMA,
+    MATERIAL_BRIGHTNESS_MIN,
+    MATERIAL_BRIGHTNESS_MAX,
+    MATERIAL_SATURATION,
+    ELEVATION_HIGHLIGHT_ALPHA,
+    ELEVATION_SHADOW_ALPHA,
+    HEX_OUTLINE_ALPHA,
+    AUTHORED_TRANSITION_ALPHA,
+    GENERIC_TRANSITION_ALPHA,
+  });
 
-  if (!drewSemanticTerrain && ALBION_ART.meadow.complete && ALBION_ART.meadow.naturalWidth && !/Snowspire/i.test(preset.name || '')) {
+  if (ALBION_ART.meadow.complete && ALBION_ART.meadow.naturalWidth) {
     const meadowPattern = c.createPattern(ALBION_ART.meadow, 'repeat');
     if (meadowPattern) {
       c.save();
-      c.globalAlpha = /Darkwood/i.test(preset.name || '') ? .2 : .26;
+      c.globalAlpha = drewSemanticTerrain ? TEXTURED_MEADOW_ALPHA : FALLBACK_MEADOW_ALPHA;
       c.globalCompositeOperation = 'soft-light';
       // The v2 source is edge-matched, so natural-size repetition retains crisp
       // ground detail without the checkerboard seams from the old texture.
@@ -7384,14 +7451,14 @@ function buildTerrainBackdrop() {
     }
   }
 
-  if (!drewSemanticTerrain) {
   c.save();
+  const painterlyAlphaScale = drewSemanticTerrain ? TEXTURED_PAINTERLY_ALPHA_SCALE : 1;
   for (let i = 0; i < 950; i++) {
     const x = MAPW * hash01(game.seed, i, 301);
     const y = MAPH * hash01(game.seed, i, 307);
     const s = 0.6 + hash01(game.seed, i, 311) * 1.6;
     const warm = hash01(game.seed, i, 313) > 0.52;
-    c.globalAlpha = warm ? 0.12 : 0.16;
+    c.globalAlpha = (warm ? 0.12 : 0.16) * painterlyAlphaScale;
     c.fillStyle = warm ? 'rgba(230,210,142,0.45)' : 'rgba(26,52,24,0.42)';
     c.beginPath();
     c.ellipse(x, y, s * 1.8, s, hash01(game.seed, i, 317) * Math.PI, 0, Math.PI * 2);
@@ -7399,35 +7466,38 @@ function buildTerrainBackdrop() {
   }
   c.restore();
 
-  c.save();
-  for (let i = 0; i < 70; i++) {
-    const x = MAPW * hash01(game.seed, i, 211);
-    const y = MAPH * hash01(game.seed, i, 223);
-    const r = T * (1.6 + hash01(game.seed, i, 227) * 4.6);
-    const color = colors[Math.floor(hash01(game.seed, i, 229) * colors.length) % colors.length];
-    const patch = c.createRadialGradient(x, y, 0, x, y, r);
-    patch.addColorStop(0, shadeColor(color, hash01(game.seed, i, 233) > 0.5 ? 18 : -18) + '55');
-    patch.addColorStop(1, shadeColor(color, 0) + '00');
-    c.fillStyle = patch;
-    c.beginPath(); c.arc(x, y, r, 0, Math.PI * 2); c.fill();
+  if (!drewSemanticTerrain) {
+    c.save();
+    for (let i = 0; i < 70; i++) {
+      const x = MAPW * hash01(game.seed, i, 211);
+      const y = MAPH * hash01(game.seed, i, 223);
+      const r = T * (1.6 + hash01(game.seed, i, 227) * 4.6);
+      const color = colors[Math.floor(hash01(game.seed, i, 229) * colors.length) % colors.length];
+      const patch = c.createRadialGradient(x, y, 0, x, y, r);
+      patch.addColorStop(0, shadeColor(color, hash01(game.seed, i, 233) > 0.5 ? 18 : -18) + '55');
+      patch.addColorStop(1, shadeColor(color, 0) + '00');
+      c.fillStyle = patch;
+      c.beginPath(); c.arc(x, y, r, 0, Math.PI * 2); c.fill();
+    }
+    c.restore();
+
+    c.save();
+    c.globalCompositeOperation = 'multiply';
+    for (let i = 0; i < 28; i++) {
+      const x = MAPW * hash01(game.seed, i, 241);
+      const y = MAPH * hash01(game.seed, i, 251);
+      const r = T * (2.4 + hash01(game.seed, i, 257) * 5.8);
+      const shade = c.createRadialGradient(x, y, 0, x, y, r);
+      shade.addColorStop(0, 'rgba(20,45,22,0.22)');
+      shade.addColorStop(1, 'rgba(20,45,22,0)');
+      c.fillStyle = shade;
+      c.beginPath(); c.arc(x, y, r, 0, Math.PI * 2); c.fill();
+    }
+    c.restore();
   }
-  c.restore();
 
   c.save();
-  c.globalCompositeOperation = 'multiply';
-  for (let i = 0; i < 28; i++) {
-    const x = MAPW * hash01(game.seed, i, 241);
-    const y = MAPH * hash01(game.seed, i, 251);
-    const r = T * (2.4 + hash01(game.seed, i, 257) * 5.8);
-    const shade = c.createRadialGradient(x, y, 0, x, y, r);
-    shade.addColorStop(0, 'rgba(20,45,22,0.22)');
-    shade.addColorStop(1, 'rgba(20,45,22,0)');
-    c.fillStyle = shade;
-    c.beginPath(); c.arc(x, y, r, 0, Math.PI * 2); c.fill();
-  }
-  c.restore();
-
-  c.save();
+  c.globalAlpha = painterlyAlphaScale;
   c.lineCap = 'round';
   c.lineJoin = 'round';
   for (let i = 0; i < 170; i++) {
@@ -7444,8 +7514,6 @@ function buildTerrainBackdrop() {
     c.stroke();
   }
   c.restore();
-
-  }
 
   for (const meadow of decor.meadows || []) {
     c.save();
@@ -7634,7 +7702,7 @@ function drawAtmosphere() {
   const grad = ctx.createRadialGradient(viewW * 0.46, viewH * 0.35, viewW * 0.12, viewW * 0.5, viewH * 0.5, Math.max(viewW, viewH) * 0.72);
   grad.addColorStop(0, 'rgba(255,226,151,0.085)');
   grad.addColorStop(0.58, 'rgba(58,38,17,0.015)');
-  grad.addColorStop(1, 'rgba(8,7,5,0.42)');
+  grad.addColorStop(1, 'rgba(8,7,5,0.20)');
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, viewW, viewH);
   const horizon = ctx.createLinearGradient(0, 0, 0, viewH);
