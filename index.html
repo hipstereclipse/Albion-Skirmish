@@ -7320,6 +7320,7 @@ function drawHexTerrainMaterials(c) {
 }
 
 function buildTerrainBackdrop() {
+  console.count('buildTerrainBackdrop');   // TEMP (phase 0): proves the phase 1 rebuild fix — remove at the end of phase 1
   terrainCanvas.width = MAPW;
   terrainCanvas.height = MAPH;
   const c = terrainCtx;
@@ -7619,6 +7620,7 @@ function render() {
     ctx.setLineDash([]);
   }
   renderMinimap();
+  if (PERF_HUD) drawPerfHUD();
 }
 
 function drawAtmosphere() {
@@ -11318,25 +11320,137 @@ const DT = 1 / CONFIG.TICK_RATE;
 let lastFrame = (typeof performance !== 'undefined') ? performance.now() : 0;
 let acc = 0;
 
+/* ---- frame timing instrumentation
+ * Fixed-size ring buffers, all preallocated: the sampling path never allocates. Timing itself
+ * always runs (four performance.now() calls per frame); only the HUD is gated behind ?perf.
+ * frameMs is main-thread work inside frame() — camera + sim + render + Pixi + uiSync. deltaMs is
+ * the raw wall-clock gap between frames, recorded before the 0.25 s clamp. Both are needed:
+ * canvas raster happens off the JS timeline, so heavy draw calls can cost 200 ms of frame
+ * interval while frameMs still reads single digits. deltaMs is the honest fps. */
+const PERF_SAMPLES = 120;
+const PERF_HUD = typeof location !== 'undefined' && location.search.includes('perf');
+const perf = {
+  sim: new Float64Array(PERF_SAMPLES),
+  render: new Float64Array(PERF_SAMPLES),
+  frame: new Float64Array(PERF_SAMPLES),
+  delta: new Float64Array(PERF_SAMPLES),
+  scratch: new Float64Array(PERF_SAMPLES),   // sort space for the percentile, never reallocated
+  head: 0, count: 0, total: 0, hudTick: 0,   // total = samples ever taken, so a profiling harness
+};                                           // can pull the ring gap-free across polls
+
+function perfSample(simMs, renderMs, frameMs, deltaMs) {
+  const i = perf.head;
+  perf.sim[i] = simMs; perf.render[i] = renderMs; perf.frame[i] = frameMs; perf.delta[i] = deltaMs;
+  perf.head = (i + 1) % PERF_SAMPLES;
+  perf.total++;
+  if (perf.count < PERF_SAMPLES) perf.count++;
+}
+
+function perfReset() { perf.head = 0; perf.count = 0; perf.total = 0; }
+
+function perfAvg(buf) {
+  const n = perf.count;
+  if (!n) return 0;
+  let sum = 0;
+  for (let i = 0; i < n; i++) sum += buf[i];
+  return sum / n;
+}
+
+// Insertion sort into the scratch buffer: n <= 120, and this only runs at the HUD refresh
+// rate (or on a manual perfStats() call), so it stays cheap and allocation-free.
+function perfPct(buf, p) {
+  const n = perf.count;
+  if (!n) return 0;
+  const s = perf.scratch;
+  for (let i = 0; i < n; i++) s[i] = buf[i];
+  for (let i = 1; i < n; i++) {
+    const v = s[i];
+    let j = i - 1;
+    while (j >= 0 && s[j] > v) { s[j + 1] = s[j]; j--; }
+    s[j + 1] = v;
+  }
+  return s[Math.min(n - 1, Math.round((n - 1) * p))];
+}
+
+function perfUnitCount() {
+  if (!game) return 0;
+  let n = 0;
+  for (const u of game.units) if (!u.dead) n++;
+  return n;
+}
+
+// Console helper — `perfStats()` reads the current window without needing the HUD.
+function perfStats() {
+  const round = v => Math.round(v * 100) / 100;
+  return {
+    samples: perf.count,
+    sim: { avg: round(perfAvg(perf.sim)), p95: round(perfPct(perf.sim, .95)) },
+    render: { avg: round(perfAvg(perf.render)), p95: round(perfPct(perf.render, .95)) },
+    frame: { avg: round(perfAvg(perf.frame)), p95: round(perfPct(perf.frame, .95)) },
+    delta: { avg: round(perfAvg(perf.delta)), p95: round(perfPct(perf.delta, .95)) },
+    fps: round(1000 / Math.max(perfAvg(perf.delta), .001)),
+    units: perfUnitCount(),
+  };
+}
+
+const PERF_HUD_LINES = ['', '', '', '', ''];
+function perfNum(v) {
+  const s = v.toFixed(2);
+  return s.length >= 7 ? s : '       '.slice(s.length) + s;
+}
+
+function drawPerfHUD() {
+  if (--perf.hudTick <= 0) {              // rebuild the strings ~4x/second so they stay readable
+    perf.hudTick = 15;
+    PERF_HUD_LINES[0] = 'frame  avg' + perfNum(perfAvg(perf.frame)) + '  p95' + perfNum(perfPct(perf.frame, .95));
+    PERF_HUD_LINES[1] = 'sim    avg' + perfNum(perfAvg(perf.sim)) + '  p95' + perfNum(perfPct(perf.sim, .95));
+    PERF_HUD_LINES[2] = 'render avg' + perfNum(perfAvg(perf.render)) + '  p95' + perfNum(perfPct(perf.render, .95));
+    PERF_HUD_LINES[3] = 'fps    ' + (1000 / Math.max(perfAvg(perf.delta), .001)).toFixed(1)
+      + '  (' + perfAvg(perf.delta).toFixed(2) + ' ms)';
+    PERF_HUD_LINES[4] = 'units  ' + perfUnitCount();
+  }
+  const x = 12, y = 54, w = 236, h = 10 + PERF_HUD_LINES.length * 15;
+  ctx.save();
+  ctx.fillStyle = 'rgba(9,7,5,.74)';
+  ctx.fillRect(x, y, w, h);
+  ctx.strokeStyle = 'rgba(231,196,125,.45)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(x + .5, y + .5, w - 1, h - 1);
+  ctx.fillStyle = '#eadfc8';
+  ctx.font = '12px Consolas, "Courier New", monospace';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'top';
+  for (let i = 0; i < PERF_HUD_LINES.length; i++) ctx.fillText(PERF_HUD_LINES[i], x + 8, y + 6 + i * 15);
+  ctx.restore();
+}
+
 function frame(now) {
   requestAnimationFrame(frame);
-  let delta = (now - lastFrame) / 1000;
+  const frameStart = performance.now();
+  const rawDeltaMs = now - lastFrame;     // record before the clamp, or the HUD tops out at 250
+  let delta = rawDeltaMs / 1000;
   lastFrame = now;
   if (delta > 0.25) delta = 0.25;         // clamp huge tab-switch gaps
   updateCamera(delta);
+  let simMs = 0;
   if (appState === 'playing') {
     acc += delta;
     let steps = 0;
+    const simStart = performance.now();
     while (acc >= DT && steps < 10) { update(DT); acc -= DT; steps++; }
+    simMs = performance.now() - simStart;
     if (steps >= 10) acc = 0;             // safety: never spiral
   } else {
     acc = 0;
   }
   if (game && game.placement) updatePlacement();
+  const renderStart = performance.now();
   render();
+  const renderMs = performance.now() - renderStart;
   AlbionFramework.render(delta);
   uiSync();
   updateTouchToolbar();
+  perfSample(simMs, renderMs, performance.now() - frameStart, rawDeltaMs);
 }
 
 // ---- boot
