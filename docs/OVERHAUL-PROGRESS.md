@@ -18,7 +18,7 @@ if the push fails, mark the row `done (push pending)` and say so in the log.
 
 | Phase | Scope | Status | Commit subject | Date |
 |---|---|---|---|---|
-| Bootstrap | `.gitignore`, baseline commit of the 68 MB asset/`index.html` backlog, these two docs, push | **done** | `Bootstrap the overhaul: baseline commit, gitignore, and shared plan docs` | 2026-07-25 |
+| Bootstrap | `.gitignore`, baseline commit of the 68 MB asset/`index.html` backlog, these two docs, push | **done, pushed** | `dd3e70a` Bootstrap the overhaul: baseline commit, gitignore, and shared plan docs | 2026-07-25 |
 | 0 | Instrumentation: frame timing ring buffer + `?perf` HUD, capture BEFORE numbers | pending | | |
 | 1 | Kill the three-state terrain pop-in (single preload gate, all-or-nothing material gate) | pending | | |
 | 2 | Fix dark/low-contrast terrain (brightness normalization, softer washes/outlines, painterly relayer) | pending | | |
@@ -78,8 +78,11 @@ Fill in during Phase 0. Everything later is measured against these.
 
 **Verification**
 
-- `git status` no longer lists `.edge-art-preview/`.
-- Working tree clean after commit; `git push origin main` result recorded in the status table.
+- `git status` no longer lists `.edge-art-preview/`; working tree clean after the commit.
+- Baseline commit `dd3e70a`; pushed `2e9b1fe..dd3e70a main -> main`, so `origin/main` now carries the
+  full game including art for the first time.
+- **Baseline line-number anchor: `dd3e70a`.** Any plan line number can be resolved exactly with
+  `git show dd3e70a:index.html`.
 
 ---
 
