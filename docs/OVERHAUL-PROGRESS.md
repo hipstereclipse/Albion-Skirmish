@@ -19,7 +19,7 @@ if the push fails, mark the row `done (push pending)` and say so in the log.
 | Phase | Scope | Status | Commit subject | Date |
 |---|---|---|---|---|
 | Bootstrap | `.gitignore`, baseline commit of the 68 MB asset/`index.html` backlog, these two docs, push | **done, pushed** | `dd3e70a` Bootstrap the overhaul: baseline commit, gitignore, and shared plan docs | 2026-07-25 |
-| 0 | Instrumentation: frame timing ring buffer + `?perf` HUD, capture BEFORE numbers | **done, pushed** | `Overhaul phase 0: add frame timing instrumentation and perf HUD` | 2026-07-25 |
+| 0 | Instrumentation: frame timing ring buffer + `?perf` HUD, capture BEFORE numbers | **done, pushed** | `a0dd101` Overhaul phase 0: add frame timing instrumentation and perf HUD | 2026-07-25 |
 | 1 | Kill the three-state terrain pop-in (single preload gate, all-or-nothing material gate) | pending | | |
 | 2 | Fix dark/low-contrast terrain (brightness normalization, softer washes/outlines, painterly relayer) | pending | | |
 | 3 | Asset weight: `tools/downscale_terrain.py`, 384²/512² re-export, delete 2 dead PNGs | pending | | |
