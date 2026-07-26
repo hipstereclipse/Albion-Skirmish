@@ -28,7 +28,7 @@ if the push fails, mark the row `done (push pending)` and say so in the log.
 | 4c | Aura sprites, `shadowBlur` purge | **done, pushed** | Overhaul phase 4c: pre-render building auras and purge shadowBlur | 2026-07-26 |
 | 4d | Minimap 10 Hz entity cache, cached atmosphere, `MAX_DPR` 1.5, `ents` hoist | **done, pushed** | Overhaul phase 4d: cache the minimap entity layer and the atmosphere wash | 2026-07-26 |
 | 4e | Remove PixiJS, canvas-native shore shimmer from precomputed `game.shoreTiles` | **done, pushed** | Overhaul phase 4e: remove PixiJS and draw the shore shimmer on canvas | 2026-07-26 |
-| 5 | Sim hot path: spatial hash for `applySeparation`, allocation-free A\* costs | pending | | |
+| 5 | Sim hot path: spatial hash for `applySeparation`, allocation-free A\* costs | **done, pushed** | Overhaul phase 5: spatial-hash separation and allocation-free terrain costs | 2026-07-26 |
 | 6 | Clean IP rebrand: decouple preset-name regexes, rename display strings + asset files, disclaimer, grep gate | pending | | |
 | 7 | End-to-end verification: perf A/B, load payload, art screenshots, save compat, offline | pending | | |
 
@@ -55,9 +55,18 @@ Direct3D11)`), Edge windowed 1600×900, canvas 1578×625 CSS at `dpr` 1.5. Map: 
 | Total page payload, cache disabled | **49.5 MB over 20 requests** (`assets/` on disk is 68 MB) | ~15 MB |
 | Visible terrain states during load | 3 (by inspection — not visually re-verified in Phase 0) | 2 |
 
-Two rows above have since been met and are no longer current: the rebuild count was fixed in Phase 1
-(now 1) and the payload in Phase 3 (**now 12.34 MiB over 20 requests**, `assets/` 25.62 MB on disk).
-The frame-time and `applySeparation` rows are still accurate — no phase has touched render or sim code.
+**Four of these rows are superseded.** The rebuild count was fixed in Phase 1 (now 1) and the
+payload in Phase 3 (**now 12.34 MiB over 20 requests**, `assets/` 25.62 MB on disk). The frame-time
+rows were rewritten by Phase 4 (idle 14.34 → 34.88 fps, battle 2.27 → 32.84 fps against the Phase 3
+baseline `b1b39d6` on the identical harness — see the Phase 4 summary; the Phase 0 absolutes above
+came from a larger canvas and are not comparable).
+
+The **`applySeparation` row is wrong, not merely stale.** Phase 5 re-measured the unmodified
+pre-Phase-5 build with a direct micro-benchmark and got **0.11 ms of a 0.90 ms tick (~12%)**, not
+2.49 ms of 3.05 ms (82%). The Phase 0 number came from a DevTools sampled profile, which carries
+its own overhead and attributes inlined callee time to whatever frame it samples. Treat the
+sampled attribution table below as directional only; where a function can be called in isolation,
+benchmark it in isolation.
 
 **Read `frameMs` and `renderMs` with care.** Canvas rasterization happens off the JS timeline, so
 main-thread work per frame measures 5-8 ms at idle while the actual frame interval is 255 ms. Worse,
@@ -908,6 +917,170 @@ deployed payload is unchanged at 12.34 MiB over 20 requests.
 saving from the minimap and atmosphere caches is real but off the JS timeline and unmeasurable with
 the available instruments.
 
+### Phase 5 — done 2026-07-26
+
+All three plan items, one commit. `index.html` only; no render code touched.
+
+**What changed**
+
+- **Spatial hash for `applySeparation()`** — a module-level uniform grid (`sepBuckets` /
+  `sepCounts` / `sepCandidates`), cell size `CONFIG.SEPARATION.CHECK_DIST`, built by
+  `ensureSeparationGrid()` and rebuilt only when the map dimensions change. Buckets are plain
+  arrays reused for the life of the map; a tick clears counters, never reallocates. Live,
+  non-transported units are inserted in index order, so every bucket stays sorted ascending.
+  Each unit then collects the `j > i` entries of its 3x3 cell neighbourhood and **sorts them back
+  into ascending index order** before running the unchanged pair logic (see the deviation below).
+- **`terrainStepCost(tx, ty, mode, equipment) -> number`** — a numeric twin of
+  `terrainTraversalAt` with no object literal and no per-call `Set`. `terrainTraversalAt` is
+  retained unchanged for UI tooltips and placement reasons.
+- **`tileOccupiedFor(tx, ty, askerOwner)`** splits the node/building/gate half of
+  `tileBlockedFor` from the terrain half, so the A\* inner loop can answer "blocked?" and "how
+  much?" from **one** `terrainStepCost` call instead of the old two `terrainTraversalAt` calls
+  that computed the same thing twice and boxed it both times. `tileBlockedStep` is the
+  resolved-mode/equipment twin of `tileBlockedFor`; both now share `tileOccupiedFor`.
+- **Mode and equipment resolved once per query**, not per tile: in `findPathTiles` (before the
+  A\* loop), in `computePath` (which also threads them into its rect `goalTest`, run on every
+  expansion, and passes them to `findPathTiles`), and in `followPath` (once per call rather
+  than twice per waypoint). `movementModeFor()` replaces three copies of the inline
+  `typeOrMode === 'water' || …` expression.
+- **`findPathTiles` no longer allocates a `{tx,ty}` object per step.** It writes tile indices
+  into a reusable `PF.tiles` scratch buffer and returns the count (`0` = already at goal,
+  `-1` = no route). `computePath` builds `u.path` straight from that; `ensureTerrainStartConnectivity`,
+  the only other caller, reads the same buffer. `PF.tiles` is reallocated alongside the other
+  PF buffers in `resetPathBuffers()`.
+
+**Measured — same-session interleaved A/B against a `git worktree` at the Phase 4e commit `760a87e`**
+
+Per the continuation prompt, frame rate is not used at all here. The harness starts a fixed-seed
+Greatwood game, spawns the documented 100 v 100 battle, and drives `update(DT)` directly with
+`appState = 'paused'`. `performance.now()` is coarsened to 0.1 ms in this context, so
+`applySeparation` and `computePath` are timed as blocks of 600 / 40 reps with a separately timed
+block of restores subtracted, and the sim tick is timed in 20-tick segments so one GC pause
+cannot distort the whole run. Three before/after pairs were run alternately; the table is the
+median of three, and **every one of the three before runs was worse than every one of the three
+after runs on every row** — the distributions do not overlap.
+
+| Metric | before (`760a87e`) | after | Change |
+|---|---:|---:|---|
+| Sim tick, median 20-tick segment | 0.9000 ms | **0.3300 ms** | **2.73x** |
+| Sim tick, whole 400-tick block | 0.9315 ms | **0.4168 ms** | **2.24x** |
+| Sim tick, fastest segment | 0.3600 ms | **0.1900 ms** | 1.89x |
+| `applySeparation`, 225 units | 0.1123 ms | **0.0302 ms** | **3.72x** |
+| `applySeparation`, 156 units engaged | 0.1653 ms | **0.0495 ms** | **3.34x** |
+| `computePath`, cross-map route | 0.4299 ms | **0.1111 ms** | **3.87x** |
+
+Call counts over the same 460 ticks, collected in a separate uninstrumented run so the wrappers
+never touch the timed block. The four sim-shaping counts are **identical**, which is the
+behavioural result read a second way:
+
+| Call | per tick, before | per tick, after |
+|---|---:|---:|
+| `applySeparation` | 1 | 1 |
+| `computePath` | 7.34 | 7.34 |
+| `findPathTiles` | 7.35 | 7.35 |
+| `followPath` | 29.42 | 29.42 |
+| `terrainTraversalAt` | 1866.73 | 616.43 |
+| **`terrainEquipmentFor`** (one `new Set()` each) | **1864.67** | **652.52** |
+| `tileBlockedFor` | 1459.18 | 526.28 |
+| `terrainStepCost` (new, allocation-free) | — | 857.24 |
+| `tileBlockedStep` (new) | — | 431.73 |
+
+**The Phase 0 baseline for this phase did not reproduce, and the plan's premise was wrong.**
+Phase 0 recorded `applySeparation` at 2.49 ms of a 3.05 ms tick (82%) at 188 units. Measured
+directly on the unmodified `760a87e` build it is **0.11 ms of a 0.90 ms tick — about 12%**. The
+Phase 0 figure came from a DevTools sampled profile in a different session; a sampling profiler
+attributes inlined callee time to the frame it samples and carries its own overhead, so it is not
+comparable to a direct micro-benchmark. The real hot spot was item 2, not item 1: `terrainEquipmentFor`
+was allocating a `Set` **1,865 times per tick**, and `terrainTraversalAt` was boxing a result
+object almost as often. That is why the tick improved 2.73x while separation itself, though 3.3-3.7x
+faster, only accounts for about a tenth of it.
+
+**Deviation from the plan, deliberate — candidates are sorted before the pair loop runs.**
+The plan specifies a 3x3 neighbourhood scan with an `indexA < indexB` guard, which visits each
+pair once but in *cell* order rather than ascending-index order. That is not behaviour-preserving
+here: every push moves **both** units, so later pairs observe earlier ones, and an exactly
+overlapping pair (`d < 0.01`) draws twice from the **seeded** RNG, so a reordering shifts the
+whole RNG stream. The nine buckets are each ascending, so an insertion sort over the collected
+candidates restores the exact order the old `for j = i + 1` loop used. It is cheap because `m` is
+bounded by how many units physically fit in a 3x3 neighbourhood at the minimum separation
+distance, and it buys exact bit-identity instead of the "bound the drift" outcome the
+continuation prompt anticipated.
+
+**Verification**
+
+- **Behavioural equivalence, whole sim.** 460 deterministic ticks of the 225-unit battle from a
+  fixed seed, fingerprinting id/type/owner/x/y/hp/state of every live unit: **`1A69F4ED` on all
+  three before runs and all three after runs**, with 0 of 156 unit positions differing. Note this
+  required pinning `Math.random` in the harness — see finding 3.
+- **`terrainStepCost` vs `terrainTraversalAt`, exhaustively.** Every tile of every map preset
+  (5) x every terrain-gate setting (`off`/`standard`/`harsh`) x land, villager and naval movers
+  x an owner with and an owner without both equipment researches, plus six out-of-bounds
+  coordinates: **466,650 cost comparisons and 466,650 blocked comparisons, 0 mismatches**,
+  0 page errors. `terrainStepCost(...)` equals `passable ? cost : Infinity` in every case,
+  including the 383 bridged tiles across those maps.
+- **`applySeparation` vs a verbatim copy of the old O(n²) loop**, 30 successive applications per
+  scenario, comparing every unit x/y **and** `game.rngState` bit-for-bit:
+
+  | Scenario | peak units per cell | result |
+  |---|---:|---|
+  | fresh 100 v 100 grid spawn (224 units) | 2 | identical |
+  | mid-battle t=4 s (191 units) | 4 | identical |
+  | late battle t=10.7 s (109 units) | 4 | identical |
+  | map-wide scatter (225 units) | 2 | identical |
+  | forced pile, 800 / 400 / 300 / 200 / 150 px box | 3 / 6 / 8 / 14 / 25 | identical |
+  | forced pile, 100 / 60 / 40 / 20 / 6 px box | 36 / 92 / 122 / 142 / 197 | **diverges** |
+  | all 225 units on one coordinate | 225 | **diverges**, incl. RNG draw count |
+
+  This is explained, expected, and bounded — see finding 2. The threshold sits between **25 and
+  36 units in a single 38x38 px cell**. Measured peak occupancy in real simulation: **10** over
+  900 ticks of the 100 v 100 battle and **3** over 6,000 ticks (100 s) of an undisturbed AI game.
+- **World generation is bit-identical.** `findPathTiles`' contract change reaches into
+  `ensureTerrainStartConnectivity`, so 60 worlds (5 presets x 3 seeds x compact/standard x
+  standard/harsh gates) were hashed over terrain type/variant/elevation/moisture/temperature/slope,
+  `blocked`, `bridges`, `water`, every resource node, building, site, unit and ambient entity:
+  **60/60 identical** between the `760a87e` worktree and this build, 0 page errors.
+- **Save/load round trip** through a full page reload: identical fingerprint, **0 differing keys**,
+  `game.shoreTiles` matches an independent brute-force scan exactly (147/147), 200 further ticks
+  run clean, slot removed afterwards, 0 page errors.
+- **Cross-build save compatibility**: a game played 900 ticks and serialized by the **`760a87e`
+  build** loads into this build with an identical fingerprint — including the in-flight `u.path`
+  waypoint list of the one unit that had an active path, which is the field `computePath` now
+  builds differently. 300 further ticks run clean.
+- **Seeded art preview**: 0 page errors, 8 material factors and 5 visual biomes unchanged, and the
+  capture is **byte-identical to the Phase 4e reference**, SHA-256
+  `F1D2F9C8529E1382A85994199FFC9EC259C11BA0AFD4E8E9D7BDCEE2F9D1FA06` — expected, since no render
+  code was touched. The hash is unchanged for Phase 6.
+- Inline script `node --check`: clean (1 block, 11,112 lines). `git diff --check`: clean.
+  `index.html` is the only changed file.
+
+**Findings worth carrying forward**
+
+1. **The remaining allocation churn is `applySeparation`'s own blocked checks.**
+   `terrainEquipmentFor` still runs 652 times a tick, and ~526 of those come from the two
+   `blockedAtWorldFor` calls in the separation pair loop, which the plan explicitly said to leave
+   unchanged. The ceiling on fixing it is small and measured: `applySeparation` now costs
+   0.0495 ms of a 0.33 ms tick, so eliminating it **entirely** would be worth at most ~15% of the
+   tick. It would need a per-tick (type, owner) equipment memo and a change to the one piece of
+   logic this phase deliberately kept byte-for-byte. Recorded as the next target, not done.
+2. **The spatial hash is exact only while units stay in their start-of-tick cell.** The grid is
+   built once per call from start-of-call positions, but the pair loop moves units as it goes, so
+   a unit pushed more than one cell (38 px) during a single call can be matched against a stale
+   neighbourhood. That needs ~36 units inside one 38x38 px cell to happen; separation itself
+   prevents that state, since it keeps centres at least `a.radius + b.radius` (20-30 px) apart, and
+   the measured peak in a deliberately extreme 226-unit battle is 10. If a future change can
+   teleport or spawn many units onto one point, re-run the graded audit before trusting it.
+3. **The sim has two unseeded `Math.random()` calls and is therefore not reproducible on its own.**
+   `findBuildSpot` (AI building placement) and the AI betrayal roll both use `Math.random()` rather
+   than `seededRandom()`. Two runs of the same seed drift apart within ~15 s of game time: same
+   `rngState` and same unit count, but up to 7 of 156 units end up as much as 260 px apart, because
+   the AI put a building somewhere else. This is **pre-existing and was not fixed here** — changing
+   it would alter sim behaviour, which is exactly what this phase had to avoid. Any future
+   determinism work must pin or reseed those two call sites; every measurement above did so in the
+   harness.
+4. **A sampled profile is not a benchmark.** The Phase 0 attribution overstated
+   `applySeparation` by roughly 7x relative to a direct micro-benchmark and pointed the phase at
+   its smallest win. Where a function can be called in isolation, call it in isolation.
+
 ---
 
 ## Continuation prompt
@@ -918,77 +1091,90 @@ Copy this verbatim into a fresh agent/session to continue the work.
 Continue the Albion Skirmish overhaul in c:\Users\Eclipse\.claude\Workspaces\Age Of Empires.
 
 Read docs/OVERHAUL-PLAN.md (the full frozen spec) and docs/OVERHAUL-PROGRESS.md (status, baselines,
-phase log) before touching anything. Bootstrap and Phases 0-4 are complete and pushed. Phase 4 landed
-as 4a-4e: pre-baked owner-tinted unit atlases, pre-baked biome building and quantised resource
-atlases, pre-rendered building auras plus a full shadowBlur purge, a 10 Hz minimap entity layer and
-cached atmosphere wash with MAX_DPR 1.5, and the removal of PixiJS in favour of a canvas shore
-shimmer driven by a precomputed `game.shoreTiles`. Idle went 14.34 -> 34.88 fps (2.4x) and a
-229-unit battle 2.27 -> 32.84 fps (14.5x); main-thread work per idle frame is now 1.45 ms.
+phase log) before touching anything. Bootstrap and Phases 0-5 are complete and pushed. All
+performance work is finished: Phase 4 (4a-4e) removed every per-entity `ctx.filter` and per-frame
+`shadowBlur`, cached the minimap and atmosphere, and deleted PixiJS - idle went 14.34 -> 34.88 fps
+and a 229-unit battle 2.27 -> 32.84 fps. Phase 5 cut the sim tick 2.73x (0.90 -> 0.33 ms at
+225 units) with a spatial hash for `applySeparation` and an allocation-free terrain-cost path;
+the sim came out bit-identical, verified six ways.
 
-Execute **Phase 5 - Sim hot path**. It is small next to Phase 4 and can be one commit, or 5a/5b if
-you prefer:
+Execute **Phase 6 - Clean IP rebrand**. This is the last substantive phase and it is display-only.
+Read Phase 6 of the plan in full; the short version:
 
-  1. Spatial hash for `applySeparation()`. A reusable module-level grid (cleared, never
-     reallocated) with cell size `CONFIG.SEPARATION.CHECK_DIST`. Insert all live, non-transported
-     units, then test each unit only against its 3x3 cell neighbourhood with an `indexA < indexB`
-     guard so each pair runs once. The inner pair logic is unchanged. At ~250 units this goes from
-     ~31k pair tests per tick to a few hundred.
-  2. Allocation-free A* costs. Add `terrainStepCost(tx, ty, mode, equipment) -> number` (`Infinity`
-     means blocked) mirroring `terrainTraversalAt` without its per-call object literal. Resolve
-     `movementModeForType` and `terrainEquipmentFor` ONCE before the A* loop and before
-     `followPath`, and pass them in. Keep the object-returning version for UI tooltips and
-     placement reasons.
-  3. Low priority: reuse a scratch array in `computePath` instead of `tiles.map(...)`.
+  1. FIRST, the tripwire: decouple rendering from display names. `buildTerrainBackdrop` branches
+     on /Snowspire/i and /Darkwood/i against `preset.name`, and similar checks exist near the
+     old anchors 2185-2186, 7482, 7491 and 2630 (`indexOf('Barrow')`). Add a `climate` (or
+     `flavor`) key to the map presets - the `<option value>` ids are already stable - and switch
+     those tests to it. Only then are display names safe to change. Plan risk #2 is exactly this:
+     rename a preset name first and terrain rendering silently changes.
+  2. Apply the rename table in the plan (Albion Skirmish -> Eldervale Skirmish, Bowerstone ->
+     Bridgemere, Hobbe -> Grubkin, Will -> Aether, and the rest). Per-term `grep -n` plus hand
+     review, NO blind sed - "Will" collides with ordinary English, and "Albion" appears in
+     internal ids and localStorage keys that must NOT change.
+  3. Rename `assets/**/albion-*.png` -> `eldervale-*.png` and update the `src` assignments, the
+     CSS title-vista background, output paths in `tools/build_sprite_atlases.py`, and
+     `tools/capture_art_preview.mjs` (which writes `docs/screenshots/fable-*.png`). Regenerate
+     `assets/sprites/atlas-manifest.json` via the tool. Rename `docs/screenshots/fable-*.png`
+     and the references in `docs/screenshots/README.md`.
+  4. Rewrite README and docs: drop "inspired by Fable: The Lost Chapters" and the "Age of
+     Empires-style" phrasing; rewrite the provenance section of `assets/sprites/README.md` so it
+     stops art-directing against a "TLC character reference".
+  5. Add the disclaimer to the README and the start-menu footer (exact wording in the plan).
+  6. Verification gate: the plan's `grep -rniE` over albion|bowerstone|oakvale|knothole|brightwood|
+     snowspire|hobbe|balverine|demon ?door|heroes.{0,2}guild|fable must return ONLY the documented
+     keep-list of internal ids and storage keys.
 
-Baseline to beat: `applySeparation` was 2.49 ms of a 3.05 ms sim tick (82%) at 188 units in Phase 0.
-Re-measure that number BEFORE changing anything - Phase 4 changed no sim code, but the Phase 0
-figure came from a different session and the rig drifts. In the 4e battle run the whole sim tick
-measured 1.72 ms avg at 229 units, so the honest target is "applySeparation self-time near zero and
-the sim tick materially below its current value", not the literal Phase 0 numbers.
+**Hard rule, and it is the whole risk of this phase:** do NOT rename internal identifiers
+(`hobbeWild`, `balverine`, `demonDoor`, `willhub`, `guildspire`, `ALBION_ART`, CONFIG keys) or
+localStorage keys (`albion.settings`, `albion.save.N`). `serializeGame` stores entity `type` and
+`role` strings whole, so any id rename breaks every existing save and every
+`CONFIG.BUILDINGS[b.type]` lookup. Rename what players SEE and what FILES are called, nothing else.
 
-**Read this before you measure anything.** Frame rate is no longer a usable A/B metric on this rig:
-after Phase 4 both idle and battle are pinned to 60 Hz vsync steps (p50 33.3 ms) and the run-to-run
-spread is +/-10%, which swamps anything Phase 5 will do. Absolute fps also drifts between sessions
-with machine load - the same build measured 32.99 fps and 39.04 fps in two sessions an hour apart.
-For Phase 5, quote `simMs` from the ?perf HUD (it is JS-side and stable), and prefer a direct
-micro-benchmark of `applySeparation()` - call it N times on a fixed unit set and take a median of
-batches - over anything derived from the frame loop. Same-session A/B against a `git worktree` of
-the previous commit is the only trustworthy comparison; see the Phase 4b/4d logs for the pattern.
+Verification for this phase, beyond the grep gate:
+  - The art preview hash WILL change if any renamed asset changes bytes, and MUST NOT change if
+    files were only moved. Re-run `tools/capture_art_preview.mjs` after the asset renames and
+    diff against the Phase 4e/5 reference below; a pure rename should reproduce it exactly. If it
+    does not, find out why before accepting a new reference.
+  - Regenerate `atlas-manifest.json` and confirm the atlas dimensions are unchanged.
+  - Cross-build save compatibility is the real gate: serialize a played game on the pre-rebrand
+    commit and load it on the rebranded build. There is a throwaway harness pattern for this in
+    the Phase 5 log (serialize to a file over CDP, inject and `deserializeGame` on the other
+    build, compare a fingerprint). A rebrand that breaks this has renamed an id.
+  - Generate all 5 map presets after the `climate` refactor and confirm the terrain output is
+    unchanged - the Phase 5 log describes a 60-world hash harness that does exactly this, and it
+    is the direct test for plan risk #2.
+  - Syntax-check the inline script, run `git diff --check`, and do a save/load round trip.
 
-Verification for this phase: the sim must stay behaviourally identical, so do not settle for "it
-looks fine". Compare unit positions after N deterministic ticks from the same seed, before and
-after, and treat any divergence as a bug unless you can explain it (pair iteration order changes
-floating-point accumulation, so exact equality may not hold - if it does not, bound the drift and
-say so). Also re-run `tools/capture_art_preview.mjs` (0 page errors, gallery hash should be
-unchanged since no render code is involved), syntax-check the inline script, run `git diff --check`,
-and verify a save/load round trip.
-
-Carry-overs:
-  - Deployed payload is unchanged at 12,939,974 B (12.34 MiB) over 20 requests, cache disabled;
-    `assets/` on disk is 25.62 MB. Phase 4 added ~72 MB of RUNTIME baked-atlas memory (25 MB units,
-    30 MB buildings, 17 MB resources) - that is not payload.
+Perf carry-overs (all measurement work is DONE - do not redo it, and do not judge Phase 6 by fps):
+  - Deployed payload unchanged at 12,939,974 B (12.34 MiB) over 20 requests, cache disabled;
+    `assets/` on disk is 25.62 MB. Phase 4 added ~72 MB of RUNTIME baked-atlas memory - not payload.
   - Do NOT resize any sprite atlas file. `buildingSlices`, `unitCellSize: 256` and
-    `assets/sprites/atlas-manifest.json` are all in atlas pixels; the bakes are runtime-only.
-  - `tools/capture_art_preview.mjs` is bit-for-bit reproducible again now that PixiJS is gone. Seed
-    `overhaul-art-preview-v1`; the Phase 4e reference hashes SHA-256
-    F1D2F9C8529E1382A85994199FFC9EC259C11BA0AFD4E8E9D7BDCEE2F9D1FA06. If two consecutive captures
-    ever differ again, that is a real regression - chase it.
-  - Keep the `--allow-file-access-from-files` flag in that tool while Phase 2's `getImageData()`
+    `atlas-manifest.json` are all in atlas pixels; the bakes are runtime-only.
+  - `tools/capture_art_preview.mjs` is bit-for-bit reproducible. Seed `overhaul-art-preview-v1`;
+    reference SHA-256 F1D2F9C8529E1382A85994199FFC9EC259C11BA0AFD4E8E9D7BDCEE2F9D1FA06, unchanged
+    by Phase 5. Keep the `--allow-file-access-from-files` flag while Phase 2's `getImageData()`
     luminance audit remains runtime code.
+  - Three `ctx.filter` sites and one `shadowBlur` in `drawTerrainTrail` remain on purpose and are
+    documented in place. Do not "finish the purge".
+  - Frame rate is not a usable A/B metric on this rig: everything is pinned to 60 Hz vsync steps
+    and run-to-run spread is +/-10%. `performance.now()` is coarsened to 0.1 ms, so micro-benchmark
+    by timing a block of N reps, not a single call.
   - A `favicon.ico` 404 appears on every HTTP load. Pre-existing, not yours to chase.
-  - `MAX_DPR` 1.5 is unvalidated: the rig runs at devicePixelRatio 1.5, so the change is a no-op
-    here. Plan risk #8 (retina softness) is still open and needs a hi-DPI display in Phase 7.
-  - Three `ctx.filter` sites remain on purpose (construction scaffold, procedural building fallback
-    for walls/obelisk, placement ghost fallback) and one `shadowBlur` in `drawTerrainTrail`, which
-    runs once per backdrop rebuild. Do not "finish the purge" - they are documented in place.
+  - `MAX_DPR` 1.5 is still unvalidated (the rig runs at devicePixelRatio 1.5, so it is a no-op
+    here). Plan risk #8 needs a hi-DPI display and is Phase 7's.
+  - Two KNOWN sim caveats from Phase 5, both documented in its log, neither yours to fix:
+    `findBuildSpot` and the AI betrayal roll use unseeded `Math.random()`, so the sim is not
+    reproducible without pinning it in the harness; and the separation grid is exact only below
+    ~36 units in one 38x38 px cell (measured real-game peak is 10).
   - Line anchors in the plan are from `dd3e70a` and have drifted a long way. Re-resolve by reading
     the code; `git show dd3e70a:index.html` still resolves the plan's original anchors.
-  - Do NOT rename internal ids or localStorage keys (breaks saves) - `serializeGame` stores entity
-    `type`/`role` strings whole. `game.shoreTiles` is derived and deliberately not serialized.
-  - Do NOT start the rebrand (Phase 6).
 
-When Phase 5 is done: log the before/after sim numbers, the behavioural-equivalence result, and any
-deviation in docs/OVERHAUL-PROGRESS.md; update the status table; commit as
-"Overhaul phase 5: <description>"; push to origin main; and regenerate this continuation prompt for
-Phase 6 (clean IP rebrand).
+The plan's bootstrap note also flags that the GitHub repo itself is named `Albion-Skirmish`.
+Renaming it is part of the rebrand but changes a public URL, so ASK THE OWNER before doing it; if
+they agree, GitHub auto-redirects the old URL but the local remote still needs `git remote set-url`.
+
+When Phase 6 is done: log the rename surfaces touched, the grep-gate output, the save-compatibility
+result and any deviation in docs/OVERHAUL-PROGRESS.md; update the status table; commit as
+"Overhaul phase 6: <description>"; push to origin main; and regenerate this continuation prompt for
+Phase 7 (end-to-end verification), which is the last phase.
 ```

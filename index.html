@@ -2175,9 +2175,34 @@ function terrainEquipmentFor(type, owner) {
   return equipment;
 }
 
+// Accepts either an already-resolved mode ('land'/'water') or a unit type to resolve.
+function movementModeFor(typeOrMode) {
+  return typeOrMode === 'water' || typeOrMode === 'land' ? typeOrMode : movementModeForType(typeOrMode);
+}
+
+// Numeric twin of terrainTraversalAt for the pathfinding hot path: identical rules, but no
+// per-call object literal and no per-call equipment Set. Infinity means impassable, and it is
+// only ever returned for an impassable tile — every passable rule has a finite cost. `mode`
+// must already be 'land' or 'water' and `equipment` must be what terrainEquipmentFor() returns
+// for this mover; resolve both once per query rather than per tile. terrainTraversalAt stays
+// the entry point for UI tooltips and placement reasons, which need the `reason` string.
+function terrainStepCost(tx, ty, mode, equipment) {
+  if (!inBounds(tx, ty)) return Infinity;
+  const rule = terrainRuleAt(tx, ty), i = tIdx(tx, ty);
+  if (game.bridges && game.bridges[i]) return mode === 'water' ? Infinity : TERRAIN_BY_KEY.road.cost;
+  if (mode === 'water') {
+    const passable = rule.key === 'deepWater' || rule.key === 'shallowWater' || (game.water && game.water[i]);
+    return passable ? (rule.navalCost || 1) : Infinity;
+  }
+  if (rule.key === 'deepWater') return Infinity;
+  const requirement = resolveTerrainRequirement(rule);
+  if (requirement && !equipment.has(requirement)) return Infinity;
+  return Number.isFinite(rule.cost) ? rule.cost : 1;
+}
+
 function terrainTraversalAt(tx, ty, typeOrMode, owner) {
   if (!inBounds(tx, ty)) return { passable:false, cost:Infinity, reason:'Map edge' };
-  const mode = typeOrMode === 'water' || typeOrMode === 'land' ? typeOrMode : movementModeForType(typeOrMode);
+  const mode = movementModeFor(typeOrMode);
   const rule = terrainRuleAt(tx, ty), i = tIdx(tx, ty);
   if (game.bridges && game.bridges[i]) return { passable:mode !== 'water', cost:TERRAIN_BY_KEY.road.cost, rule:TERRAIN_BY_KEY.road };
   if (mode === 'water') {
@@ -2887,26 +2912,35 @@ function rebuildBlocked() {
   g.mmDirty = true;
 }
 function movementModeForType(type) { return unitMovesOnWaterType(type) ? 'water' : 'land'; }
+// Occupancy half of "is this tile blocked": a resource node, a building footprint, or a gate
+// that is locked or hostile to the asker. Terrain traversal is the other half and is asked
+// separately, so the A* inner loop can answer both from a single terrainStepCost() call.
+// Caller must have already established that (tx, ty) is in bounds.
 // askerOwner is optional: when supplied, an unlocked gate not hostile to that owner reads as passable.
 // Callers with no specific unit (placement checks, generic blocked queries) omit it — gates stay solid.
+function tileOccupiedFor(tx, ty, askerOwner) {
+  const i = tIdx(tx, ty);
+  if (game.blocked[i] !== 1) return false;
+  if (askerOwner != null) {
+    const b = game.buildingGrid[i];
+    if (b && !b.dead && !b.locked && CONFIG.BUILDINGS[b.type].gate && !areHostile(askerOwner, b.owner)) return false;
+  }
+  return true;
+}
 function tileBlockedFor(tx, ty, mode, askerOwner, moverType) {
   if (!inBounds(tx, ty)) return true;
-  const i = tIdx(tx, ty);
-  if (game.blocked[i] === 1) {
-    let passableGate = false;
-    if (askerOwner != null) {
-      const b = game.buildingGrid[i];
-      if (b && !b.dead && !b.locked && CONFIG.BUILDINGS[b.type].gate && !areHostile(askerOwner, b.owner)) passableGate = true;
-    }
-    if (!passableGate) return true;
-  }
-  const traversal = terrainTraversalAt(tx, ty, moverType || mode, askerOwner);
-  return !traversal.passable;
+  if (tileOccupiedFor(tx, ty, askerOwner)) return true;
+  return !terrainTraversalAt(tx, ty, moverType || mode, askerOwner).passable;
+}
+// tileBlockedFor for callers that have already resolved the mover's mode and equipment.
+function tileBlockedStep(tx, ty, mode, askerOwner, equipment) {
+  if (!inBounds(tx, ty)) return true;
+  if (tileOccupiedFor(tx, ty, askerOwner)) return true;
+  return terrainStepCost(tx, ty, mode, equipment) === Infinity;
 }
 function blockedAtWorld(x, y, owner) { return blockedAtWorldFor(x, y, 'land', owner); }
 function blockedAtWorldFor(x, y, typeOrMode, owner) {
-  const mode = typeOrMode === 'water' || typeOrMode === 'land' ? typeOrMode : movementModeForType(typeOrMode);
-  return tileBlockedFor(Math.floor(x / T), Math.floor(y / T), mode, owner, typeOrMode);
+  return tileBlockedFor(Math.floor(x / T), Math.floor(y / T), movementModeFor(typeOrMode), owner, typeOrMode);
 }
 function hasWalkableNeighbor(tx, ty, owner, moverType) {
   for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
@@ -3209,9 +3243,9 @@ function ensureTerrainStartConnectivity(tcs) {
       // natural path instead of carving a redundant one. A single narrow gap through
       // gated terrain (common on Mountainous/Harsh maps) is otherwise exactly the kind
       // of route a later resource cluster can silently sever.
-      const path = findPathTiles(start.tx, start.ty, (x, y) => x === goal.tx && y === goal.ty, goal.tx, goal.ty, 'land', tcs[0].owner);
+      const steps = findPathTiles(start.tx, start.ty, (x, y) => x === goal.tx && y === goal.ty, goal.tx, goal.ty, 'land', tcs[0].owner);
       protectWithHalo(start);
-      if (path) for (const t of path) protectWithHalo(t);
+      for (let s = 0; s < steps; s++) protectWithHalo({ tx: PF.tiles[s] % COLS, ty: (PF.tiles[s] / COLS) | 0 });
       continue;
     }
     let fixed = false;
@@ -3314,6 +3348,7 @@ const DIRS4 = [[1,0],[-1,0],[0,1],[0,-1]];
 const PF = {
   g: new Float64Array(NTILES), f: new Float64Array(NTILES),
   came: new Int32Array(NTILES), state: new Int32Array(NTILES),
+  tiles: new Int32Array(NTILES),   // scratch result of findPathTiles; a path can't revisit a tile
   gen: 0, heap: [],
 };
 pathBuffersReady = true;
@@ -3322,6 +3357,7 @@ function resetPathBuffers() {
   PF.f = new Float64Array(NTILES);
   PF.came = new Int32Array(NTILES);
   PF.state = new Int32Array(NTILES);
+  PF.tiles = new Int32Array(NTILES);
   PF.gen = 0;
   PF.heap.length = 0;
 }
@@ -3354,10 +3390,17 @@ function pfHeapPop() {
   }
   return top;
 }
-// Returns a list of {tx,ty} steps (start tile excluded), [] if already at goal, or null.
-function findPathTiles(sx, sy, goalTest, hx, hy, mode, owner, moverType) {
-  if (goalTest(sx, sy)) return [];
+// Writes the tile indices of the route (start tile excluded) into PF.tiles and returns how
+// many there are: 0 when already at the goal, -1 when no route exists. The caller must consume
+// PF.tiles before the next call. `equipment` is optional — pass the mover's resolved
+// terrainEquipmentFor() Set to save rebuilding it, otherwise it is resolved here once.
+function findPathTiles(sx, sy, goalTest, hx, hy, mode, owner, moverType, equipment) {
+  if (goalTest(sx, sy)) return 0;
   mode = mode || 'land';
+  // Resolved once for the whole search: terrainStepCost is asked about roughly four tiles per
+  // expansion, and terrainEquipmentFor allocates a Set every time it is called.
+  const stepMode = movementModeFor(moverType || mode);
+  const equip = equipment || terrainEquipmentFor(moverType || mode, owner);
   PF.gen += 2;
   const OPEN = PF.gen, CLOSED = PF.gen + 1;
   PF.heap.length = 0;
@@ -3382,10 +3425,12 @@ function findPathTiles(sx, sy, goalTest, hx, hy, mode, owner, moverType) {
       const nx = cx + dx, ny = cy + dy;
       if (!inBounds(nx, ny)) continue;
       const ni = ny * COLS + nx;
-      if (tileBlockedFor(nx, ny, mode, owner, moverType)) continue;
+      // One terrainStepCost answers both "is it blocked" and "what does it cost"; the old pair
+      // of terrainTraversalAt calls computed the same thing twice and boxed it both times.
+      const terrainCost = tileOccupiedFor(nx, ny, owner) ? Infinity : terrainStepCost(nx, ny, stepMode, equip);
+      if (terrainCost === Infinity) continue;
       // no cutting corners around blocked tiles
-      if (dx && dy && (tileBlockedFor(nx, cy, mode, owner, moverType) || tileBlockedFor(cx, ny, mode, owner, moverType))) continue;
-      const terrainCost = terrainTraversalAt(nx, ny, moverType || mode, owner).cost;
+      if (dx && dy && (tileBlockedStep(nx, cy, stepMode, owner, equip) || tileBlockedStep(cx, ny, stepMode, owner, equip))) continue;
       const ng = PF.g[cur] + (dx && dy ? 1.4142 : 1) * terrainCost;
       const st = PF.state[ni];
       if (st === CLOSED) continue;
@@ -3395,15 +3440,12 @@ function findPathTiles(sx, sy, goalTest, hx, hy, mode, owner, moverType) {
       pfHeapPush(ni);
     }
   }
-  if (goal < 0) return null;
-  const tiles = [];
-  let cur = goal;
-  while (cur !== s && cur >= 0) {
-    tiles.push({ tx: cur % COLS, ty: (cur / COLS) | 0 });
-    cur = PF.came[cur];
-  }
-  tiles.reverse();
-  return tiles;
+  if (goal < 0) return -1;
+  const tiles = PF.tiles;
+  let count = 0, cur = goal;
+  while (cur !== s && cur >= 0) { tiles[count++] = cur; cur = PF.came[cur]; }
+  for (let a = 0, b = count - 1; a < b; a++, b--) { const t = tiles[a]; tiles[a] = tiles[b]; tiles[b] = t; }
+  return count;
 }
 
 // spec: {kind:'point', x, y} or {kind:'rect', tx, ty, w, h} (walk to a tile adjacent to the rect)
@@ -3412,11 +3454,14 @@ function computePath(u, spec) {
   const sy = clamp(Math.floor(u.y / T), 0, ROWS - 1);
   const mode = movementModeForType(u.type);
   const owner = u.owner;
+  // Resolved once and threaded through: a rect goalTest runs on every A* expansion, and
+  // findPathTiles would otherwise rebuild this Set for every tile it touches.
+  const equipment = terrainEquipmentFor(u.type, owner);
   let goalTest, hx, hy, exactEnd = null;
   if (spec.kind === 'point') {
     let ttx = clamp(Math.floor(spec.x / T), 0, COLS - 1);
     let tty = clamp(Math.floor(spec.y / T), 0, ROWS - 1);
-    if (tileBlockedFor(ttx, tty, mode, owner, u.type)) {
+    if (tileBlockedStep(ttx, tty, mode, owner, equipment)) {
       const nw = nearestPassableTile(ttx, tty, 12, mode, owner, u.type);
       if (!nw) return false;
       ttx = nw.tx; tty = nw.ty;
@@ -3428,12 +3473,17 @@ function computePath(u, spec) {
     hx = ttx; hy = tty;
   } else {
     const rtx = spec.tx, rty = spec.ty, rw = spec.w, rh = spec.h;
-    goalTest = (x, y) => x >= rtx - 1 && x <= rtx + rw && y >= rty - 1 && y <= rty + rh && !tileBlockedFor(x, y, mode, owner, u.type);
+    goalTest = (x, y) => x >= rtx - 1 && x <= rtx + rw && y >= rty - 1 && y <= rty + rh && !tileBlockedStep(x, y, mode, owner, equipment);
     hx = Math.floor(rtx + rw / 2); hy = Math.floor(rty + rh / 2);
   }
-  const tiles = findPathTiles(sx, sy, goalTest, hx, hy, mode, owner, u.type);
-  if (!tiles) return false;
-  u.path = tiles.map(t => ({ x: tileCenter(t.tx), y: tileCenter(t.ty) }));
+  const steps = findPathTiles(sx, sy, goalTest, hx, hy, mode, owner, u.type, equipment);
+  if (steps < 0) return false;
+  const tiles = PF.tiles, path = new Array(steps);
+  for (let i = 0; i < steps; i++) {
+    const t = tiles[i];
+    path[i] = { x: tileCenter(t % COLS), y: tileCenter((t / COLS) | 0) };
+  }
+  u.path = path;
   if (exactEnd) {
     if (u.path.length) u.path[u.path.length - 1] = exactEnd;
     else u.path.push(exactEnd);
@@ -3446,6 +3496,9 @@ function computePath(u, spec) {
 // Advance a unit along its path. Returns 'arrived' | 'moving' | 'blocked' | 'none'.
 function followPath(u, dt) {
   if (!u.path) return 'none';
+  // Resolved once per call rather than twice per waypoint step.
+  const mode = movementModeForType(u.type);
+  const equipment = terrainEquipmentFor(u.type, u.owner);
   const slowMult = (u.slowUntil && u.slowUntil > game.time) ? u.slowFactor : 1;
   // Remaining is a movement-effort budget. Expensive ground consumes more budget per
   // pixel, keeping route choice and actual travel time consistent.
@@ -3453,7 +3506,7 @@ function followPath(u, dt) {
   let repathed = false;
   while (u.pathIdx < u.path.length && remaining > 1e-6) {
     const wp = u.path[u.pathIdx];
-    if (blockedAtWorldFor(wp.x, wp.y, u.type, u.owner)) {          // e.g. a foundation was just placed on the route
+    if (tileBlockedStep(Math.floor(wp.x / T), Math.floor(wp.y / T), mode, u.owner, equipment)) {   // e.g. a foundation was just placed on the route
       const spec = u.pathSpec;
       if (repathed || !spec || !computePath(u, spec)) { u.path = null; return 'blocked'; }
       repathed = true;
@@ -3462,7 +3515,7 @@ function followPath(u, dt) {
     const dx = wp.x - u.x, dy = wp.y - u.y;
     const d = Math.sqrt(dx * dx + dy * dy);
     const tx = clamp(Math.floor(wp.x / T), 0, COLS - 1), ty = clamp(Math.floor(wp.y / T), 0, ROWS - 1);
-    const terrainCost = Math.max(.2, terrainTraversalAt(tx, ty, u.type, u.owner).cost || 1);
+    const terrainCost = Math.max(.2, terrainStepCost(tx, ty, mode, equipment) || 1);
     if (d * terrainCost <= remaining) {
       u.x = wp.x; u.y = wp.y;
       remaining -= d * terrainCost; u.pathIdx++;
@@ -5068,15 +5121,70 @@ function updateEffects(dt) {
 }
 
 /* ------------------------------- local separation ------------------------------- */
+/* Uniform grid over the map, cell size CHECK_DIST, so a unit inside another's check box is
+ * always somewhere in that unit's 3x3 cell neighbourhood (floor(v/C) - 1 === floor((v-C)/C)).
+ * Buckets are plain arrays reused for the life of the map: sepCounts records how much of each
+ * bucket is live this tick, so a tick clears counters instead of reallocating. The grid is
+ * rebuilt only when the map dimensions or CHECK_DIST change. */
+let sepGridCols = 0, sepGridRows = 0, sepGridCell = 0;
+let sepBuckets = null, sepCounts = null;
+let sepCandidates = new Int32Array(256);
+
+function ensureSeparationGrid(cell) {
+  const cols = Math.max(1, Math.ceil(MAPW / cell)), rows = Math.max(1, Math.ceil(MAPH / cell));
+  if (sepBuckets && sepGridCols === cols && sepGridRows === rows && sepGridCell === cell) return;
+  sepGridCols = cols; sepGridRows = rows; sepGridCell = cell;
+  sepBuckets = new Array(cols * rows);
+  for (let i = 0; i < sepBuckets.length; i++) sepBuckets[i] = [];
+  sepCounts = new Int32Array(cols * rows);
+}
+
 function applySeparation() {
-  const units = game.units;
+  const units = game.units, n = units.length;
   const CHECK = CONFIG.SEPARATION.CHECK_DIST, RELAX = CONFIG.SEPARATION.RELAX, BIAS = CONFIG.SEPARATION.MOVING_BIAS;
-  for (let i = 0; i < units.length; i++) {
+  ensureSeparationGrid(CHECK);
+  const gc = sepGridCols, gr = sepGridRows, buckets = sepBuckets, counts = sepCounts;
+  if (sepCandidates.length < n) sepCandidates = new Int32Array(n + 128);
+  const cand = sepCandidates;
+  counts.fill(0);
+  // Inserted in index order, so every bucket stays sorted ascending by unit index. Dead and
+  // transported units are simply never inserted, which is the old inner-loop skip.
+  for (let i = 0; i < n; i++) {
+    const u = units[i];
+    if (u.dead || u.transportId) continue;
+    const ux = clamp((u.x / CHECK) | 0, 0, gc - 1), uy = clamp((u.y / CHECK) | 0, 0, gr - 1);
+    const c = uy * gc + ux, bucket = buckets[c], k = counts[c];
+    if (k < bucket.length) bucket[k] = i; else bucket.push(i);
+    counts[c] = k + 1;
+  }
+  for (let i = 0; i < n; i++) {
     const a = units[i];
     if (a.dead || a.transportId) continue;
-    for (let j = i + 1; j < units.length; j++) {
-      const b = units[j];
-      if (b.dead || b.transportId) continue;
+    const acx = clamp((a.x / CHECK) | 0, 0, gc - 1), acy = clamp((a.y / CHECK) | 0, 0, gr - 1);
+    let m = 0;
+    for (let ny = acy - 1; ny <= acy + 1; ny++) {
+      if (ny < 0 || ny >= gr) continue;
+      const row = ny * gc;
+      for (let nx = acx - 1; nx <= acx + 1; nx++) {
+        if (nx < 0 || nx >= gc) continue;
+        const c = row + nx, end = counts[c], bucket = buckets[c];
+        for (let p = 0; p < end; p++) { const j = bucket[p]; if (j > i) cand[m++] = j; }
+      }
+    }
+    // The 3x3 walk interleaves nine ascending buckets, so sort the candidates back into
+    // ascending index order. Pair order is load-bearing, not cosmetic: every push moves both
+    // units, so later pairs see earlier ones, and an exactly-overlapping pair draws twice from
+    // the seeded RNG. Visiting pairs in the order the old O(n^2) loop used keeps the sim
+    // bit-identical. m stays small because it is bounded by how many units physically fit in
+    // a 3x3 neighbourhood at the minimum separation distance.
+    for (let s = 1; s < m; s++) {
+      const v = cand[s];
+      let t = s - 1;
+      while (t >= 0 && cand[t] > v) { cand[t + 1] = cand[t]; t--; }
+      cand[t + 1] = v;
+    }
+    for (let s = 0; s < m; s++) {
+      const b = units[cand[s]];
       let dx = b.x - a.x, dy = b.y - a.y;
       if (dx > CHECK || dx < -CHECK || dy > CHECK || dy < -CHECK) continue;
       const minD = a.radius + b.radius;
