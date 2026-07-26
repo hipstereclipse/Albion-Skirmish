@@ -25,7 +25,7 @@ if the push fails, mark the row `done (push pending)` and say so in the log.
 | 3 | Asset weight: `tools/downscale_terrain.py`, 384²/512² re-export, delete 2 dead PNGs | **done, pushed** | Overhaul phase 3: shrink terrain asset payload | 2026-07-25 |
 | 4a | Pre-baked owner-tinted unit atlases (half-res, no per-unit `ctx.filter`) | **done, pushed** | Overhaul phase 4a: pre-bake owner-tinted unit atlases | 2026-07-25 |
 | 4b | Pre-baked biome building atlases + baked resource-variant atlases | **done, pushed** | Overhaul phase 4b: pre-bake biome building and resource atlases | 2026-07-25 |
-| 4c | Aura sprites, `shadowBlur` purge | pending | | |
+| 4c | Aura sprites, `shadowBlur` purge | **done, pushed** | Overhaul phase 4c: pre-render building auras and purge shadowBlur | 2026-07-26 |
 | 4d | Minimap 10 Hz entity cache, cached atmosphere, `MAX_DPR` 1.5, `ents` hoist | pending | | |
 | 4e | Remove PixiJS, canvas-native shore shimmer from precomputed `game.shoreTiles` | pending | | |
 | 5 | Sim hot path: spatial hash for `applySeparation`, allocation-free A\* costs | pending | | |
@@ -646,6 +646,92 @@ into 4 buckets — adjacent buckets differ by 0.03 saturation and 0.02 brightnes
    `shadowBlur`, the second WebGL context, and pixel fill from `MAX_DPR`.
 3. **The seeded gallery is a genuine regression test, not just a screenshot.** It is bit-for-bit
    reproducible, so any unexplained pixel in a diff is a real change and worth chasing.
+
+### Phase 4c — done 2026-07-26
+
+Plan items 4.3 (building aura sprites) and 4.4 (`shadowBlur` purge).
+
+**What changed** (`index.html` only)
+
+- `buildingAuraSprite(friendly)` bakes the ownership aura into a 64 px sprite per side on first use,
+  replacing a `createRadialGradient` allocated per building per frame. The sprite is built in
+  normalised ellipse space so the offset, elliptical gradient of the original is reproduced rather
+  than approximated — see the comment above the function for the geometry.
+- Two helpers next to `drawShadow` replace `shadowBlur` everywhere: `glowStroke(color, width,
+  alpha)` re-strokes the current path (the path survives a `stroke()`, so the glow and the real
+  stroke share one `beginPath`), and `glowDot(cx, cy, radius, color, alpha)` for point lights. Both
+  lay **two** passes of decreasing width and alpha — a single flat band reads as a second border,
+  two passes approximate a blur's falloff.
+- **All 26 per-frame `shadowBlur` assignments are gone.** Converted: building/site/unit selection
+  rings, the zone ring, the cast underlay ellipse and its orbiting dots, magic projectiles, the
+  `magicHit` / `levelup` / `slowRing` effects, the mage staff and acolyte eye glows, the healer
+  spark, and the hero aura ring. Removed outright (each already had a `drawShadow` ground ellipse
+  or its own dark outline doing the work): the procedural wood/gold/stone/iron node bodies, the
+  procedural unit and ship bodies, and `drawBuildingBody`'s whole-silhouette drop shadow — whose
+  ground ellipse went `.36` → `.4` to compensate.
+
+**The one remaining `shadowBlur`** is in `drawTerrainTrail`, which runs on the terrain backdrop
+context during `buildTerrainBackdrop` — once per rebuild, not per frame. It is the soft edge of the
+road and is deliberately kept.
+
+**Measured — and why there is no fps claim for this sub-phase**
+
+Phase 0 predicted `shadowBlur` was worth under 1.5x, and that is what happened. After 4b both
+scenarios sit on 60 Hz vsync steps (p50 33.3 ms), so frame interval quantises and the run-to-run
+spread swamps the change. Three 4c runs measured idle **27.0 / 32.5 / 31.0 fps** and battle
+**28.5 / 31.9 / 24.6 fps**, against 4b's 28.1 and 24.3 — directionally positive, but the spread is
+larger than the effect, so **no frame-rate improvement is claimed here.**
+
+`renderMs` is the honest metric for *this particular* change, because it measures main-thread
+draw-call work rather than frame pacing, and it moved consistently across all three runs:
+
+| Metric | b1b39d6 | 4a | 4b | 4c (3 runs) |
+|---|---:|---:|---:|---:|
+| Idle `renderMs` avg | 2.66 ms | 2.19 ms | 1.23 ms | **1.11 / 1.07 / 1.13 ms** |
+| Battle `renderMs` avg | 21.85 ms | 5.77 ms | 2.97 ms | **2.55 / 2.39 / 2.93 ms** |
+
+That is roughly **−11% idle and −12% battle** in render work on top of 4b. Note this is a
+deliberate, scoped exception to the doc's standing "judge Phase 4 by fps, not `renderMs`" rule:
+`renderMs` still under-reports total render cost, but it is a valid measure of the JS-side draw-call
+work that 4c actually removes, and it is used here only for that.
+
+**Verification**
+
+- Seeded art preview: **0 page errors**, all 8 material factors and 5 visual biomes unchanged.
+  Diff versus the 4b capture: **RMS 0.033, PSNR 77.65 dB, 0.13% of pixels, max channel delta 5**,
+  confined to rows 158-185 — the building aura band and nothing else. A max error of 5/255 across a
+  handful of pixels is as close as a baked sprite gets to the gradient it replaces.
+  **New reference hash:** SHA-256
+  `5EF3612B3C3BFE80FC356CC1E549457E4CC77C942561B4C6BBBBF1933C4A83B6`.
+- The gallery does not exercise selections, projectiles or effects, so a **second deterministic
+  showcase** was built for them: a seeded game with the clock pinned to `game.time = 12.5`, a
+  selected building, site and units, one unit mid-cast, a magic and an arrow projectile, and the
+  `magicHit` / `levelup` / `slowRing` effects at fixed fade fractions. Captured from a worktree at
+  the 4b commit `cc3726d` and from this commit, at 2-3× magnification:
+  - Building selection rect, unit selection rings, site ring, cast ellipse, magic projectile head
+    and trail, effect rings: all present, all reading as the same glow.
+  - The **first** single-pass version of `glowStroke` was rejected on this evidence — it rendered as
+    a hard second border rather than a glow. The two-pass version matches the blurred original
+    closely, and the unit ring alpha was then trimmed `.5` → `.34` because two passes at `.5` read
+    brighter than the blur did.
+  - Whole-frame difference from 4b: RMS 1.89, PSNR 42.59 dB, 2.8% of pixels — all of it glow pixels.
+- Save/load round trip through a full page reload: identical fingerprint, 0 differing keys,
+  0 page errors.
+- Inline script `node --check`: clean. `git diff --check`: clean.
+
+**Findings worth carrying forward**
+
+1. **The frame interval has stopped being a usable A/B metric on this rig.** Everything now lands on
+   33.3 / 50 / 66.6 ms vsync steps, so sub-step improvements are invisible and the run-to-run spread
+   is ±10%. For the remaining sub-phases, quote `renderMs` for draw-call work and only claim an fps
+   change when a scenario actually crosses a vsync step.
+2. **Two-pass glow beats one-pass, and only a rendered A/B showed it.** Worth remembering for any
+   future `shadowBlur` replacement.
+3. **Harness Edge instances leak and then wedge.** A stale `--user-data-dir` profile makes the next
+   run hang at startup, and a minimised window reports `visibilityState: 'hidden'` and stops rAF
+   entirely — which looks like a slow run, not a broken one. The perf harness now forces the window
+   back to `normal` and re-checks visibility on every poll, and stale profiles are deleted between
+   runs.
 
 ---
 

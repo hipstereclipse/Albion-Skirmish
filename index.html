@@ -6878,6 +6878,44 @@ function drawShadow(cx, cy, rx, ry, alpha) {
   ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
   ctx.fill();
 }
+/* Stand-ins for `ctx.shadowBlur`, which forces a separate blur pass per draw call.
+ *
+ * Every glow in the render path is either a stroked shape or a small point light, and both read
+ * the same when a wider, fainter pass of the same geometry is laid underneath instead. Call
+ * `glowStroke` with the path already built — the path survives a `stroke()`, so the glow pass and
+ * the real stroke share one `beginPath`. */
+function glowStroke(color, width, alpha) {
+  const prevAlpha = ctx.globalAlpha, prevStyle = ctx.strokeStyle, prevWidth = ctx.lineWidth;
+  const a = alpha == null ? .38 : alpha;
+  ctx.strokeStyle = color;
+  // Two passes rather than one: a single flat band reads as a second border, while a wide faint
+  // pass under a narrower brighter one approximates the falloff of a real blur. Two strokes are
+  // still far cheaper than the blur pass this replaces.
+  ctx.globalAlpha = prevAlpha * a * .5;
+  ctx.lineWidth = width;
+  ctx.stroke();
+  ctx.globalAlpha = prevAlpha * a;
+  ctx.lineWidth = width * .58;
+  ctx.stroke();
+  ctx.globalAlpha = prevAlpha;
+  ctx.strokeStyle = prevStyle;
+  ctx.lineWidth = prevWidth;
+}
+function glowDot(cx, cy, radius, color, alpha) {
+  const prevAlpha = ctx.globalAlpha, prevStyle = ctx.fillStyle;
+  const a = alpha == null ? .32 : alpha;
+  ctx.fillStyle = color;
+  ctx.globalAlpha = prevAlpha * a * .5;
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.globalAlpha = prevAlpha * a;
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius * .6, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.globalAlpha = prevAlpha;
+  ctx.fillStyle = prevStyle;
+}
 function drawSoftBlob(cx, cy, rx, ry, color, alpha, rot) {
   ctx.save();
   ctx.globalAlpha = alpha == null ? 1 : alpha;
@@ -8146,8 +8184,6 @@ function drawNode(n, x, y) {
   } else if (n.type === 'wood') {
     drawShadow(cx, cy + T * 0.23, T * 0.36, T * 0.13, 0.34);
     ctx.save();
-    ctx.shadowColor = 'rgba(9,28,11,0.42)';
-    ctx.shadowBlur = 7;
     ctx.lineCap = 'round';
     ctx.strokeStyle = '#4d2f19';
     ctx.lineWidth = 9;
@@ -8181,8 +8217,8 @@ function drawNode(n, x, y) {
       [-0.02, 0.34, 0.62, 0.28, -0.08, '#777166'],
     ];
     ctx.save();
-    ctx.shadowColor = 'rgba(16,11,7,0.22)';
-    ctx.shadowBlur = 4;
+    // The rocks each carry their own dark outline and the node already has a ground ellipse, so
+    // the soft shadowBlur halo that used to sit under them is not missed.
     for (const rock of rocks) {
       ctx.fillStyle = rock[5];
       ctx.beginPath();
@@ -8192,7 +8228,6 @@ function drawNode(n, x, y) {
       ctx.lineWidth = 1.2;
       ctx.stroke();
     }
-    ctx.shadowBlur = 0;
     ctx.fillStyle = '#f0c766';
     for (const glint of [[-0.38,0.05,4.2], [0.08,-0.25,3.8], [0.36,0.12,3.2]]) {
       ctx.beginPath(); ctx.ellipse(cx + r * glint[0], cy + r * glint[1], glint[2], glint[2] * 0.62, -0.35, 0, Math.PI * 2); ctx.fill();
@@ -8216,8 +8251,6 @@ function drawNode(n, x, y) {
       : [[-0.42, 0.18, 0.58, 0.38, -0.25, '#8d887b'], [0.04, -0.1, 0.7, 0.48, 0.16, '#a39d8d'],
          [0.45, 0.2, 0.5, 0.33, 0.42, '#7c766a'], [-0.02, 0.34, 0.62, 0.28, -0.08, '#948e80']];
     ctx.save();
-    ctx.shadowColor = 'rgba(16,11,7,0.22)';
-    ctx.shadowBlur = 4;
     for (const rock of rocks) {
       ctx.fillStyle = rock[5];
       ctx.beginPath();
@@ -8227,7 +8260,6 @@ function drawNode(n, x, y) {
       ctx.lineWidth = 1.2;
       ctx.stroke();
     }
-    ctx.shadowBlur = 0;
     ctx.fillStyle = iron ? '#9fb4bd' : '#d6d0bf';
     for (const glint of [[-0.34, 0.02, 3.4], [0.12, -0.22, 2.9], [0.34, 0.16, 2.6]]) {
       ctx.beginPath(); ctx.ellipse(cx + r * glint[0], cy + r * glint[1], glint[2], glint[2] * 0.6, -0.35, 0, Math.PI * 2); ctx.fill();
@@ -8587,24 +8619,54 @@ function drawAuthoredUnit(u, r, fac, angle, phase, moving, working, actionActive
     bob, scaleX, scaleY, lean, offsetX, offsetY);
 }
 
+/* Ownership aura, pre-rendered once per side.
+ *
+ * This used to allocate a `createRadialGradient` per building per frame. The gradient is baked into
+ * a 64 px sprite instead and stamped into the same ellipse rect. The sprite is built in normalised
+ * ellipse space: the gradient centre sits at 16% of the ellipse height (world `y + w*0.55` against
+ * an ellipse spanning `y + w*0.47` to `y + w*0.97`), and because the rect is 1.16w wide but only
+ * 0.5w tall, a circle in world space is a y-stretched ellipse here — hence the 2.32 scale. */
+const AURA_SPRITE_SIZE = 64;
+const buildingAuraSprites = {};
+
+function buildingAuraSprite(friendly) {
+  const key = friendly ? 'friendly' : 'hostile';
+  let sprite = buildingAuraSprites[key];
+  if (sprite) return sprite;
+  const s = AURA_SPRITE_SIZE;
+  sprite = document.createElement('canvas');
+  sprite.width = sprite.height = s;
+  const c = sprite.getContext('2d');
+  c.beginPath();
+  c.ellipse(s / 2, s / 2, s / 2, s / 2, 0, 0, Math.PI * 2);
+  c.clip();
+  c.translate(s / 2, s * 0.16);
+  c.scale(1, 1.16 / 0.5);
+  const grad = c.createRadialGradient(0, 0, 0, 0, 0, s * (0.78 / 1.16));
+  grad.addColorStop(0, 'rgba(255,255,255,0)');
+  grad.addColorStop(1, friendly ? 'rgba(55,145,210,0.08)' : 'rgba(170,54,38,0.09)');
+  c.fillStyle = grad;
+  c.fillRect(-s, -s * 2, s * 2, s * 4);
+  buildingAuraSprites[key] = sprite;
+  return sprite;
+}
+
 function drawBuilding(b) {
   const def = CONFIG.BUILDINGS[b.type];
   const x = b.tx * T, y = b.ty * T, w = b.size * T;
   const fac = factionStyle(b.owner);
   const selected = game.selection.includes(b.id);
   const biome = buildingVisualBiome(b);
-  const aura = ctx.createRadialGradient(x + w / 2, y + w * 0.55, 0, x + w / 2, y + w * 0.55, w * 0.78);
-  aura.addColorStop(0, 'rgba(255,255,255,0)');
-  aura.addColorStop(1, b.owner === 0 ? 'rgba(55,145,210,0.08)' : 'rgba(170,54,38,0.09)');
-  ctx.fillStyle = aura;
-  ctx.beginPath(); ctx.ellipse(x + w / 2, y + w * 0.72, w * 0.58, w * 0.25, 0, 0, Math.PI * 2); ctx.fill();
+  const auraRx = w * 0.58, auraRy = w * 0.25;
+  ctx.drawImage(buildingAuraSprite(b.owner === 0), x + w / 2 - auraRx, y + w * 0.72 - auraRy, auraRx * 2, auraRy * 2);
   if (selected) {
     ctx.save();
-    ctx.shadowColor = fac.light;
-    ctx.shadowBlur = 12;
     ctx.strokeStyle = '#ffffff';
     ctx.lineWidth = 2;
-    ctx.strokeRect(x - 3.5, y - 3.5, w + 7, w + 7);
+    ctx.beginPath();
+    ctx.rect(x - 3.5, y - 3.5, w + 7, w + 7);
+    glowStroke(fac.light, 8, .5);
+    ctx.stroke();
     ctx.restore();
   }
   if (!b.complete) {
@@ -8661,10 +8723,10 @@ function drawSite(site) {
   if (selected) {
     ctx.save();
     ctx.strokeStyle = site.completed ? '#93e0a7' : '#f0c766';
-    ctx.shadowColor = ctx.strokeStyle;
-    ctx.shadowBlur = 8;
     ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.ellipse(site.x, site.y + r * 0.42, r * 1.18, r * 0.48, 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(site.x, site.y + r * 0.42, r * 1.18, r * 0.48, 0, 0, Math.PI * 2);
+    glowStroke(ctx.strokeStyle, 6, .45);
+    ctx.stroke();
     ctx.restore();
   }
   if (site.type === 'demonDoor') { drawDemonDoorSite(site); return; }
@@ -8736,11 +8798,10 @@ function drawBuildingBody(b, x, y, w, fac) {
   const wallDark = bandit ? '#3c2115' : '#746951';
   const roof = bandit ? fac.cloth : '#8f5a31';
   const roofDark = bandit ? shadeColor(fac.cloth, -42) : '#4f321f';
-  drawShadow(x + w / 2, y + w * 0.86, w * 0.52, w * 0.2, 0.36);
+  // .4 rather than .36: this ellipse is the whole grounding now that the blurred drop shadow
+  // that used to sit under the entire procedural silhouette is gone.
+  drawShadow(x + w / 2, y + w * 0.86, w * 0.52, w * 0.2, 0.4);
   ctx.save();
-  ctx.shadowColor = 'rgba(21,13,7,0.34)';
-  ctx.shadowBlur = 8;
-  ctx.shadowOffsetY = 3;
   drawIsoFootprint(x, y, w, bandit ? 'rgba(72,42,26,0.55)' : 'rgba(126,111,78,0.5)', 'rgba(29,20,13,0.45)');
   if (b.type === 'towncenter') {
     if (bandit) {
@@ -9004,11 +9065,10 @@ function drawUnitMotionUnderlay(u, r, angle, phase, moving, actionActive, action
     const power = Math.sin(smoothNoiseStep(clamp(actionT, 0, 1)) * Math.PI);
     ctx.globalAlpha = .28 * power;
     ctx.strokeStyle = '#79e4ff';
-    ctx.shadowColor = '#50c7ff';
-    ctx.shadowBlur = 8;
     ctx.lineWidth = 1.5;
     ctx.beginPath();
     ctx.ellipse(u.x, u.y + r * .5, r * (1.05 + power * .32), r * (.38 + power * .12), 0, 0, Math.PI * 2);
+    glowStroke('#50c7ff', 6, .5);
     ctx.stroke();
   }
   ctx.restore();
@@ -9049,13 +9109,14 @@ function drawUnitMotionOverlay(u, r, angle, phase, working, actionActive, action
     const power = Math.sin(smoothNoiseStep(clamp(actionT, 0, 1)) * Math.PI);
     ctx.globalAlpha = .68 * power;
     ctx.fillStyle = '#b9f8ff';
-    ctx.shadowColor = '#50c7ff';
-    ctx.shadowBlur = 6;
     for (let i = 0; i < 3; i++) {
       const a = game.time * 2.8 + u.id * .7 + i * Math.PI * 2 / 3;
       const d = r * (.75 + i * .12);
+      const px = u.x + Math.cos(a) * d, py = u.y - r * .35 + Math.sin(a) * d * .42;
+      glowDot(px, py, (1.25 + power) * 2.6, '#50c7ff', .4);
+      ctx.fillStyle = '#b9f8ff';
       ctx.beginPath();
-      ctx.arc(u.x + Math.cos(a) * d, u.y - r * .35 + Math.sin(a) * d * .42, 1.25 + power, 0, Math.PI * 2);
+      ctx.arc(px, py, 1.25 + power, 0, Math.PI * 2);
       ctx.fill();
     }
   }
@@ -9068,12 +9129,11 @@ function drawUnit(u) {
   const selected = game.selection.includes(u.id);
   if (selected) {
     ctx.save();
-    ctx.shadowColor = fac.light;
-    ctx.shadowBlur = 9;
     ctx.strokeStyle = '#eaf6ff';
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.ellipse(u.x, u.y + r * 0.6, r + 4, (r + 4) * 0.5, 0, 0, Math.PI * 2);
+    glowStroke(fac.light, 7, .34);
     ctx.stroke();
     ctx.restore();
   }
@@ -9154,9 +9214,6 @@ function drawUnit(u) {
   ctx.save();
   ctx.translate(u.x, u.y + bob);
   ctx.scale(face, 1);
-  ctx.shadowColor = 'rgba(15,9,5,0.35)';
-  ctx.shadowBlur = 4;
-  ctx.shadowOffsetY = 2;
   ctx.lineWidth = 1.7;
   ctx.strokeStyle = fac.dark;
   const skin = u.owner === 3 ? '#b9c1c8' : (u.owner === 2 ? '#b9a564' : '#d7aa78');
@@ -9292,11 +9349,10 @@ function drawUnit(u) {
     ctx.fillStyle = skin; ctx.beginPath(); ctx.ellipse(0, -r*.72, r*.22, r*.24, 0, 0, Math.PI*2); ctx.fill();
     ctx.strokeStyle = leather; ctx.lineWidth = 2.7; ctx.lineCap = 'round';
     ctx.beginPath(); ctx.moveTo(r*.46, r*.68); ctx.lineTo(r*.76, -r*1.08); ctx.stroke();
+    const staffR = r*(.12 + .04*Math.max(0, Math.sin(game.time * 4 + u.id)));
+    glowDot(r*.78, -r*1.13, staffR * 3, glow, .38);
     ctx.fillStyle = glow;
-    ctx.shadowColor = glow;
-    ctx.shadowBlur = 8;
-    ctx.beginPath(); ctx.arc(r*.78, -r*1.13, r*(.12 + .04*Math.max(0, Math.sin(game.time * 4 + u.id))), 0, Math.PI*2); ctx.fill();
-    ctx.shadowBlur = 0;
+    ctx.beginPath(); ctx.arc(r*.78, -r*1.13, staffR, 0, Math.PI*2); ctx.fill();
     ctx.strokeStyle = 'rgba(185,248,255,0.58)'; ctx.lineWidth = 1.1;
     ctx.beginPath(); ctx.moveTo(-r*.32, r*.18); ctx.quadraticCurveTo(0, r*.34, r*.32, r*.18); ctx.stroke();
     ctx.strokeStyle = 'rgba(44,28,17,0.9)'; ctx.lineWidth = 1.5;
@@ -9312,9 +9368,10 @@ function drawUnit(u) {
     ctx.fillStyle = heroAura;
     ctx.beginPath(); ctx.ellipse(0, r*.12, r*1.45, r*1.75, 0, 0, Math.PI*2); ctx.fill();
     ctx.strokeStyle = 'rgba(255,221,112,' + (.52 + heroPulse * .18).toFixed(3) + ')';
-    ctx.shadowColor = '#ffe48a'; ctx.shadowBlur = 8;
     ctx.lineWidth = 1.7;
-    ctx.beginPath(); ctx.ellipse(0, -r*1.34, r*.42, r*.12, 0, 0, Math.PI*2); ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(0, -r*1.34, r*.42, r*.12, 0, 0, Math.PI*2);
+    glowStroke('#ffe48a', 6, .4);
+    ctx.stroke();
     ctx.restore();
     fillPoly([[-r*.5,-r*.32],[-r*.62,r*.5],[0,r*1.0],[r*.62,r*.5],[r*.5,-r*.32],[0,-r*.62]], '#eadfc8');
     strokePoly([[-r*.5,-r*.32],[-r*.62,r*.5],[0,r*1.0],[r*.62,r*.5],[r*.5,-r*.32],[0,-r*.62]], 'rgba(18,12,9,0.88)', 1.7);
@@ -9332,8 +9389,9 @@ function drawUnit(u) {
     ctx.fillStyle = gold;
     ctx.beginPath(); ctx.arc(0, -r*1.1, r*.14, 0, Math.PI*2); ctx.fill();
     ctx.save();
+    glowDot(-r*.19, -r*.86, 4.5, '#83d7ff', .4);
+    glowDot(r*.19, -r*.86, 4.5, '#83d7ff', .4);
     ctx.fillStyle = 'rgba(142,208,255,.78)';
-    ctx.shadowColor = '#83d7ff'; ctx.shadowBlur = 5;
     ctx.beginPath(); ctx.arc(-r*.19, -r*.86, 1.5, 0, Math.PI*2); ctx.arc(r*.19, -r*.86, 1.5, 0, Math.PI*2); ctx.fill();
     ctx.restore();
   } else if (u.type === 'wolf') {
@@ -9411,9 +9469,10 @@ function drawUnit(u) {
     ctx.fillStyle = skin; ctx.beginPath(); ctx.ellipse(0, -r*.66, r*.26, r*.28, 0, 0, Math.PI*2); ctx.fill();
     ctx.strokeStyle = '#7fe0a7'; ctx.lineWidth = 2.4; ctx.lineCap = 'round';
     ctx.beginPath(); ctx.moveTo(r*.3, r*.5); ctx.lineTo(r*(.7 + .2*swing), -r*(.7 + .2*Math.max(0, swing))); ctx.stroke();
-    ctx.fillStyle = '#7fe0a7'; ctx.shadowColor = '#7fe0a7'; ctx.shadowBlur = 6;
-    ctx.beginPath(); ctx.arc(r*(.7 + .2*swing), -r*(.78 + .2*Math.max(0, swing)), 3, 0, Math.PI*2); ctx.fill();
-    ctx.shadowBlur = 0;
+    const healX = r*(.7 + .2*swing), healY = -r*(.78 + .2*Math.max(0, swing));
+    glowDot(healX, healY, 8, '#7fe0a7', .34);
+    ctx.fillStyle = '#7fe0a7';
+    ctx.beginPath(); ctx.arc(healX, healY, 3, 0, Math.PI*2); ctx.fill();
   } else if (u.type === 'cavarcher') {
     const horse = u.owner > 0 ? '#4a2b1b' : '#7a6045';
     ctx.save(); ctx.translate(0, r * 0.1);
@@ -9502,9 +9561,6 @@ function drawShipSprite(u, r, angle, fac) {
   ctx.save();
   ctx.translate(u.x, u.y + wake * 0.25);
   ctx.rotate(angle + Math.PI / 2);
-  ctx.shadowColor = 'rgba(15,9,5,0.35)';
-  ctx.shadowBlur = 5;
-  ctx.shadowOffsetY = 2;
   fillPoly([[-r*1.28,r*.34],[-r*.78,r*.86],[r*.78,r*.86],[r*1.28,r*.34],[r*.88,r*.6],[-r*.88,r*.6]], '#3b2414');
   fillPoly([[-r*1.15,r*.12],[-r*.68,r*.58],[r*.68,r*.58],[r*1.15,r*.12],[r*.78,r*.38],[-r*.78,r*.38]], fac.wood || '#6e4c2b');
   ctx.strokeStyle = '#20140c';
@@ -9554,12 +9610,12 @@ function drawZones() {
     ctx.beginPath(); ctx.arc(z.x, z.y, z.radius, 0, Math.PI * 2); ctx.fill();
     ctx.globalAlpha = 0.55 * (1 - f * 0.4);
     ctx.strokeStyle = color;
-    ctx.shadowColor = color;
-    ctx.shadowBlur = 12;
     ctx.lineWidth = 2.4;
     ctx.setLineDash([10, 6]);
     ctx.lineDashOffset = -game.time * 30;
-    ctx.beginPath(); ctx.arc(z.x, z.y, z.radius, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(z.x, z.y, z.radius, 0, Math.PI * 2);
+    glowStroke(color, 8, .35);
+    ctx.stroke();
     ctx.setLineDash([]);
     ctx.restore();
   }
@@ -9572,14 +9628,14 @@ function drawProjectiles() {
     const dx = Math.cos(pr.angle), dy = Math.sin(pr.angle);
     if (pr.magic) {
       ctx.save();
-      ctx.shadowColor = THEME.COLORS.cullis;
-      ctx.shadowBlur = 8;
       ctx.strokeStyle = '#b9f8ff';
       ctx.lineWidth = 3.2;
       ctx.beginPath();
       ctx.moveTo(pr.x - dx * L * 0.35, pr.y - dy * L * 0.35);
       ctx.lineTo(pr.x + dx * L * 0.35, pr.y + dy * L * 0.35);
+      glowStroke(THEME.COLORS.cullis, 8, .45);
       ctx.stroke();
+      glowDot(pr.x + dx * L * 0.36, pr.y + dy * L * 0.36, 8, THEME.COLORS.cullis, .4);
       ctx.fillStyle = '#50c7ff';
       ctx.beginPath(); ctx.arc(pr.x + dx * L * 0.36, pr.y + dy * L * 0.36, 3.4, 0, Math.PI * 2); ctx.fill();
       ctx.restore();
@@ -9633,11 +9689,11 @@ function drawEffects() {
       ctx.beginPath(); ctx.arc(e.x, e.y, 2 + f * 6, 0, Math.PI * 2); ctx.stroke();
     } else if (e.type === 'magicHit') {
       ctx.globalAlpha = 1 - f;
-      ctx.shadowColor = THEME.COLORS.cullis;
-      ctx.shadowBlur = 10;
       ctx.strokeStyle = '#b9f8ff';
       ctx.lineWidth = 2.6;
-      ctx.beginPath(); ctx.arc(e.x, e.y, 5 + f * 22, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.arc(e.x, e.y, 5 + f * 22, 0, Math.PI * 2);
+      glowStroke(THEME.COLORS.cullis, 8, .45);
+      ctx.stroke();
       ctx.strokeStyle = '#50c7ff';
       ctx.lineWidth = 1.4;
       ctx.beginPath();
@@ -9646,8 +9702,8 @@ function drawEffects() {
         ctx.moveTo(e.x + Math.cos(a) * 4, e.y + Math.sin(a) * 4);
         ctx.lineTo(e.x + Math.cos(a) * (12 + f * 14), e.y + Math.sin(a) * (12 + f * 14));
       }
+      glowStroke(THEME.COLORS.cullis, 5, .4);
       ctx.stroke();
-      ctx.shadowBlur = 0;
     } else if (e.type === 'slash') {
       ctx.globalAlpha = 1 - f;
       ctx.strokeStyle = '#eadfc8';
@@ -9699,21 +9755,21 @@ function drawEffects() {
       ctx.textAlign = 'left';
     } else if (e.type === 'levelup') {
       ctx.globalAlpha = 1 - f;
-      ctx.shadowColor = '#ffd75e';
-      ctx.shadowBlur = 8;
       ctx.strokeStyle = '#ffe9a3';
       ctx.lineWidth = 2.2;
-      ctx.beginPath(); ctx.arc(e.x, e.y, 6 + f * 18, 0, Math.PI * 2); ctx.stroke();
-      ctx.fillStyle = '#ffd75e';
+      ctx.beginPath(); ctx.arc(e.x, e.y, 6 + f * 18, 0, Math.PI * 2);
+      glowStroke('#ffd75e', 7, .4);
+      ctx.stroke();
       for (let i = 0; i < 4; i++) {
         const a = -Math.PI / 2 + i * Math.PI / 2;
         const d = 10 + f * 16;
         const px = e.x + Math.cos(a) * d, py = e.y + Math.sin(a) * d - f * 10;
+        glowDot(px, py, 6, '#ffd75e', .3);
+        ctx.fillStyle = '#ffd75e';
         ctx.beginPath();
         ctx.moveTo(px, py - 3.5); ctx.lineTo(px + 2.6, py + 2); ctx.lineTo(px - 2.6, py + 2);
         ctx.closePath(); ctx.fill();
       }
-      ctx.shadowBlur = 0;
     } else if (e.type === 'healText') {
       ctx.globalAlpha = f < 0.7 ? 1 : (1 - f) / 0.3;
       ctx.font = 'bold 12px Georgia, serif';
@@ -9726,11 +9782,10 @@ function drawEffects() {
     } else if (e.type === 'slowRing') {
       ctx.globalAlpha = (1 - f) * 0.7;
       ctx.strokeStyle = '#7de2ec';
-      ctx.shadowColor = '#7de2ec';
-      ctx.shadowBlur = 10;
       ctx.lineWidth = 2.4;
-      ctx.beginPath(); ctx.arc(e.x, e.y, (e.r || 60) * (0.3 + f * 0.7), 0, Math.PI * 2); ctx.stroke();
-      ctx.shadowBlur = 0;
+      ctx.beginPath(); ctx.arc(e.x, e.y, (e.r || 60) * (0.3 + f * 0.7), 0, Math.PI * 2);
+      glowStroke('#7de2ec', 8, .4);
+      ctx.stroke();
     }
     ctx.globalAlpha = 1;
   }
