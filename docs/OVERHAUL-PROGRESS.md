@@ -27,7 +27,7 @@ if the push fails, mark the row `done (push pending)` and say so in the log.
 | 4b | Pre-baked biome building atlases + baked resource-variant atlases | **done, pushed** | Overhaul phase 4b: pre-bake biome building and resource atlases | 2026-07-25 |
 | 4c | Aura sprites, `shadowBlur` purge | **done, pushed** | Overhaul phase 4c: pre-render building auras and purge shadowBlur | 2026-07-26 |
 | 4d | Minimap 10 Hz entity cache, cached atmosphere, `MAX_DPR` 1.5, `ents` hoist | **done, pushed** | Overhaul phase 4d: cache the minimap entity layer and the atmosphere wash | 2026-07-26 |
-| 4e | Remove PixiJS, canvas-native shore shimmer from precomputed `game.shoreTiles` | pending | | |
+| 4e | Remove PixiJS, canvas-native shore shimmer from precomputed `game.shoreTiles` | **done, pushed** | Overhaul phase 4e: remove PixiJS and draw the shore shimmer on canvas | 2026-07-26 |
 | 5 | Sim hot path: spatial hash for `applySeparation`, allocation-free A\* costs | pending | | |
 | 6 | Clean IP rebrand: decouple preset-name regexes, rename display strings + asset files, disclaimer, grep gate | pending | | |
 | 7 | End-to-end verification: perf A/B, load payload, art screenshots, save compat, offline | pending | | |
@@ -811,6 +811,103 @@ worst-case pixel fill at 2.25x instead of 6.25x. Plan risk #8 (retina softness) 
    doing (they are plan items and the direction is unambiguous), but the tracker should not pretend
    they were validated.
 
+### Phase 4e — done 2026-07-26
+
+Plan item 4.8. **Phase 4 is complete with this sub-phase.**
+
+**What changed**
+
+- Deleted `PIXI_CDN` and the whole `AlbionFramework` IIFE (89 lines), the `#pixi-layer` div and its
+  two CSS rules, `DOM.pixiLayer`, the two `sizeCanvas()` style writes, `AlbionFramework.resize()`,
+  `AlbionFramework.render(delta)` in `frame()`, and `AlbionFramework.load()` at boot.
+- `rebuildShoreTiles()` precomputes `game.shoreTiles` — a flat list of tile indices that are water,
+  not bridged, and have at least one non-water or bridged 4-neighbour. It is called from
+  `recomputeTerrainTransitions()`, which already runs at the end of world generation, after every
+  connectivity-corridor stamp, and in `deserializeGame`. `invalidateShoreTiles()` additionally nulls
+  it at all four places that write `game.bridges` or clear `game.water`, and `drawShoreShimmer`
+  rebuilds lazily if it finds the list missing — so correctness never depends on call ordering.
+- `drawShoreShimmer(cam, z)` runs on the world canvas right after `drawTerrain`, walking the
+  precomputed list and culling to the viewport. Strokes are bucketed by alpha into
+  `SHORE_ALPHA_STEPS = 4` reusable segment buffers, so the pass costs at most four `stroke()` calls
+  per frame instead of one per shore tile.
+- `shoreTiles: null` added to the game-state object with a comment marking it derived and never
+  serialized. `DIRS4` added next to the existing `DIRS`.
+- README and `docs/implementation-notes.md` no longer advertise a PixiJS overlay; both now state
+  that the renderer is canvas-only with no CDN dependency.
+
+**Measured — same-session A/B against a worktree at the 4d commit `2dfa99d`**
+
+Absolute frame rates drift between sessions with machine load (the same 4d build measured 32.99 fps
+earlier and 39.04 fps here), so only same-session pairs mean anything:
+
+| Metric | 4d (`2dfa99d`) | 4e | Change |
+|---|---:|---:|---|
+| Idle pan fps | 39.04 | **41.94** | +7% |
+| Battle fps (229 units) | 31.53 | 31.36 | unchanged (noise) |
+| Idle `frameMs` − `renderMs` − `simMs` | 0.40 ms | **0.14 ms** | −0.26 ms |
+| Battle `frameMs` − `renderMs` − `simMs` | 0.48 ms | **0.18 ms** | −0.30 ms |
+
+That last row is the honest one. `AlbionFramework.render()` was called from `frame()` *after*
+`render()`, so its cost never appeared in `renderMs` at all — it sat in the residual alongside
+`uiSync`. Removing it takes ~0.26-0.30 ms of main-thread work per frame, **plus** an entire second
+WebGL context whose GPU cost is not on the JS timeline and is not measured here.
+
+**Verification**
+
+- **`game.shoreTiles` matches a brute-force scan exactly** — same rule, computed independently in
+  the page — in three states: on a fresh seeded map (154 shore tiles of 241 water, 4 bridged), after
+  forcing a lazy rebuild, and after a save/load round trip. Bridge exclusions carried over on both
+  sides, so a bridge deck neither shimmers nor makes its neighbours shimmer.
+- **Zero external requests.** Every request the page makes is `file://`, logged over CDP with
+  `Network.enable`. A repo-wide `grep -rniE 'pixi|cdn\.jsdelivr|AlbionFramework'` returns only one
+  hit: the explanatory comment above `drawShoreShimmer`. The full offline serve-and-disconnect test
+  is Phase 7's, but there is no longer any code path that could reach the network.
+- Shimmer compared side by side at 2× against the 4d build on the same seed and camera: same dashes
+  in the same places at the same brightness and angle. They are not pixel-identical, and cannot be —
+  the Pixi version's phase followed wall-clock while this one follows `game.time`.
+- **Seeded gallery determinism is restored.** Two consecutive captures now hash identically
+  (`F1D2F9C8529E1382A85994199FFC9EC259C11BA0AFD4E8E9D7BDCEE2F9D1FA06`) with **0 differing pixels**,
+  confirming the Phase 4d diagnosis that PixiJS was the sole source of capture noise. Diff versus
+  the 4d capture: RMS 0.291, PSNR 58.86 dB, 0.10% of pixels — all of it water-edge shimmer.
+  **New reference hash:** that same `F1D2F9C8…` value.
+- Save/load round trip through a full page reload: identical fingerprint, 0 differing keys.
+- Inline script `node --check`: clean (11,003 lines, down from 11,092). `git diff --check`: clean.
+  0 page errors in every run above.
+
+---
+
+## Phase 4 summary
+
+All nine plan items are landed, across five sub-commits.
+
+**Headline, against the Phase 3 baseline `b1b39d6` measured with the identical harness:**
+
+| Scenario | Before | After | Change |
+|---|---|---|---|
+| Idle pan, 4-player Greatwood, 26 units | 69.73 ms — **14.34 fps** | 28.67 ms — **34.88 fps** | **2.4x** |
+| ~100 v 100 battle, 229 units | 439.77 ms — **2.27 fps** | 30.45 ms — **32.84 fps** | **14.5x** |
+| Idle `renderMs` | 2.66 ms | 1.19 ms | −55% |
+| Battle `renderMs` | 21.85 ms | 3.24 ms | −85% |
+
+The battle target (< 25 ms avg) is met. Idle sits at 28.67 ms rather than the < 16.7 ms target, but
+main-thread work per frame is now **1.45 ms** — the remaining interval is raster and vsync, not
+JavaScript, and the loop is pinned to 60 Hz vsync steps. Squeezing past 30 fps would need fill-rate
+work (the 2880² backdrop blit, overdraw), which is outside Phase 4's scope.
+
+**Every per-entity `ctx.filter` and every per-frame `shadowBlur` is gone.** What remains:
+`ctx.filter` at three documented sites with no atlas to bake into (construction scaffold, the
+procedural building fallback for walls and the obelisk, the placement ghost's fallback), and one
+`shadowBlur` in `drawTerrainTrail`, which runs once per backdrop rebuild rather than per frame.
+
+**Runtime memory added:** ~72 MB of baked atlases — 25 MB units (5 × 512×2560), 30 MB buildings
+(5 × 1448×1086), 17 MB resources (4 × 1152×960). This is a runtime cost, not a payload cost; the
+deployed payload is unchanged at 12.34 MiB over 20 requests.
+
+**Not validated, and why:** `MAX_DPR` 2.5 → 1.5 is a no-op on the measurement rig
+(`devicePixelRatio` 1.5), so plan risk #8 stays open for Phase 7 on a hi-DPI display. The raster
+saving from the minimap and atmosphere caches is real but off the JS timeline and unmeasurable with
+the available instruments.
+
 ---
 
 ## Continuation prompt
@@ -820,89 +917,78 @@ Copy this verbatim into a fresh agent/session to continue the work.
 ```
 Continue the Albion Skirmish overhaul in c:\Users\Eclipse\.claude\Workspaces\Age Of Empires.
 
-Read docs/OVERHAUL-PLAN.md (the full frozen spec) and docs/OVERHAUL-PROGRESS.md (status, baseline
-numbers, phase log) before touching anything. Bootstrap and Phases 0–3 are complete and pushed.
-Phase 3 shrank the terrain sources to 384x384 (materials + meadow) and 512x512 (transitions) via the
-new `tools/downscale_terrain.py`, deleted the two dead PNGs, and cut the cache-disabled payload from
-49.50 MiB to 12.34 MiB over the same 20 requests. No render code changed, so the fps baseline stands.
+Read docs/OVERHAUL-PLAN.md (the full frozen spec) and docs/OVERHAUL-PROGRESS.md (status, baselines,
+phase log) before touching anything. Bootstrap and Phases 0-4 are complete and pushed. Phase 4 landed
+as 4a-4e: pre-baked owner-tinted unit atlases, pre-baked biome building and quantised resource
+atlases, pre-rendered building auras plus a full shadowBlur purge, a 10 Hz minimap entity layer and
+cached atmosphere wash with MAX_DPR 1.5, and the removal of PixiJS in favour of a canvas shore
+shimmer driven by a precomputed `game.shoreTiles`. Idle went 14.34 -> 34.88 fps (2.4x) and a
+229-unit battle 2.27 -> 32.84 fps (14.5x); main-thread work per idle frame is now 1.45 ms.
 
-Execute **Phase 4 — Render hot path**, the biggest FPS win in the whole overhaul. Work in the plan's
-impact order. Phase 4 is large: land it as sub-commits (`Overhaul phase 4a: …`, `4b`, …), and update
-this doc + push after each one.
+Execute **Phase 5 - Sim hot path**. It is small next to Phase 4 and can be one commit, or 5a/5b if
+you prefer:
 
-  1. Pre-baked owner-tinted unit atlases. This is the single most important change in the overhaul.
-     After the Phase 1 preloader resolves, bake five offscreen canvases (owners 0-3 plus CREEP_OWNER)
-     at HALF resolution (cell 128 — units render at <=64 px, so still 2x oversampled; five half-res
-     copies ~26 MB versus ~105 MB at full res). Apply the owner filter string MINUS its `drop-shadow`
-     term once per bake. `drawAnimatedAtlasFrame` (currently line 7732; it hardcodes
-     `ALBION_ART.units` and `ALBION_ART.unitCellSize` at 7733) must take `image` and `cell`
-     parameters and must no longer set `ctx.filter`. Restore the lost shadow with the existing cheap
-     `drawShadow()` ellipse (line 6872) before the sprite blit.
-  2. Pre-baked biome building atlases. `buildingBiomeFilter` (line 8227) never returns an empty
-     string, so every building pays a filter today. Bake five variants (snow/forest/marsh/dry/default)
-     of the buildings atlas at FULL resolution, remove the per-building `ctx.filter`, and select the
-     atlas by `b.visualBiome`.
-  3. Building aura: pre-render two 64x64 radial-gradient sprites (blue, red) once; per building
-     `drawImage` them scaled to the ellipse rect with `globalAlpha`.
-  4. `shadowBlur` purge: replace each with a second lower-alpha stroke (rings/rects) or a
-     pre-rendered glow sprite (projectiles/effects). Real but small — Phase 0 measured it at under
-     1.5x, so do not expect it to move the headline number.
-  5. Minimap (`renderMinimap`, line 9711): keep the `mmTerrain` cache, add an `mmEntities` offscreen
-     canvas rebuilt at 10 Hz or on `mmDirty`; per frame composite terrain + entities + pings + camera
-     rect only.
-  6. `drawAtmosphere` (line 7701): render both gradients once into a `viewW x viewH` offscreen canvas
-     rebuilt only in `sizeCanvas()`; per frame do one `drawImage`.
-  7. `MAX_DPR` 2.5 -> 1.5 (line 1272, `THEME.RENDER.MAX_DPR`; consumed at 6723 and 1912).
-  8. Remove PixiJS: `PIXI_CDN` (1888) and `AlbionFramework` (1889-…) plus call sites (6741, 11525,
-     11537), the `#pixi-layer` div and its CSS. Replace the shore shimmer with a canvas-native pass
-     after `drawTerrain`, driven by a PRECOMPUTED `game.shoreTiles` list built at world-gen, in
-     `deserializeGame`, and on bridge changes (carry over the existing bridge exclusions) — the
-     per-frame 4-neighbour water scan is the cost, not the strokes. Grep for stray `PIXI` /
-     `AlbionFramework` before deleting.
-  9. Cheap: hoist the per-frame `ents` array (line 7654) to module scope and use `ents.length = 0`.
-     Note there is an unrelated `ents` at 10118 — do not touch it.
+  1. Spatial hash for `applySeparation()`. A reusable module-level grid (cleared, never
+     reallocated) with cell size `CONFIG.SEPARATION.CHECK_DIST`. Insert all live, non-transported
+     units, then test each unit only against its 3x3 cell neighbourhood with an `indexA < indexB`
+     guard so each pair runs once. The inner pair logic is unchanged. At ~250 units this goes from
+     ~31k pair tests per tick to a few hundred.
+  2. Allocation-free A* costs. Add `terrainStepCost(tx, ty, mode, equipment) -> number` (`Infinity`
+     means blocked) mirroring `terrainTraversalAt` without its per-call object literal. Resolve
+     `movementModeForType` and `terrainEquipmentFor` ONCE before the A* loop and before
+     `followPath`, and pass them in. Keep the object-returning version for UI tooltips and
+     placement reasons.
+  3. Low priority: reuse a scratch array in `computePath` instead of `tiles.map(...)`.
 
-Measure with the Phase 0 `?perf` HUD on the SAME map and seed as the baseline (Greatwood Crossing,
-4 players) and report fps, not `renderMs` — see the "Read frameMs and renderMs with care" note in the
-progress doc. Re-run `tools/capture_art_preview.mjs` and confirm the seeded gallery still matches the
-Phase 2 checklist with 0 page errors. Syntax-check the inline script, run `git diff --check`, and
-verify a save/load round trip still works.
+Baseline to beat: `applySeparation` was 2.49 ms of a 3.05 ms sim tick (82%) at 188 units in Phase 0.
+Re-measure that number BEFORE changing anything - Phase 4 changed no sim code, but the Phase 0
+figure came from a different session and the rig drifts. In the 4e battle run the whole sim tick
+measured 1.72 ms avg at 229 units, so the honest target is "applySeparation self-time near zero and
+the sim tick materially below its current value", not the literal Phase 0 numbers.
 
-Baseline to beat (Phase 0, still current — Phase 3 changed no render code): idle pan 255.1 ms avg /
-399.8 ms p95 (3.9 fps) on a 4-player Greatwood map; ~100v100 battle 1006.9 ms avg (1.0 fps);
-applySeparation 2.49 ms of a 3.05 ms sim tick. Targets: <16.7 ms avg idle, <25 ms p95 and battle.
-Phase 0 measured that neutralising `ctx.filter` alone is worth ~14x at idle and ~13x in battle, so
-items 1 and 2 carry nearly all of the win — do them first and measure before continuing.
+**Read this before you measure anything.** Frame rate is no longer a usable A/B metric on this rig:
+after Phase 4 both idle and battle are pinned to 60 Hz vsync steps (p50 33.3 ms) and the run-to-run
+spread is +/-10%, which swamps anything Phase 5 will do. Absolute fps also drifts between sessions
+with machine load - the same build measured 32.99 fps and 39.04 fps in two sessions an hour apart.
+For Phase 5, quote `simMs` from the ?perf HUD (it is JS-side and stable), and prefer a direct
+micro-benchmark of `applySeparation()` - call it N times on a fixed unit set and take a median of
+batches - over anything derived from the frame loop. Same-session A/B against a `git worktree` of
+the previous commit is the only trustworthy comparison; see the Phase 4b/4d logs for the pattern.
+
+Verification for this phase: the sim must stay behaviourally identical, so do not settle for "it
+looks fine". Compare unit positions after N deterministic ticks from the same seed, before and
+after, and treat any divergence as a bug unless you can explain it (pair iteration order changes
+floating-point accumulation, so exact equality may not hold - if it does not, bound the drift and
+say so). Also re-run `tools/capture_art_preview.mjs` (0 page errors, gallery hash should be
+unchanged since no render code is involved), syntax-check the inline script, run `git diff --check`,
+and verify a save/load round trip.
 
 Carry-overs:
-  - Payload is now 12,939,974 B (12.34 MiB) over 20 requests, cache disabled; `assets/` on disk is
-    25.62 MB. Record deployed payload and working-tree size distinctly. The remaining bulk is the
-    three sprite atlases plus the title vista (9.7 MB of 12.34 MB) — the Phase 4.1 half-res bake is
-    a runtime-memory win, not a payload win.
-  - Do NOT resize any sprite atlas file. `buildingSlices`, `unitCellSize: 256` (line 1201), and
-    `assets/sprites/atlas-manifest.json` are all in atlas pixels. Phase 4.1 bakes at half resolution
-    at RUNTIME; the files on disk stay as they are.
-  - `ctx.filter` on a bake canvas is a no-op on very old Safari, so sprites would render untinted
-    there — no worse than today, since per-frame `ctx.filter` is equally unsupported.
-  - Terrain sources are now palette PNGs (256/224 colours) at 384²/512². This is a deliberate Phase 3
-    deviation, documented with a PSNR gate in the Phase 3 log. Do not "fix" it back to truecolor
-    without also raising the size budgets in `tools/downscale_terrain.py`.
-  - `tools/downscale_terrain.py` is idempotent and skips sources already at target size; re-running it
-    is safe and will report `unchanged` for all 12.
-  - `tools/capture_art_preview.mjs` loads `file://` and launches Edge with
-    `--allow-file-access-from-files` because the Phase 2 `getImageData()` luminance audit otherwise
-    taints the canvas. Do not remove that flag while Phase 2 normalization remains runtime code.
-    Its seed is `overhaul-art-preview-v1`; the Phase 3 reference capture hashes SHA-256
-    91A8C69D5E47266F5A738283C587A40F082F000E6D25082D0A77EFB1EDA7718C.
-  - A `favicon.ico` 404 appears on every HTTP load. It is pre-existing and not yours to chase.
-  - Line anchors above are current as of the Phase 3 commit and WILL drift as 4a/4b land. Re-resolve
-    them by reading the surrounding code; `git show dd3e70a:index.html` still resolves plan anchors.
-  - Do NOT rename internal ids or localStorage keys (breaks saves) — `serializeGame` stores entity
-    `type`/`role` strings whole.
-  - Do NOT start the rebrand (Phase 6) or the sim work (Phase 5, spatial hash + allocation-free A*).
+  - Deployed payload is unchanged at 12,939,974 B (12.34 MiB) over 20 requests, cache disabled;
+    `assets/` on disk is 25.62 MB. Phase 4 added ~72 MB of RUNTIME baked-atlas memory (25 MB units,
+    30 MB buildings, 17 MB resources) - that is not payload.
+  - Do NOT resize any sprite atlas file. `buildingSlices`, `unitCellSize: 256` and
+    `assets/sprites/atlas-manifest.json` are all in atlas pixels; the bakes are runtime-only.
+  - `tools/capture_art_preview.mjs` is bit-for-bit reproducible again now that PixiJS is gone. Seed
+    `overhaul-art-preview-v1`; the Phase 4e reference hashes SHA-256
+    F1D2F9C8529E1382A85994199FFC9EC259C11BA0AFD4E8E9D7BDCEE2F9D1FA06. If two consecutive captures
+    ever differ again, that is a real regression - chase it.
+  - Keep the `--allow-file-access-from-files` flag in that tool while Phase 2's `getImageData()`
+    luminance audit remains runtime code.
+  - A `favicon.ico` 404 appears on every HTTP load. Pre-existing, not yours to chase.
+  - `MAX_DPR` 1.5 is unvalidated: the rig runs at devicePixelRatio 1.5, so the change is a no-op
+    here. Plan risk #8 (retina softness) is still open and needs a hi-DPI display in Phase 7.
+  - Three `ctx.filter` sites remain on purpose (construction scaffold, procedural building fallback
+    for walls/obelisk, placement ghost fallback) and one `shadowBlur` in `drawTerrainTrail`, which
+    runs once per backdrop rebuild. Do not "finish the purge" - they are documented in place.
+  - Line anchors in the plan are from `dd3e70a` and have drifted a long way. Re-resolve by reading
+    the code; `git show dd3e70a:index.html` still resolves the plan's original anchors.
+  - Do NOT rename internal ids or localStorage keys (breaks saves) - `serializeGame` stores entity
+    `type`/`role` strings whole. `game.shoreTiles` is derived and deliberately not serialized.
+  - Do NOT start the rebrand (Phase 6).
 
-When each Phase 4 sub-phase is done: log the before/after fps for that change, the verification
-results, and any deviation in docs/OVERHAUL-PROGRESS.md; update the status table; commit as
-"Overhaul phase 4<letter>: <description>"; and push to origin main. Regenerate this continuation
-prompt when Phase 4 is fully complete.
+When Phase 5 is done: log the before/after sim numbers, the behavioural-equivalence result, and any
+deviation in docs/OVERHAUL-PROGRESS.md; update the status table; commit as
+"Overhaul phase 5: <description>"; push to origin main; and regenerate this continuation prompt for
+Phase 6 (clean IP rebrand).
 ```

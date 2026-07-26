@@ -14,7 +14,7 @@ This pass extends the single-file RTS across building lifecycle controls, water 
 ### Map, Rendering, And Controls
 - Pond placement is deterministic rejection sampling that avoids roads, town-center clearings, and tiny one-tile lakes.
 - Bridges are derived from trail-water runs and stored as `bridgeSpans`; a connectivity fix-up stamps bridge runs when land BFS cannot reach an enemy town center.
-- Terrain, minimap, and Pixi shoreline effects now draw from the water/bridge tile masks instead of translucent pond ellipses.
+- Terrain, minimap, and shoreline effects now draw from the water/bridge tile masks instead of translucent pond ellipses.
 - Touch input supports select-mode marquee selection, command-mode pan, and two-finger pan/pinch zoom.
 
 ### UI, Automation, And Persistence
@@ -81,9 +81,11 @@ This checkpoint added framework support, gameplay systems, screenshots, and docu
 
 ## Rendering
 
-- The existing HTML HUD and Canvas renderer remain active.
-- A PixiJS overlay is loaded from CDN when available and falls back cleanly to Canvas-only rendering if it fails.
-- The overlay currently augments water and atmosphere effects without taking over gameplay rendering.
+- The HTML HUD and the Canvas renderer are the whole renderer; there is no second graphics stack.
+- Water and atmosphere effects are canvas-native. The shore shimmer walks a precomputed
+  `game.shoreTiles` list rebuilt only when water or bridges change, and the sun/horizon wash is a
+  cached viewport-sized layer rebuilt only on resize.
+- There is no CDN dependency, so the game is fully playable offline from a static directory.
 
 ## Water And Movement
 

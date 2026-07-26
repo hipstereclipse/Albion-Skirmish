@@ -23,7 +23,7 @@ Open [index.html](index.html) in a modern browser. The game is self-contained an
 ### Core
 - HTML HUD with resource counters (food/wood/gold/stone/iron/fish), production actions, selection details, minimap, idle-unit badges, and touch controls.
 - Expanded pause menu with settings, statistics, diplomacy, and four local save/load slots.
-- Optional PixiJS overlay loaded from CDN for richer water/atmosphere effects while the Canvas renderer remains the fallback.
+- Canvas-native water and atmosphere effects with no CDN dependency — the game runs entirely offline from a static directory.
 - Larger 72 x 72 tile battlefield with generated streams, constrained ponds, span-rendered bridges, fish shoals, and water-aware pathfinding.
 - Land units cannot cross deep water except at bridges; larger bodies of water require ferries from an Albion Dock.
 - Production buildings show compact square queue tiles with progress and click-to-cancel refunds.

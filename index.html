@@ -26,8 +26,6 @@
     user-select:none; -webkit-user-select:none;
   }
   #game-canvas { position:absolute; inset:0; z-index:0; display:block; touch-action:none; }
-  #pixi-layer { position:absolute; inset:0; z-index:1; pointer-events:none; overflow:hidden; }
-  #pixi-layer canvas { display:block; width:100% !important; height:100% !important; }
   .hidden { display:none !important; }
   .hud { position:absolute; background:var(--panel-bg); border:0 solid var(--panel-line); z-index:10;
     box-shadow:0 0 0 1px var(--panel-glow), 0 10px 28px rgba(0,0,0,.4); backdrop-filter:blur(9px) saturate(1.08); }
@@ -487,7 +485,6 @@
 </head>
 <body>
 <canvas id="game-canvas"></canvas>
-<div id="pixi-layer" aria-hidden="true"></div>
 
 <!-- ============================== UI OVERLAY (HTML/CSS) ============================== -->
 <div id="top-bar" class="hud hidden">
@@ -1257,7 +1254,6 @@ const DOM = {
   terrainReadout: $('terrain-readout'),
   idleColumn: $('idle-column'),
   selPanel: $('selection-panel'), actionsPanel: $('actions-panel'),
-  pixiLayer: $('pixi-layer'),
   screenStart: $('screen-start'), screenEnd: $('screen-end'),
   endTitle: $('end-title'), endSub: $('end-sub'),
   pauseOverlay: $('pause-overlay'),
@@ -1889,95 +1885,6 @@ function costHtml(cost) {
     '<span class="c-' + k + '">' + cost[k] + RES_EMOJI[k] + '</span>').join(' ');
 }
 
-/* ================================================================================
- * OPTIONAL JS RENDER FRAMEWORK — PixiJS overlay, HTML HUD and Canvas game remain live
- * ================================================================================ */
-const PIXI_CDN = 'https://cdn.jsdelivr.net/npm/pixi.js@7.4.2/dist/pixi.min.js';
-const AlbionFramework = (() => {
-  let app = null, graphics = null, loading = false, ready = false;
-
-  function load() {
-    if (ready) return true;
-    if (window.PIXI) return init();
-    if (loading) return false;
-    loading = true;
-    const script = document.createElement('script');
-    script.src = PIXI_CDN;
-    script.async = true;
-    script.onload = () => { loading = false; init(); };
-    script.onerror = () => { loading = false; console.warn('PixiJS failed to load; using Canvas renderer only.'); };
-    document.head.appendChild(script);
-    return false;
-  }
-
-  function init() {
-    if (ready || !window.PIXI || !DOM.pixiLayer) return ready;
-    try {
-      app = new PIXI.Application({
-        width: Math.max(1, viewW), height: Math.max(1, viewH),
-        backgroundAlpha: 0, antialias: true, autoDensity: true,
-        resolution: Math.max(1, Math.min(dpr || 1, THEME.RENDER.MAX_DPR)), autoStart: false,
-      });
-      app.view.className = 'pixi-view';
-      DOM.pixiLayer.innerHTML = '';
-      DOM.pixiLayer.appendChild(app.view);
-      graphics = new PIXI.Graphics();
-      app.stage.addChild(graphics);
-      ready = true;
-      resize();
-    } catch (err) {
-      console.warn('PixiJS init failed; using Canvas renderer only.', err);
-      ready = false;
-    }
-    return ready;
-  }
-
-  function resize() {
-    if (!ready || !app) return;
-    app.renderer.resize(Math.max(1, viewW), Math.max(1, viewH));
-    app.view.style.width = viewW + 'px';
-    app.view.style.height = viewH + 'px';
-  }
-
-  function render(delta) {
-    if (!ready || !app || !graphics || !game || appState === 'menu') return;
-    graphics.clear();
-    drawWaterAndAtmosphere(delta || 0);
-    app.renderer.render(app.stage);
-  }
-
-  function drawWaterAndAtmosphere(delta) {
-    const cam = game.camera;
-    const z = worldZoom();
-    const t = game.time + delta;
-    if (!game.water) return;
-    const tx0 = clamp(Math.floor(cam.x / T) - 1, 0, COLS - 1);
-    const ty0 = clamp(Math.floor(cam.y / T) - 1, 0, ROWS - 1);
-    const tx1 = clamp(Math.ceil((cam.x + visibleWorldW()) / T) + 1, 0, COLS);
-    const ty1 = clamp(Math.ceil((cam.y + visibleWorldH()) / T) + 1, 0, ROWS);
-    for (let ty = ty0; ty < ty1; ty++) {
-      for (let tx = tx0; tx < tx1; tx++) {
-        const i = tIdx(tx, ty);
-        if (!game.water[i] || game.bridges[i]) continue;
-        let shore = false;
-        for (const d of [[1,0],[-1,0],[0,1],[0,-1]]) {
-          const nx = tx + d[0], ny = ty + d[1];
-          if (!inBounds(nx, ny) || !game.water[tIdx(nx, ny)] || game.bridges[tIdx(nx, ny)]) { shore = true; break; }
-        }
-        if (!shore) continue;
-        const sx = (tileCenter(tx) - cam.x) * z;
-        const sy = (tileCenter(ty) - cam.y) * z;
-        const dash = T * z * 0.28;
-        const a = Math.sin(t * 1.8 + tx * 0.7 + ty * 0.31);
-        graphics.lineStyle(Math.max(1, 1.1 * z), 0xb9f8ff, 0.12 + a * 0.04);
-        graphics.moveTo(sx - dash, sy + a * 2);
-        graphics.lineTo(sx + dash, sy - a * 2);
-      }
-    }
-  }
-
-  return { load, init, resize, render, get ready() { return ready; } };
-})();
 
 /* ================================================================================
  * GAME STATE — everything lives in one object so Restart is a clean rebuild
@@ -2103,6 +2010,7 @@ function newGame(options, fixedDimensions) {
     blocked: new Uint8Array(NTILES),     // 1 = impassable (buildings + resource nodes)
     water: new Uint8Array(NTILES),       // 1 = deep water; land units need bridges, ships need water
     bridges: new Uint8Array(NTILES),     // 1 = bridge deck over water
+    shoreTiles: null,                    // tile indices with a shore edge; derived, never serialized
     terrain: makeTerrainState(),          // semantic terrain, climate fields, variants, and transition masks
     nodeGrid: new Array(NTILES).fill(null),
     buildingGrid: new Array(NTILES).fill(null),  // tile -> building ref, for gate lookups + wall rendering
@@ -2382,8 +2290,40 @@ function generateTerrainGrid(tcs, preset) {
 // tr.slope in place, so game.terrain.diagnostics always reflects the final map. Edge-blend
 // art is chosen by the hex renderer sampling neighbor tiles directly each bake (hex
 // geometry doesn't line up 1:1 with the square terrain grid), so no bitmask is cached here.
+/* Shore tiles — water tiles with at least one non-water (or bridged) 4-neighbour.
+ *
+ * The shore shimmer used to run this 4-neighbour scan over every visible tile every frame inside a
+ * second, CDN-loaded WebGL renderer. The set only changes when water or bridges change, so it is
+ * precomputed into a flat list of tile indices here and the per-frame work becomes a walk over that
+ * list. Bridged tiles are excluded on both sides, exactly as the old scan did, so a bridge deck
+ * neither shimmers nor makes its neighbours shimmer. */
+function rebuildShoreTiles() {
+  if (!game) return;
+  const list = [];
+  if (game.water && game.bridges) {
+    for (let ty = 0; ty < ROWS; ty++) for (let tx = 0; tx < COLS; tx++) {
+      const i = tIdx(tx, ty);
+      if (!game.water[i] || game.bridges[i]) continue;
+      let shore = false;
+      for (const d of DIRS4) {
+        const nx = tx + d[0], ny = ty + d[1];
+        if (!inBounds(nx, ny) || !game.water[tIdx(nx, ny)] || game.bridges[tIdx(nx, ny)]) { shore = true; break; }
+      }
+      if (shore) list.push(i);
+    }
+  }
+  game.shoreTiles = list;
+}
+
+// Bridges are stamped during world generation, before the terrain pass that builds the list, but
+// invalidating on every write keeps the two in step if a bridge is ever placed at runtime.
+function invalidateShoreTiles() {
+  if (game) game.shoreTiles = null;
+}
+
 function recomputeTerrainTransitions() {
   const tr = game.terrain;
+  rebuildShoreTiles();
   if (!tr) return;
   let gated = 0, rough = 0;
   for (let ty = 0; ty < ROWS; ty++) for (let tx = 0; tx < COLS; tx++) {
@@ -2994,7 +2934,7 @@ function markBridgeTile(tx, ty, radius) {
     for (let xx = tx - radius; xx <= tx + radius; xx++) {
       if (!inBounds(xx, yy)) continue;
       const i = tIdx(xx, yy);
-      if (game.water[i]) game.bridges[i] = 1;
+      if (game.water[i]) { game.bridges[i] = 1; invalidateShoreTiles(); }
     }
   }
 }
@@ -3019,6 +2959,7 @@ function stampBridgeLine(ax, ay, bx, by, halfWidth) {
         if (!game.water[i]) continue;
         if (!game.bridges[i]) {
           game.bridges[i] = 1;
+          invalidateShoreTiles();
           tiles.push({ tx, ty });
         }
       }
@@ -3126,6 +3067,7 @@ function buildWaterGrid(tcs) {
         const i = tIdx(tx, ty);
         g.water[i] = 0;
         g.bridges[i] = 0;
+        g.shoreTiles = null;
       }
     }
   }
@@ -3205,7 +3147,7 @@ function terrainCorridorTiles(ax, ay, bx, by, halfWidth) {
 function flattenTerrainCorridorTile(tx, ty, useRoad) {
   if (!inBounds(tx, ty)) return;
   const i = tIdx(tx, ty), tr = game.terrain;
-  if (game.water[i]) { game.bridges[i] = 1; return; }
+  if (game.water[i]) { game.bridges[i] = 1; invalidateShoreTiles(); return; }
   tr.type[i] = useRoad ? TERRAIN_BY_KEY.road.id : TERRAIN_BY_KEY.meadow.id;
   tr.slope[i] = 0;
 }
@@ -3368,6 +3310,7 @@ function nodeTouchesFlood(node, flood) {
 }
 
 const DIRS = [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]];
+const DIRS4 = [[1,0],[-1,0],[0,1],[0,-1]];
 const PF = {
   g: new Float64Array(NTILES), f: new Float64Array(NTILES),
   came: new Int32Array(NTILES), state: new Int32Array(NTILES),
@@ -6737,8 +6680,6 @@ function sizeCanvas() {
   canvas.style.width = viewW + 'px';
   canvas.style.height = viewH + 'px';
   canvas.style.bottom = hudH + 'px';
-  DOM.pixiLayer.style.height = viewH + 'px';
-  DOM.pixiLayer.style.bottom = hudH + 'px';
   ctx.imageSmoothingEnabled = true;
   mmCanvas.width = Math.max(1, Math.floor(mmSize * mmDpr));
   mmCanvas.height = Math.max(1, Math.floor(mmSize * mmDpr));
@@ -6746,7 +6687,6 @@ function sizeCanvas() {
   mmCanvas.style.height = mmSize + 'px';
   mmCtx.imageSmoothingEnabled = true;
   atmosphereLayer = null;          // viewport-sized; rebuilt lazily on the next frame
-  AlbionFramework.resize();
   if (game) { game.mmDirty = true; clampCamera(); }
 }
 function computeMinimapSize() {
@@ -7696,6 +7636,7 @@ function render() {
   ctx.translate(-cam.x, -cam.y);
 
   drawTerrain(cam);
+  drawShoreShimmer(cam, z);
   drawRallyPoints();
   drawAmbientHappenings();
 
@@ -7780,6 +7721,61 @@ function buildAtmosphereLayer() {
 function drawAtmosphere() {
   if (!atmosphereLayer) buildAtmosphereLayer();
   ctx.drawImage(atmosphereLayer, 0, 0, viewW, viewH);
+}
+
+/* Animated shore shimmer, drawn straight onto the world canvas.
+ *
+ * This used to be a whole second WebGL renderer (PixiJS, CDN-loaded) whose only job was these
+ * dashes, and which re-derived the shore set with a 4-neighbour scan every frame. The set is now
+ * precomputed in `game.shoreTiles`, so this walks a short list and culls to the viewport.
+ *
+ * Strokes are bucketed by alpha into SHORE_ALPHA_STEPS reusable segment buffers, so the whole pass
+ * costs a handful of `stroke()` calls rather than one per tile. */
+const SHORE_ALPHA_STEPS = 4;
+const shoreSegments = [];
+for (let i = 0; i < SHORE_ALPHA_STEPS; i++) shoreSegments.push([]);
+
+function drawShoreShimmer(cam, z) {
+  if (!game.shoreTiles) rebuildShoreTiles();
+  const tiles = game.shoreTiles;
+  if (!tiles || !tiles.length) return;
+  const pad = T;
+  const left = cam.x - pad, top = cam.y - pad;
+  const right = cam.x + visibleWorldW() + pad, bottom = cam.y + visibleWorldH() + pad;
+  for (let b = 0; b < SHORE_ALPHA_STEPS; b++) shoreSegments[b].length = 0;
+  const t = game.time;
+  const dash = T * .28;
+  let any = false;
+  for (let n = 0; n < tiles.length; n++) {
+    const i = tiles[n];
+    const tx = i % COLS, ty = (i / COLS) | 0;
+    const cx = tileCenter(tx), cy = tileCenter(ty);
+    if (cx < left || cx > right || cy < top || cy > bottom) continue;
+    const a = Math.sin(t * 1.8 + tx * 0.7 + ty * 0.31);
+    // a in [-1,1] -> bucket 0..3, matching the old 0.12 + a*0.04 alpha ramp.
+    const bucket = Math.min(SHORE_ALPHA_STEPS - 1, Math.floor((a + 1) * .5 * SHORE_ALPHA_STEPS));
+    const seg = shoreSegments[bucket];
+    const wobble = a * 2 / z;
+    seg.push(cx - dash, cy + wobble, cx + dash, cy - wobble);
+    any = true;
+  }
+  if (!any) return;
+  ctx.save();
+  ctx.strokeStyle = '#b9f8ff';
+  ctx.lineWidth = Math.max(1, 1.1 * z) / z;
+  for (let b = 0; b < SHORE_ALPHA_STEPS; b++) {
+    const seg = shoreSegments[b];
+    if (!seg.length) continue;
+    // Bucket centre on the same ramp the per-tile alpha used.
+    ctx.globalAlpha = 0.12 + ((b + .5) / SHORE_ALPHA_STEPS * 2 - 1) * 0.04;
+    ctx.beginPath();
+    for (let k = 0; k < seg.length; k += 4) {
+      ctx.moveTo(seg[k], seg[k + 1]);
+      ctx.lineTo(seg[k + 2], seg[k + 3]);
+    }
+    ctx.stroke();
+  }
+  ctx.restore();
 }
 
 function drawTerrain(cam) {
@@ -11660,7 +11656,7 @@ let acc = 0;
 /* ---- frame timing instrumentation
  * Fixed-size ring buffers, all preallocated: the sampling path never allocates. Timing itself
  * always runs (four performance.now() calls per frame); only the HUD is gated behind ?perf.
- * frameMs is main-thread work inside frame() — camera + sim + render + Pixi + uiSync. deltaMs is
+ * frameMs is main-thread work inside frame() — camera + sim + render + uiSync. deltaMs is
  * the raw wall-clock gap between frames, recorded before the 0.25 s clamp. Both are needed:
  * canvas raster happens off the JS timeline, so heavy draw calls can cost 200 ms of frame
  * interval while frameMs still reads single digits. deltaMs is the honest fps. */
@@ -11784,7 +11780,6 @@ function frame(now) {
   const renderStart = performance.now();
   render();
   const renderMs = performance.now() - renderStart;
-  AlbionFramework.render(delta);
   uiSync();
   updateTouchToolbar();
   perfSample(simMs, renderMs, performance.now() - frameStart, rawDeltaMs);
@@ -11796,7 +11791,6 @@ sizeCanvas();
 renderLaunchConfig();
 renderStartLoadSlots();
 showStartPanel('new-game-panel');
-AlbionFramework.load();
 requestAnimationFrame(frame);
 </script>
 </body>
