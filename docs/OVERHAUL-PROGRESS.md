@@ -26,7 +26,7 @@ if the push fails, mark the row `done (push pending)` and say so in the log.
 | 4a | Pre-baked owner-tinted unit atlases (half-res, no per-unit `ctx.filter`) | **done, pushed** | Overhaul phase 4a: pre-bake owner-tinted unit atlases | 2026-07-25 |
 | 4b | Pre-baked biome building atlases + baked resource-variant atlases | **done, pushed** | Overhaul phase 4b: pre-bake biome building and resource atlases | 2026-07-25 |
 | 4c | Aura sprites, `shadowBlur` purge | **done, pushed** | Overhaul phase 4c: pre-render building auras and purge shadowBlur | 2026-07-26 |
-| 4d | Minimap 10 Hz entity cache, cached atmosphere, `MAX_DPR` 1.5, `ents` hoist | pending | | |
+| 4d | Minimap 10 Hz entity cache, cached atmosphere, `MAX_DPR` 1.5, `ents` hoist | **done, pushed** | Overhaul phase 4d: cache the minimap entity layer and the atmosphere wash | 2026-07-26 |
 | 4e | Remove PixiJS, canvas-native shore shimmer from precomputed `game.shoreTiles` | pending | | |
 | 5 | Sim hot path: spatial hash for `applySeparation`, allocation-free A\* costs | pending | | |
 | 6 | Clean IP rebrand: decouple preset-name regexes, rename display strings + asset files, disclaimer, grep gate | pending | | |
@@ -732,6 +732,84 @@ work that 4c actually removes, and it is used here only for that.
    entirely — which looks like a slow run, not a broken one. The perf harness now forces the window
    back to `normal` and re-checks visibility on every poll, and stale profiles are deleted between
    runs.
+
+### Phase 4d — done 2026-07-26
+
+Plan items 4.5 (minimap), 4.6 (atmosphere), 4.7 (`MAX_DPR`) and 4.9 (`ents` hoist).
+
+**What changed** (`index.html` only)
+
+- `rebuildMinimapEntities()` renders the buildings, sites and units loops into an `mmEntities`
+  offscreen canvas at `MM_ENTITY_HZ = 10`, keyed off `game.time`. `renderMinimap()` now composites
+  terrain + entities + pings + camera rect. `mmDirty` rebuilds both layers; every site that nulled
+  `mmTerrain` now nulls `mmEntities` too.
+- `buildAtmosphereLayer()` bakes the sun wash and horizon tint into one **device-resolution**
+  layer (`viewW*dpr × viewH*dpr` with a matching transform), invalidated in `sizeCanvas()`.
+  `drawAtmosphere()` is now a single `drawImage`.
+- `THEME.RENDER.MAX_DPR` 2.5 → 1.5.
+- The per-frame `ents` array is now a module-scope `renderEnts` reset with `.length = 0`.
+
+**Measured — whole-frame numbers cannot resolve this, so the functions were benchmarked directly**
+
+The frame interval is vsync-quantised and its run-to-run spread is ±10% (see the 4c note), which is
+far larger than anything 4d does. Both changed functions were therefore benchmarked in isolation:
+median of 5 batches of 400 calls, identical 226-unit scene, from a worktree at the 4c commit
+`d20df25` versus this commit.
+
+| Call | 4c (`d20df25`) | 4d | Change |
+|---|---:|---:|---|
+| `renderMinimap()` | 0.0505 ms | **0.0338 ms** | −33% |
+| `drawAtmosphere()` | 0.0057 ms | **0.0020 ms** | −65% |
+
+**Be clear about what that does and does not show.** These are JS submission costs, and in absolute
+terms both are negligible against a 33 ms frame — 0.02 ms saved per frame is 0.06% of it. The part
+that is *not* measurable here is the raster work: several hundred `fillRect`/`arc` calls per frame
+on the minimap became one `drawImage`, and two full-screen gradient fills became one blit. That work
+happens off the JS timeline, and the frame interval cannot resolve it. **No fps claim is made for
+4d.** It is a correct change with a real but unquantified raster saving, and an honestly tiny
+measured one.
+
+**`MAX_DPR` cannot be validated on this hardware.** The measurement rig's `devicePixelRatio` is 1.5
+and the headless harness reports 1, so `min(devicePixelRatio, MAX_DPR)` is unchanged at both — the
+change is a no-op here by construction. It only takes effect on displays above 1.5, where it caps
+worst-case pixel fill at 2.25x instead of 6.25x. Plan risk #8 (retina softness) therefore remains
+**unverified rather than cleared**, and needs a hi-DPI display to close out in Phase 7.
+
+**Verification**
+
+- **Minimap cache proven in both directions**, driving the sim by hand for determinism: with player
+  units under a move order, the composited minimap is **byte-identical across 66 ms of game time**
+  (inside one 1/10 s window — so the layer really is being reused) and **differs across 3.07 s**
+  (so it really does follow the units). 0 page errors.
+- Minimap rendering compared pixel-by-pixel against the 4c capture at 3× magnification: buildings,
+  unit dots, site markers, resource dots, roads, water and the camera rect are all identical.
+- Seeded art preview: **0 page errors**, material factors and biomes unchanged. Diff versus 4c:
+  RMS 0.671, PSNR 51.60 dB, **max channel delta 3**. The change covers most of the world canvas
+  because the atmosphere wash does, but at 3/255 it is 8-bit alpha quantisation of a cached
+  low-alpha gradient and nothing else. Amplified 16× it is featureless noise with no banding.
+  Building the layer at device resolution rather than CSS pixels cut that maximum from 8 to 3.
+- Save/load round trip through a full page reload: identical fingerprint, 0 differing keys.
+- Inline script `node --check`: clean. `git diff --check`: clean.
+
+**Findings worth carrying forward**
+
+1. **The seeded gallery is no longer bit-for-bit reproducible, and PixiJS is why.** Two consecutive
+   captures of identical code now differ by 138 pixels (0.011%, max delta 7), all of them scattered
+   along water edges. A probe confirms the cause: `window.PIXI` **does** load from the CDN in the
+   preview environment, `#pixi-layer` holds a live canvas, and `AlbionFramework.render(delta)` is
+   called from `frame()` unconditionally — outside the `appState` check — so its shore shimmer
+   animates on wall-clock even with `game.time` frozen at 0 and the game paused. The 4b
+   determinism check passed only because two runs happened to land on the same dash phase.
+   **Phase 4e removes this; re-run the determinism check afterwards and the property should come
+   back.** Until then, treat small water-edge differences in any gallery diff as shimmer noise.
+2. **Caching a low-alpha gradient costs precision.** An 8-bit premultiplied intermediate cannot hold
+   `rgba(255,226,151,0.085)` exactly, so any cached wash carries a couple of levels of error.
+   Building at device resolution more than halves it. Worth knowing before caching any other
+   translucent full-screen pass.
+3. **Two of this sub-phase's four items are unmeasurable on this rig** — `MAX_DPR` by construction,
+   and the minimap/atmosphere raster saving because it is off the JS timeline. They were still worth
+   doing (they are plan items and the direction is unambiguous), but the tracker should not pretend
+   they were validated.
 
 ---
 

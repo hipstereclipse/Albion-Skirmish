@@ -1272,7 +1272,9 @@ const DOM = {
 };
 
 const THEME = {
-  RENDER: { MAX_DPR: 2.5 },
+  // 1.5 rather than 2.5: worst-case pixel fill drops from 6.25x to 2.25x. The HUD is HTML, so text
+  // stays crisp at native density regardless; only the world canvas is affected.
+  RENDER: { MAX_DPR: 1.5 },
   COLORS: {
     cullis: '#50c7ff', parchment: '#eadfc8', gold: '#f0c766', shadow: 'rgba(20,12,6,0.34)',
   },
@@ -1598,6 +1600,8 @@ function setMapDimensions(cols, rows) {
   if (pathBuffersReady) resetPathBuffers();
   terrainReady = false;
   mmTerrain = null;
+  mmEntities = null;
+  mmEntitiesAt = -Infinity;
 }
 function applyMapOptions(opts) {
   const size = mapSizeForOptions(opts);
@@ -6741,6 +6745,7 @@ function sizeCanvas() {
   mmCanvas.style.width = mmSize + 'px';
   mmCanvas.style.height = mmSize + 'px';
   mmCtx.imageSmoothingEnabled = true;
+  atmosphereLayer = null;          // viewport-sized; rebuilt lazily on the next frame
   AlbionFramework.resize();
   if (game) { game.mmDirty = true; clampCamera(); }
 }
@@ -7676,6 +7681,9 @@ function buildTerrainBackdrop() {
   terrainReady = true;
 }
 
+// Draw list for the pseudo-depth sort in render(), reused every frame rather than reallocated.
+const renderEnts = [];
+
 function render() {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.fillStyle = '#17130d';
@@ -7692,7 +7700,8 @@ function render() {
   drawAmbientHappenings();
 
   // pseudo-depth: draw everything sorted by its bottom edge
-  const ents = [];
+  renderEnts.length = 0;                 // module-scope scratch, so this never reallocates
+  const ents = renderEnts;
   const viewPad = T * 3, viewRight = cam.x + visibleWorldW() + viewPad, viewBottom = cam.y + visibleWorldH() + viewPad;
   const viewLeft = cam.x - viewPad, viewTop = cam.y - viewPad;
   for (const b of game.buildings) {
@@ -7739,19 +7748,38 @@ function render() {
   if (PERF_HUD) drawPerfHUD();
 }
 
-function drawAtmosphere() {
-  const grad = ctx.createRadialGradient(viewW * 0.46, viewH * 0.35, viewW * 0.12, viewW * 0.5, viewH * 0.5, Math.max(viewW, viewH) * 0.72);
+/* Sun wash and horizon tint, pre-composited.
+ *
+ * Both gradients depend only on the viewport, so allocating them and filling the full screen twice
+ * every frame was pure waste. They are baked into one viewport-sized layer that `sizeCanvas()`
+ * invalidates, leaving a single full-screen `drawImage` per frame. */
+let atmosphereLayer = null;
+
+function buildAtmosphereLayer() {
+  atmosphereLayer = document.createElement('canvas');
+  // Device resolution, matching the main canvas backing store, so the per-frame blit is 1:1 and
+  // the gradient is not resampled on hi-DPI displays.
+  atmosphereLayer.width = Math.max(1, Math.floor(viewW * dpr));
+  atmosphereLayer.height = Math.max(1, Math.floor(viewH * dpr));
+  const c = atmosphereLayer.getContext('2d');
+  c.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const grad = c.createRadialGradient(viewW * 0.46, viewH * 0.35, viewW * 0.12, viewW * 0.5, viewH * 0.5, Math.max(viewW, viewH) * 0.72);
   grad.addColorStop(0, 'rgba(255,226,151,0.085)');
   grad.addColorStop(0.58, 'rgba(58,38,17,0.015)');
   grad.addColorStop(1, 'rgba(8,7,5,0.20)');
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, viewW, viewH);
-  const horizon = ctx.createLinearGradient(0, 0, 0, viewH);
+  c.fillStyle = grad;
+  c.fillRect(0, 0, viewW, viewH);
+  const horizon = c.createLinearGradient(0, 0, 0, viewH);
   horizon.addColorStop(0, 'rgba(92,124,99,0.06)');
   horizon.addColorStop(.55, 'rgba(0,0,0,0)');
   horizon.addColorStop(1, 'rgba(38,20,9,0.08)');
-  ctx.fillStyle = horizon;
-  ctx.fillRect(0, 0, viewW, viewH);
+  c.fillStyle = horizon;
+  c.fillRect(0, 0, viewW, viewH);
+}
+
+function drawAtmosphere() {
+  if (!atmosphereLayer) buildAtmosphereLayer();
+  ctx.drawImage(atmosphereLayer, 0, 0, viewW, viewH);
 }
 
 function drawTerrain(cam) {
@@ -9911,30 +9939,57 @@ function rebuildMinimapTerrain() {
   }
   game.mmDirty = false;
 }
-function renderMinimap() {
+/* The buildings, sites and units loops used to run on the main canvas context every frame — several
+ * hundred fillRect/arc calls for a 200 px widget whose contents barely change between frames. They
+ * now render into their own offscreen layer at MM_ENTITY_HZ, and the per-frame cost is one
+ * drawImage. `mmDirty` (a terrain change) rebuilds this layer too, since it is cleared and redrawn
+ * from scratch either way. */
+const MM_ENTITY_HZ = 10;
+let mmEntities = null;
+let mmEntitiesAt = -Infinity;
+
+function rebuildMinimapEntities() {
   const S = mmSize, sc = S / MAPW;
-  if (game.mmDirty || !mmTerrain) rebuildMinimapTerrain();
-  mmCtx.setTransform(mmDpr, 0, 0, mmDpr, 0, 0);
-  mmCtx.clearRect(0, 0, S, S);
-  mmCtx.drawImage(mmTerrain, 0, 0, S, S);
+  const backing = Math.max(1, Math.floor(S * mmDpr));
+  if (!mmEntities || mmEntities.width !== backing || mmEntities.height !== backing) {
+    mmEntities = document.createElement('canvas');
+    mmEntities.width = mmEntities.height = backing;
+  }
+  const c = mmEntities.getContext('2d');
+  c.setTransform(mmDpr, 0, 0, mmDpr, 0, 0);
+  c.clearRect(0, 0, S, S);
   for (const b of game.buildings) {
     if (b.dead) continue;
-    mmCtx.fillStyle = factionStyle(b.owner).fill;
+    c.fillStyle = factionStyle(b.owner).fill;
     const s = Math.max(3, b.size * T * sc);
-    mmCtx.fillRect(b.tx * T * sc, b.ty * T * sc, s, s);
+    c.fillRect(b.tx * T * sc, b.ty * T * sc, s, s);
   }
   for (const site of game.sites || []) {
     if (site.dead) continue;
-    mmCtx.fillStyle = site.completed ? '#93e0a7' : (site.type === 'demonDoor' ? '#f0c766' : '#eadfc8');
-    mmCtx.beginPath();
-    mmCtx.arc(site.x * sc, site.y * sc, site.completed ? 2 : 2.8, 0, Math.PI * 2);
-    mmCtx.fill();
+    c.fillStyle = site.completed ? '#93e0a7' : (site.type === 'demonDoor' ? '#f0c766' : '#eadfc8');
+    c.beginPath();
+    c.arc(site.x * sc, site.y * sc, site.completed ? 2 : 2.8, 0, Math.PI * 2);
+    c.fill();
   }
   for (const u of game.units) {
     if (u.dead || u.transportId) continue;
-    mmCtx.fillStyle = factionStyle(u.owner).light;
-    mmCtx.fillRect(u.x * sc - 1.5, u.y * sc - 1.5, 3, 3);
+    c.fillStyle = factionStyle(u.owner).light;
+    c.fillRect(u.x * sc - 1.5, u.y * sc - 1.5, 3, 3);
   }
+  mmEntitiesAt = game.time;
+}
+
+function renderMinimap() {
+  const S = mmSize, sc = S / MAPW;
+  const terrainStale = game.mmDirty || !mmTerrain;
+  if (terrainStale) rebuildMinimapTerrain();
+  // game.time only advances while the sim runs, so a paused game holds the last entity layer —
+  // which is correct, because nothing it draws can move while paused.
+  if (terrainStale || !mmEntities || game.time - mmEntitiesAt >= 1 / MM_ENTITY_HZ) rebuildMinimapEntities();
+  mmCtx.setTransform(mmDpr, 0, 0, mmDpr, 0, 0);
+  mmCtx.clearRect(0, 0, S, S);
+  mmCtx.drawImage(mmTerrain, 0, 0, S, S);
+  mmCtx.drawImage(mmEntities, 0, 0, S, S);
   for (const p of game.pings) {
     const f = (p.t % 1);
     mmCtx.globalAlpha = 1 - f;
@@ -11253,6 +11308,8 @@ function deserializeGame(data) {
   rebuildEntityIndexes();
   terrainReady = false;
   mmTerrain = null;
+  mmEntities = null;
+  mmEntitiesAt = -Infinity;
   return game;
 }
 
@@ -11505,6 +11562,8 @@ function startGame() {
   lastSelSignature = '__reset__';
   uiUpdaters = [];
   mmTerrain = null;
+  mmEntities = null;
+  mmEntitiesAt = -Infinity;
   terrainReady = false;
   DOM.notifications.innerHTML = '';
   notifRecent.clear();
