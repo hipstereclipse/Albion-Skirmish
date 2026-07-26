@@ -11433,7 +11433,17 @@ function slotInfo(slot) {
     const raw = localStorage.getItem(saveSlotKey(slot));
     if (!raw) return null;
     const data = JSON.parse(raw);
-    return data.meta || { date:data.savedAt || 'Saved game', map:'Unknown map', age:'Unknown age', elapsed:formatTime(data.time || 0) };
+    const meta = data.meta || { date:data.savedAt || 'Saved game', map:'Unknown map', age:'Unknown age', elapsed:formatTime(data.time || 0) };
+    // meta.map and meta.age are display strings frozen at write time, so a save written before a
+    // rename labels its slot with the old name. Both are derivable from ids the save also stores
+    // (options.mapId, players[0].age), so prefer those: the label then follows the current names
+    // and can never go stale again. The stored strings remain the fallback for saves too old or
+    // too damaged to carry the ids, and serializeGame still writes meta unchanged.
+    const preset = MAP_PRESETS[data.options && data.options.mapId];
+    const age = data.players && data.players[0] && data.players[0].age;
+    return Object.assign({}, meta,
+      preset ? { map:preset.name } : null,
+      (age != null && CONFIG.AGES[age]) ? { age:ageDisplayName(age) } : null);
   } catch (err) {
     return { date:'Corrupt slot', map:'Unreadable', age:'', elapsed:'' };
   }

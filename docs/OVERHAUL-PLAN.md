@@ -1,8 +1,9 @@
 # Overhaul plan — performance, terrain art, and clean IP rebrand
 
-**Status:** approved, in execution. Live progress and the next-agent handoff prompt live in
-[OVERHAUL-PROGRESS.md](OVERHAUL-PROGRESS.md). This file is the frozen specification — change it only
-if the approach itself changes, and note the deviation in the progress log.
+**Status:** **complete.** All phases (Bootstrap, 0-7) landed and pushed; Phase 7 closed the plan out
+on 2026-07-26. The measured results, deviations and the two items deliberately left open live in
+[OVERHAUL-PROGRESS.md](OVERHAUL-PROGRESS.md). This file remains the frozen specification of what was
+agreed — it is a record now, not a work queue.
 
 All line numbers refer to `index.html` **as of the baseline commit** (see progress doc). They will
 drift as phases land; treat them as starting hints and confirm by reading the surrounding code.
