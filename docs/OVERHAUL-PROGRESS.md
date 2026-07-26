@@ -29,7 +29,7 @@ if the push fails, mark the row `done (push pending)` and say so in the log.
 | 4d | Minimap 10 Hz entity cache, cached atmosphere, `MAX_DPR` 1.5, `ents` hoist | **done, pushed** | Overhaul phase 4d: cache the minimap entity layer and the atmosphere wash | 2026-07-26 |
 | 4e | Remove PixiJS, canvas-native shore shimmer from precomputed `game.shoreTiles` | **done, pushed** | Overhaul phase 4e: remove PixiJS and draw the shore shimmer on canvas | 2026-07-26 |
 | 5 | Sim hot path: spatial hash for `applySeparation`, allocation-free A\* costs | **done, pushed** | Overhaul phase 5: spatial-hash separation and allocation-free terrain costs | 2026-07-26 |
-| 6 | Clean IP rebrand: decouple preset-name regexes, rename display strings + asset files, disclaimer, grep gate | pending | | |
+| 6 | Clean IP rebrand: decouple preset-name regexes, rename display strings + asset files, disclaimer, grep gate | **done, pushed** | Overhaul phase 6: rebrand to Eldervale Skirmish and decouple worldgen from display names | 2026-07-26 |
 | 7 | End-to-end verification: perf A/B, load payload, art screenshots, save compat, offline | pending | | |
 
 Phase 4 is large. It is fine to land it as sub-commits (`Overhaul phase 4a: …`) as long as each one
@@ -1083,98 +1083,252 @@ continuation prompt anticipated.
 
 ---
 
+### Phase 6 — done 2026-07-26
+
+Display-only rebrand, one commit. No simulation or render logic changed; the one structural
+change (`flavor`) exists purely so display names stop being load-bearing.
+
+**What changed**
+
+- **Tripwire first: `flavor` on every map preset.** Each `MAP_PRESETS` entry gained a
+  `flavor` key (`woodland` / `marsh` / `downs` / `vale` / `alpine`) with a comment saying to
+  branch on it and never on `name`. The five surviving `preset.name` branches — the
+  `placeProceduralWilds` weight table (marsh and downs arms), the stream count, the stream
+  width, and the pond count — now test `preset.flavor`. `grep -nE 'preset\.name|\.name\.indexOf'`
+  returns nothing.
+- **Display strings**: 150 lines of `index.html`, applied by a throwaway script that carried
+  the exact expected hit count for each of 24 rules and aborted on any mismatch — a counted
+  per-term sweep, not a blind `sed`. Every changed line was read before the write.
+- **Asset renames** via `git mv`: six `albion-*.png` → `eldervale-*.png`, six
+  `docs/screenshots/fable-*.png` → `eldervale-*.png`. Git records all twelve as pure renames
+  (`Bin`, no content delta). Updated the four `ALBION_ART.*.src` assignments, the
+  `#screen-start` CSS title-vista URL, `tools/build_sprite_atlases.py`,
+  `tools/downscale_terrain.py`, `tools/capture_art_preview.mjs`, and the mkdtemp prefix in
+  `tools/audit_bridges.mjs`.
+- **Docs**: `README.md` rewritten (no "inspired by Fable: The Lost Chapters", no "Age of
+  Empires-style"); `assets/sprites/README.md` provenance rewritten so it no longer
+  art-directs against a "TLC character reference"; `assets/terrain/README.md`,
+  `docs/screenshots/README.md` and `docs/implementation-notes.md` updated.
+- **Disclaimer** added verbatim to the README and to a new `.legal` footer in the start menu.
+
+**Rename table as applied** (display strings and filenames only)
+
+| Current | New | | Current | New |
+|---|---|---|---|---|
+| Albion Skirmish | Eldervale Skirmish | | Hobbe | Grubkin |
+| Albion (world/Age/buildings) | Eldervale | | Balverine | Moorfang |
+| Bowerstone | Bridgemere | | Demon Door | Riddle Gate |
+| Oakvale | Elmshire | | Will | Aether |
+| Knothole | Thornhollow | | Heroes Guild Spire | Wardens' Lodge Spire |
+| Brightwood | Sunglade | | Guild Hall / Guild Hero | Lodge Hall / Warden |
+| Greatwood | Heartwood | | Guild (all other uses) | Lodge |
+| Darkwood | Mirkfen | | Archon('s Legacy) | Sovereign('s Legacy) |
+| Snowspire | Frostcrag | | Old Kingdom | Elder Kingdom |
+| Barrow Fields | Cairn Fields | | Rose Cottage | Thistle Cottage |
+
+**Verification**
+
+- **Worldgen is bit-identical across the `flavor` refactor — the direct test for plan risk #2.**
+  60 worlds (5 presets x 3 seeds x compact/standard x standard/harsh gates), hashed over
+  terrain type/variant/elevation/moisture/temperature/slope, `blocked`, `water`, `bridges`,
+  every resource node, building, site, unit, ambient entity and creep camp, plus decor
+  geometry: **60/60 identical**, 0 page errors. Baseline captured on `ad1a36d` before the
+  first edit (e.g. `greatwood|phase6-a|compact|standard` = `C1AC2A68`).
+- **Cross-build save compatibility — the real gate.** A game played 1,400 ticks and serialized
+  by the **pre-rebrand `ad1a36d` build** (230,957 bytes) loads into this build with an
+  **identical fingerprint `25E2DB34`**: 27 units, 7 buildings, 332 nodes, 8 sites, including
+  the in-flight `u.path` of the one unit that had an active path. 300 further ticks ran clean,
+  0 page errors. Both sides were fingerprinted *after* `deserializeGame`, so nothing is
+  attributable to the round trip itself.
+- **In-build save/load round trip** through a real page reload, via the game's own
+  `saveGameToSlot` / `loadGameFromSlot` on the untouched key `albion.save.4` (216,228 bytes):
+  `425192F9` → **`425192F9`**, 200 further ticks clean, slot removed afterwards.
+  `albion.settings` write-and-read-back verified separately. 0 page errors.
+- **Grep gate** — `grep -rniE 'albion|bowerstone|oakvale|knothole|brightwood|snowspire|hobbe|balverine|demon ?door|heroes.{0,2}guild|fable'`
+  (excluding `.git`, `.edge-art-preview`, `__pycache__`, and these two overhaul docs) returns
+  **only** the keep-list:
+
+  | Survivor | Count | Why it stays |
+  |---|---:|---|
+  | `ALBION_ART`, `albionArtImages` | 57 | internal art namespace |
+  | `albion.settings`, `albion.save.` | 3 | localStorage keys |
+  | `hobbeWild`, `balverine`, `demonDoor`, `drawDemonDoorSite` | 20 | entity type ids stored whole by `serializeGame` |
+  | `brightwood` / `snowspire` (+ `greatwood`/`darkwood`/`barrowfields`) preset ids | 7 | `<option value>` ids, persisted as `options.mapId` |
+  | disclaimer text in `index.html` and `README.md` | 2 | names the franchise on purpose |
+  | README keep-list note | 1 | documents the above |
+
+- **Atlas rebuild is byte-identical.** `python tools/build_sprite_atlases.py` reproduced both
+  atlases bit-for-bit after the rename (units SHA-256 `3e1cd5225a925c01…`, resources
+  `03e40437f5813464…`), **dimensions unchanged** at 1024x5120 and 1536x1280, 80 and 30
+  validated bleed-safe cells. The `atlas-manifest.json` diff is exactly the two `file` fields.
+- **Art preview**: re-run on `ad1a36d` before any edit and it reproduced the Phase 4e/5
+  reference `F1D2F9C8…FA06` exactly, so the harness was known-good going in. After the
+  rebrand the capture is stable at **SHA-256
+  `552A7DE29FE65D62B53A5FBB68B226D04228A9387C3A91BB25C8E6CFD6AC7D34`** (reproduced twice).
+  The change was diffed pixel-by-pixel rather than accepted: the delta is a **single bounding
+  box (478,37)-(1092,113), 18,193 of 1,263,850 pixels (1.44%)**, and it is the start-of-game
+  notification toast reading `Map: Snowspire Pass` → `Map: Frostcrag Pass`. **Zero pixels of
+  rendered art changed**, which is independent proof the renamed asset files were only moved.
+  Material brightness factors and the five visual biomes are unchanged.
+- **Display smoke test** over CDP: title, `<h1>`, subtitle, the five map options, the four
+  start conditions, all four Age names, `CONFIG` names, `THEME.FACTIONS`, `NODE_NAMES`, the
+  three quest-site names, and the per-faction `unitDisplayName`/`buildingDisplayName` path all
+  return renamed strings; the `.legal` footer is present and visible. 0 page errors.
+- Inline script `node --check`: clean (1 block, 11,120 lines). `git diff --check`: clean.
+  `py_compile` on both Python tools and `node --check` on both `.mjs` tools: clean.
+
+**Deviations from the plan, all deliberate**
+
+1. **The plan's two render tripwires no longer exist.** `/Snowspire/i` (7338) and `/Darkwood/i`
+   (7342) were deleted in **Phase 2**, which un-gated the meadow soft-light pass. The plan's
+   7482/7491 and 2630 anchors resolve to the five *worldgen* branches listed above. So the
+   surviving risk was never in `buildTerrainBackdrop` — it was in resource placement, streams
+   and ponds, where a renamed preset would have silently changed the generated map.
+2. **The key is `flavor`, not `climate`.** `climate` is already a local variable name for
+   `preset.terrain` (the numeric temperature/moisture/forest mix) in `terrainVisualFamilyAt`
+   and `deserializeGame`; `preset.climate` next to it would have been actively misleading.
+3. **The "Guild" sweep is complete, not limited to the table's three rows** — confirmed with
+   the owner. The table renamed `Guild Hall`, `Guild Hero` and `Heroes Guild Spire`; leaving
+   the other ~30 (`Guild Apprentice`, `Guild Charter`, "Defend the Guild", `Guild Gate`,
+   "Select Guild Apprentices first", …) would have left a Lodge Hall training Guild
+   Apprentices. Faction 0 is now the Wardens' Lodge throughout.
+4. **Four renames beyond the table**: `Rose Cottage` → `Thistle Cottage` (a Fable II location
+   the table missed); `Bandit Lodge` → `Bandit Hovel` (the bandit house name collided with the
+   player faction's new name); `'Open Door'` → `'Open Gate'` (button label for a Riddle Gate);
+   and `Archon Weapons`/`Archon Armor` → `Sovereign …` (the table renamed only the Age, but
+   Archon is Old-Kingdom Fable lore and the forge tiers share the word).
+5. **`Wardens' Lodge Spire` is written with an escaped apostrophe** (`Wardens\'`). Both
+   occurrences sit inside single-quoted JS literals; the first dry run produced a syntax error
+   and the rule was fixed before anything was written.
+6. **The art preview reference hash changed, and the new one is accepted** — but only after the
+   pixel diff above proved the cause is a display string, not the art. Phase 7 should use
+   `552A7DE2…7D34`.
+7. **The GitHub repo was NOT renamed.** Asked the owner; they chose to keep
+   `hipstereclipse/Albion-Skirmish`. No `git remote set-url` needed.
+8. `assets/terrain/README.md` still claimed every terrain PNG is 1254x1254, stale since
+   Phase 3. Corrected to 384x384 materials / 512x512 transitions while rewriting its
+   provenance paragraph.
+
+**Findings worth carrying forward**
+
+1. **Old saves display the old map name.** `serializeGame().meta.map` stores
+   `currentMapPreset().name`, so a pre-rebrand save shows "Snowspire Pass" in the load-slot
+   list. It is metadata only — the load path resolves the preset from `options.mapId` — so the
+   game loads correctly and only the slot label is stale. Not worth a migration; a
+   `LEGACY_MAP_NAME` lookup in `wireSlotList` would fix it cosmetically if it ever matters.
+2. **The disclaimer keeps the word "Fable" in the shipped page on purpose.** It is the plan's
+   exact wording and the standard fan-project formulation, but it is the one place the rebrand
+   deliberately re-associates the game with the franchise. If the owner would rather the
+   shipped build name nothing, the honest alternative is "An original fan-made game, not
+   affiliated with or endorsed by any other game or publisher." Left as specified.
+3. **`git mv` + a byte-hash check is the cheap proof for asset renames.** `--stat` showing
+   `Bin` with no delta, plus the pixel diff on the art preview, covers "moved, not modified"
+   from two independent directions.
+4. **The atlas builder is fully reproducible** (byte-identical output from identical sources on
+   Pillow 12.1.1), so regenerating the manifest is safe and does not disturb the art preview.
+
+---
+
 ## Continuation prompt
 
 Copy this verbatim into a fresh agent/session to continue the work.
 
 ```
-Continue the Albion Skirmish overhaul in c:\Users\Eclipse\.claude\Workspaces\Age Of Empires.
+Continue the Eldervale Skirmish overhaul in c:\Users\Eclipse\.claude\Workspaces\Age Of Empires.
+(The game was called Albion Skirmish until Phase 6; the GitHub repo is still named
+`Albion-Skirmish` and the owner has decided to keep it that way. Do not rename it.)
 
 Read docs/OVERHAUL-PLAN.md (the full frozen spec) and docs/OVERHAUL-PROGRESS.md (status, baselines,
-phase log) before touching anything. Bootstrap and Phases 0-5 are complete and pushed. All
-performance work is finished: Phase 4 (4a-4e) removed every per-entity `ctx.filter` and per-frame
-`shadowBlur`, cached the minimap and atmosphere, and deleted PixiJS - idle went 14.34 -> 34.88 fps
-and a 229-unit battle 2.27 -> 32.84 fps. Phase 5 cut the sim tick 2.73x (0.90 -> 0.33 ms at
-225 units) with a spatial hash for `applySeparation` and an allocation-free terrain-cost path;
-the sim came out bit-identical, verified six ways.
+phase log) before touching anything. Bootstrap and Phases 0-6 are complete and pushed. All the
+substantive work is done: Phase 4 (4a-4e) removed every per-entity `ctx.filter` and per-frame
+`shadowBlur`, cached the minimap and atmosphere, and deleted PixiJS (idle 14.34 -> 34.88 fps, a
+229-unit battle 2.27 -> 32.84 fps). Phase 5 cut the sim tick 2.73x (0.90 -> 0.33 ms at 225 units).
+Phase 6 rebranded every player-visible string and asset filename, and added a `flavor` key to the
+map presets so world generation no longer branches on display names.
 
-Execute **Phase 6 - Clean IP rebrand**. This is the last substantive phase and it is display-only.
-Read Phase 6 of the plan in full; the short version:
+Execute **Phase 7 - end-to-end verification**. This is the LAST phase and it is a verification
+pass, not a change pass. Read Phase 7 of the plan in full. The point is to confirm, on the final
+build and in one place, what the per-phase logs each asserted separately. Expect to write little
+or no production code; if you find a real defect, fix it, but log the fix as a deviation.
 
-  1. FIRST, the tripwire: decouple rendering from display names. `buildTerrainBackdrop` branches
-     on /Snowspire/i and /Darkwood/i against `preset.name`, and similar checks exist near the
-     old anchors 2185-2186, 7482, 7491 and 2630 (`indexOf('Barrow')`). Add a `climate` (or
-     `flavor`) key to the map presets - the `<option value>` ids are already stable - and switch
-     those tests to it. Only then are display names safe to change. Plan risk #2 is exactly this:
-     rename a preset name first and terrain rendering silently changes.
-  2. Apply the rename table in the plan (Albion Skirmish -> Eldervale Skirmish, Bowerstone ->
-     Bridgemere, Hobbe -> Grubkin, Will -> Aether, and the rest). Per-term `grep -n` plus hand
-     review, NO blind sed - "Will" collides with ordinary English, and "Albion" appears in
-     internal ids and localStorage keys that must NOT change.
-  3. Rename `assets/**/albion-*.png` -> `eldervale-*.png` and update the `src` assignments, the
-     CSS title-vista background, output paths in `tools/build_sprite_atlases.py`, and
-     `tools/capture_art_preview.mjs` (which writes `docs/screenshots/fable-*.png`). Regenerate
-     `assets/sprites/atlas-manifest.json` via the tool. Rename `docs/screenshots/fable-*.png`
-     and the references in `docs/screenshots/README.md`.
-  4. Rewrite README and docs: drop "inspired by Fable: The Lost Chapters" and the "Age of
-     Empires-style" phrasing; rewrite the provenance section of `assets/sprites/README.md` so it
-     stops art-directing against a "TLC character reference".
-  5. Add the disclaimer to the README and the start-menu footer (exact wording in the plan).
-  6. Verification gate: the plan's `grep -rniE` over albion|bowerstone|oakvale|knothole|brightwood|
-     snowspire|hobbe|balverine|demon ?door|heroes.{0,2}guild|fable must return ONLY the documented
-     keep-list of internal ids and storage keys.
+Do all of this against the current HEAD build, and record actual numbers in the progress log:
 
-**Hard rule, and it is the whole risk of this phase:** do NOT rename internal identifiers
-(`hobbeWild`, `balverine`, `demonDoor`, `willhub`, `guildspire`, `ALBION_ART`, CONFIG keys) or
-localStorage keys (`albion.settings`, `albion.save.N`). `serializeGame` stores entity `type` and
-`role` strings whole, so any id rename breaks every existing save and every
-`CONFIG.BUILDINGS[b.type]` lookup. Rename what players SEE and what FILES are called, nothing else.
+  1. **Perf A/B on the same map seed**, using the Phase 0 `?perf` HUD:
+     (a) a four-player map, 60 s of continuous panning while idle - avg and p95 frame ms;
+     (b) a ~100 v 100 battle spawned near the camera through the game's own spawn path via a
+         console snippet (do NOT commit the snippet) - avg frame ms during the fight.
+     Compare against the Phase 3 baseline commit `b1b39d6` in a `git worktree`, which is the
+     harness Phase 4 and 5 both used. Take a 10 s DevTools Performance capture during (b) on
+     both: filtered `drawImage` and shadow-blur rasterization should be absent from the flame
+     chart, and `applySeparation` self-time should be near zero.
+  2. **Load**: Network tab (or CDP `Network.*`) with cache disabled. Expected total is
+     12,939,974 B (12.34 MiB) over 20 requests - confirm it did not regress. `buildTerrainBackdrop`
+     must fire exactly ONCE, and only two visual states may appear during load. Per Phase 0
+     finding 4, the pop-in only reproduces over throttled HTTP (`python -m http.server` plus CDP
+     `Network.emulateNetworkConditions` at ~32 Mbps), never from `file://` - verify it that way.
+  3. **Art**: re-run `tools/capture_art_preview.mjs` and diff against the Phase 6 reference
+     SHA-256 `552A7DE29FE65D62B53A5FBB68B226D04228A9387C3A91BB25C8E6CFD6AC7D34`. Then walk the
+     Phase 2.7 contrast checklist by eye: no visible hex lattice at default zoom, meadow reads
+     green rather than olive-black, snow and sand not blown out, soft-light dapple still visible.
+  4. **Saves**: a save written by an OLD build must still load. Phase 6 verified this from
+     `ad1a36d`; for Phase 7 do it from the Phase 0 commit `a0dd101` or earlier, which is the
+     oldest build a real player could have. Then a save/load round trip inside the new build.
+     There is a working harness pattern in the Phase 5 and Phase 6 logs (serialize to a file over
+     CDP, `deserializeGame` on the other build, compare a fingerprint).
+  5. **Offline**: serve with `python -m http.server`, disconnect the network, and confirm full
+     playability with zero outbound requests - PixiJS was the only CDN dependency and Phase 4e
+     removed it, so this should now pass cleanly.
+  6. **Plan risk #8, the one genuinely open item: `MAX_DPR` 1.5 is still unvalidated.** This rig
+     runs at devicePixelRatio 1.5, so the Phase 4d change is a no-op here and nobody has seen it
+     on a hi-DPI display. If you have no hi-DPI display, do NOT fake a verdict: force
+     `devicePixelRatio` via CDP `Emulation.setDeviceMetricsOverride` at 2 and 3, capture
+     screenshots, and report what that does and does not prove. If it reads soft, the plan says
+     make it a settings toggle rather than reverting.
 
-Verification for this phase, beyond the grep gate:
-  - The art preview hash WILL change if any renamed asset changes bytes, and MUST NOT change if
-    files were only moved. Re-run `tools/capture_art_preview.mjs` after the asset renames and
-    diff against the Phase 4e/5 reference below; a pure rename should reproduce it exactly. If it
-    does not, find out why before accepting a new reference.
-  - Regenerate `atlas-manifest.json` and confirm the atlas dimensions are unchanged.
-  - Cross-build save compatibility is the real gate: serialize a played game on the pre-rebrand
-    commit and load it on the rebranded build. There is a throwaway harness pattern for this in
-    the Phase 5 log (serialize to a file over CDP, inject and `deserializeGame` on the other
-    build, compare a fingerprint). A rebrand that breaks this has renamed an id.
-  - Generate all 5 map presets after the `climate` refactor and confirm the terrain output is
-    unchanged - the Phase 5 log describes a 60-world hash harness that does exactly this, and it
-    is the direct test for plan risk #2.
-  - Syntax-check the inline script, run `git diff --check`, and do a save/load round trip.
+Also worth a look while you are in there, both cheap:
+  - The five `MAP_PRESETS` `flavor` values are exercised by worldgen, but only `marsh` and `downs`
+    currently change behaviour. Confirm all five presets still generate (the Phase 6 log describes
+    a 60-world hash harness that does exactly this).
+  - Old saves show the pre-rebrand map name in the load-slot list, because
+    `serializeGame().meta.map` stores the display name. Cosmetic and documented in the Phase 6 log
+    as finding 1 - decide whether it is worth a `LEGACY_MAP_NAME` lookup or should stay as is.
 
-Perf carry-overs (all measurement work is DONE - do not redo it, and do not judge Phase 6 by fps):
-  - Deployed payload unchanged at 12,939,974 B (12.34 MiB) over 20 requests, cache disabled;
-    `assets/` on disk is 25.62 MB. Phase 4 added ~72 MB of RUNTIME baked-atlas memory - not payload.
+Carry-overs and traps (measurement work is DONE - do not redo it, and do not re-tune anything):
+  - Frame rate is not a usable A/B metric run-to-run on this rig: everything is pinned to 60 Hz
+    vsync steps and the spread is +/-10%. `performance.now()` is coarsened to 0.1 ms, so
+    micro-benchmark by timing a block of N reps, not a single call. Interleave before/after runs
+    in the same session and report a median of three, the way Phase 5 did.
+  - Do NOT judge anything by `renderMs` or `frameMs`. Canvas rasterization happens off the JS
+    timeline and the split moves between runs; `deltaMs` / fps is the only stable render metric.
+  - A sampled DevTools profile is not a benchmark. The Phase 0 attribution overstated
+    `applySeparation` by ~7x. Where a function can be called in isolation, call it in isolation.
   - Do NOT resize any sprite atlas file. `buildingSlices`, `unitCellSize: 256` and
-    `atlas-manifest.json` are all in atlas pixels; the bakes are runtime-only.
-  - `tools/capture_art_preview.mjs` is bit-for-bit reproducible. Seed `overhaul-art-preview-v1`;
-    reference SHA-256 F1D2F9C8529E1382A85994199FFC9EC259C11BA0AFD4E8E9D7BDCEE2F9D1FA06, unchanged
-    by Phase 5. Keep the `--allow-file-access-from-files` flag while Phase 2's `getImageData()`
-    luminance audit remains runtime code.
+    `atlas-manifest.json` are all in atlas pixels; the Phase 4 bakes are runtime-only (~72 MB of
+    runtime memory, not payload).
   - Three `ctx.filter` sites and one `shadowBlur` in `drawTerrainTrail` remain on purpose and are
     documented in place. Do not "finish the purge".
-  - Frame rate is not a usable A/B metric on this rig: everything is pinned to 60 Hz vsync steps
-    and run-to-run spread is +/-10%. `performance.now()` is coarsened to 0.1 ms, so micro-benchmark
-    by timing a block of N reps, not a single call.
+  - Keep `--allow-file-access-from-files` in `capture_art_preview.mjs` while Phase 2's
+    `getImageData()` luminance audit is still runtime code.
   - A `favicon.ico` 404 appears on every HTTP load. Pre-existing, not yours to chase.
-  - `MAX_DPR` 1.5 is still unvalidated (the rig runs at devicePixelRatio 1.5, so it is a no-op
-    here). Plan risk #8 needs a hi-DPI display and is Phase 7's.
-  - Two KNOWN sim caveats from Phase 5, both documented in its log, neither yours to fix:
-    `findBuildSpot` and the AI betrayal roll use unseeded `Math.random()`, so the sim is not
-    reproducible without pinning it in the harness; and the separation grid is exact only below
-    ~36 units in one 38x38 px cell (measured real-game peak is 10).
-  - Line anchors in the plan are from `dd3e70a` and have drifted a long way. Re-resolve by reading
-    the code; `git show dd3e70a:index.html` still resolves the plan's original anchors.
+  - Two KNOWN sim caveats from Phase 5, neither yours to fix: `findBuildSpot` and the AI betrayal
+    roll use unseeded `Math.random()`, so the sim is not reproducible without pinning it in the
+    harness; and the separation spatial hash is exact only below ~36 units in one 38x38 px cell
+    (measured real-game peak is 10).
+  - **Never rename internal identifiers or storage keys.** `ALBION_ART`, `albionArtImages`,
+    `hobbeWild`, `balverine`, `demonDoor`, `willhub`, `guildspire`, `drawDemonDoorSite`, the five
+    lowercase map preset ids (`greatwood`/`darkwood`/`barrowfields`/`brightwood`/`snowspire`), and
+    `albion.settings` / `albion.save.N` are all deliberate keep-list entries documented in the
+    Phase 6 log. `serializeGame` stores entity `type` and `role` strings whole, so renaming any of
+    them breaks every existing save. The grep gate is expected to return exactly that keep-list
+    plus the two disclaimer strings - it is not a to-do list.
+  - Line anchors in the plan are from `dd3e70a` and have drifted a long way; several no longer
+    exist at all (Phase 2 deleted the `/Snowspire/i` and `/Darkwood/i` render tests the Phase 6
+    tripwire was written for). Re-resolve by reading the code; `git show dd3e70a:index.html`
+    still resolves the plan's original anchors.
 
-The plan's bootstrap note also flags that the GitHub repo itself is named `Albion-Skirmish`.
-Renaming it is part of the rebrand but changes a public URL, so ASK THE OWNER before doing it; if
-they agree, GitHub auto-redirects the old URL but the local remote still needs `git remote set-url`.
-
-When Phase 6 is done: log the rename surfaces touched, the grep-gate output, the save-compatibility
-result and any deviation in docs/OVERHAUL-PROGRESS.md; update the status table; commit as
-"Overhaul phase 6: <description>"; push to origin main; and regenerate this continuation prompt for
-Phase 7 (end-to-end verification), which is the last phase.
+When Phase 7 is done: log every measured number, the offline and save-compatibility results, the
+`MAX_DPR` verdict and its caveats, and any deviation in docs/OVERHAUL-PROGRESS.md; mark the status
+table row done; state plainly in the log that the overhaul is complete and replace this
+continuation prompt with a short "no further phases" note; commit as
+"Overhaul phase 7: <description>"; and push to origin main.
 ```

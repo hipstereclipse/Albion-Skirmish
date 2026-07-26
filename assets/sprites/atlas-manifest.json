@@ -1,6 +1,6 @@
 {
   "units": {
-    "file": "albion-units-animated.png",
+    "file": "eldervale-units-animated.png",
     "cell": 256,
     "gutter": 24,
     "columns": [
@@ -34,7 +34,7 @@
     "validatedCells": 80
   },
   "resources": {
-    "file": "albion-resources-biomes.png",
+    "file": "eldervale-resources-biomes.png",
     "cell": 256,
     "gutter": 18,
     "columns": {

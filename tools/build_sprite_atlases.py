@@ -1,4 +1,4 @@
-"""Pack generated Albion art into bleed-safe runtime atlases.
+"""Pack generated Eldervale art into bleed-safe runtime atlases.
 
 The image generator produces presentation grids whose silhouettes can overhang
 the nominal row/column divisions.  This packer isolates connected artwork on
@@ -52,7 +52,7 @@ UNIT_ROWS = [
 ]
 
 RESOURCE_SHEETS = [
-    ("temperate", SPRITES / "albion-resources-v2.png"),
+    ("temperate", SPRITES / "eldervale-resources-v2.png"),
     ("forest", SOURCES / "resources-forest-alpha.png"),
     ("marsh", SOURCES / "resources-marsh-alpha.png"),
     ("dry", SOURCES / "resources-dry-alpha.png"),
@@ -269,7 +269,7 @@ def build_units() -> tuple[Path, list[dict[str, int]]]:
             UNIT_CELL,
             UNIT_GUTTER,
         )
-    path = SPRITES / "albion-units-animated.png"
+    path = SPRITES / "eldervale-units-animated.png"
     atlas.save(path, optimize=True)
     report = validate_gutters(atlas, 4, len(UNIT_ROWS), UNIT_CELL, UNIT_GUTTER, "unit")
     return path, report
@@ -305,7 +305,7 @@ def build_resources() -> tuple[Path, list[dict[str, int]]]:
             RESOURCE_CELL,
             RESOURCE_GUTTER,
         )
-    path = SPRITES / "albion-resources-biomes.png"
+    path = SPRITES / "eldervale-resources-biomes.png"
     atlas.save(path, optimize=True)
     report = validate_gutters(
         atlas,

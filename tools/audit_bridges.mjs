@@ -6,7 +6,7 @@ import { pathToFileURL } from 'node:url';
 
 const root = path.resolve(import.meta.dirname, '..');
 const edge = 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe';
-const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'albion-bridge-audit-'));
+const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'eldervale-bridge-audit-'));
 const port = 9241 + Math.floor(Math.random() * 200);
 const browser = spawn(edge, [
   '--headless=new', '--disable-gpu', '--hide-scrollbars',

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Albion Skirmish</title>
+<title>Eldervale Skirmish</title>
 <style>
   /* ============================== CSS ============================== */
   :root {
@@ -313,7 +313,7 @@
     .screen h1 { font-size:38px; }
   }
 
-  /* ====================== ALBION STORYBOOK ART DIRECTION ====================== */
+  /* ====================== ELDERVALE STORYBOOK ART DIRECTION ====================== */
   :root {
     --panel-bg:linear-gradient(180deg,rgba(28,25,20,.94),rgba(12,11,9,.97));
     --panel-line:rgba(221,179,89,.54);
@@ -347,7 +347,7 @@
   #production-queue-float { border-radius:3px; border-color:#80602e; background:linear-gradient(180deg,rgba(38,31,22,.98),rgba(13,11,9,.99)); }
   .notif { border-radius:2px 2px 10px 10px; font-variant:small-caps; letter-spacing:.7px; }
 
-  #screen-start { padding:clamp(24px,4vw,72px); justify-content:center; align-items:flex-start; background:#090b08 url('assets/art/albion-title-vista.png') center/cover no-repeat; }
+  #screen-start { padding:clamp(24px,4vw,72px); justify-content:center; align-items:flex-start; background:#090b08 url('assets/art/eldervale-title-vista.png') center/cover no-repeat; }
   #screen-start::before { background:linear-gradient(90deg,rgba(3,5,3,.68),rgba(8,7,4,.1) 44%,rgba(3,4,3,.48)),linear-gradient(180deg,rgba(3,4,3,.15),rgba(5,4,2,.48)); opacity:1; }
   #screen-start::after { content:""; position:absolute; inset:12px; pointer-events:none; border:1px solid rgba(217,175,82,.42); box-shadow:inset 0 0 60px rgba(0,0,0,.7),0 0 0 4px rgba(14,10,5,.6); }
   #screen-start .menu-card { width:min(760px,48vw); max-height:calc(100vh - 48px); overflow-x:hidden; overflow-y:auto; scrollbar-width:thin; scrollbar-color:#9b7738 #17130e; padding:clamp(20px,2.2vw,34px); border:1px solid #a47d38; border-radius:4px 4px 22px 4px; text-align:left;
@@ -370,6 +370,8 @@
   #screen-start .launch-field { color:#bcae8d; font-size:10px; letter-spacing:1px; }
   #screen-start select,#screen-start input { width:100%; min-width:0; height:36px; padding:0 9px; border-radius:2px; border-color:#775729; background:#18140e; color:#eadfc8; font-size:13px; }
   #screen-start .seed-btn { width:36px; height:36px; flex:0 0 36px; }
+  #screen-start .legal { margin:14px 0 0; padding-top:11px; border-top:1px solid rgba(115,87,44,.5);
+    color:#8d8067; font-size:10.5px; line-height:1.55; letter-spacing:.3px; }
   #screen-start .advanced-panel { margin-top:8px; }
   #screen-start .advanced-panel summary { padding:8px 10px; font-size:11px; }
   #screen-start .advanced-body { padding:0 10px 10px; }
@@ -524,8 +526,8 @@
 
 <div id="screen-start" class="screen">
   <div class="menu-card">
-    <h1>ALBION SKIRMISH</h1>
-  <p class="subtitle">Gather &nbsp;·&nbsp; Build &nbsp;·&nbsp; Train &nbsp;·&nbsp; Defend the Guild</p>
+    <h1>ELDERVALE SKIRMISH</h1>
+  <p class="subtitle">Gather &nbsp;·&nbsp; Build &nbsp;·&nbsp; Train &nbsp;·&nbsp; Defend the Lodge</p>
   <p class="controls">
     <b>Left-click / drag</b> select units &nbsp;·&nbsp; <b>Right-click</b> move / gather / build / attack<br>
     <b>WASD / arrows / screen edge</b> pan camera &nbsp;·&nbsp; <b>Mouse wheel / +/- / touch + -</b> zoom &nbsp;·&nbsp; <b>Space</b> pause &nbsp;·&nbsp; <b>Esc</b> cancel<br>
@@ -542,11 +544,11 @@
   <div class="launch-options">
     <label class="launch-field">Terrain
       <select id="opt-map">
-        <option value="greatwood">Greatwood Crossing</option>
-        <option value="darkwood">Darkwood Marsh</option>
-        <option value="barrowfields">Barrow Fields</option>
-        <option value="brightwood">Brightwood Vale</option>
-        <option value="snowspire">Snowspire Pass</option>
+        <option value="greatwood">Heartwood Crossing</option>
+        <option value="darkwood">Mirkfen Marsh</option>
+        <option value="barrowfields">Cairn Fields</option>
+        <option value="brightwood">Sunglade Vale</option>
+        <option value="snowspire">Frostcrag Pass</option>
       </select>
     </label>
     <label class="launch-field">Enemy factions
@@ -574,10 +576,10 @@
     </label>
     <label class="launch-field">Starting condition
       <select id="opt-starting">
-        <option value="standard" selected>Standard Guild party</option>
-        <option value="refugees">Oakvale refugees</option>
+        <option value="standard" selected>Standard Lodge party</option>
+        <option value="refugees">Elmshire refugees</option>
         <option value="patron">Trader patronage</option>
-        <option value="patrol">Guild patrol</option>
+        <option value="patrol">Lodge patrol</option>
       </select>
     </label>
     <label class="launch-field">Map seed
@@ -679,6 +681,7 @@
       <div class="slot-list" id="start-load-slots"></div>
     </div>
   </div>
+  <p class="legal">An original fan-made game. Not affiliated with, endorsed by, or connected to Microsoft, Lionhead, or the Fable franchise.</p>
 </div>
 </div>
 
@@ -805,7 +808,7 @@ const CONFIG = {
     GENERATOR_VERSION: 2,
     HEX_RADIUS: 26,                    // visual honeycomb radius; close in area to one logical movement cell
     TRANSITION_BAND: 0.22,
-    BASE_CLEAR_RADIUS: 5.4,            // guaranteed ordinary ground around every Guild Hall
+    BASE_CLEAR_RADIUS: 5.4,            // guaranteed ordinary ground around every Lodge Hall
     ROAD_RADIUS: 0.72,
     CLIFF_BUILD_SLOPE: 0.19,
     BASE_RESOURCE_REACH_COST: 42,      // traversal-cost budget for guaranteed reachable base resources
@@ -850,7 +853,7 @@ const CONFIG = {
     REGEN: 0.5, PER_HUB_REGEN: 0.35,
     POWERS: {
       firestorm: { name:'Firestorm',      will:70, cooldown:90, radius:2.6, ticks:3, tickDamage:20, duration:3 },
-      blessing:  { name:'Guild Blessing', will:45, cooldown:60, radius:3.2, heal:50, duration:5 },
+      blessing:  { name:'Lodge Blessing', will:45, cooldown:60, radius:3.2, heal:50, duration:5 },
     },
   },
   SPELLS: {
@@ -875,93 +878,93 @@ const CONFIG = {
   },
 
   UNITS: {
-    villager: { name:'Guild Apprentice', hp:40, damage:3,  range:0.9, attackCooldown:1.5, moveSpeed:100,
+    villager: { name:'Lodge Apprentice', hp:40, damage:3,  range:0.9, attackCooldown:1.5, moveSpeed:100,
                 aggroRange:0,   popCost:1, cost:{food:50},          trainTime:10, radius:10, ageReq:0,
                 civilian:true, builder:true },
-    scout:    { name:'Guild Scout', hp:38, damage:3, range:0.95, attackCooldown:1.45, moveSpeed:142,
+    scout:    { name:'Lodge Scout', hp:38, damage:3, range:0.95, attackCooldown:1.45, moveSpeed:142,
                 aggroRange:0, popCost:1, cost:{food:45,fish:20}, trainTime:12, radius:9, ageReq:0,
                 researchReq:'scouting', civilian:true },
-    settler:  { name:'Guild Settler', hp:52, damage:4, range:1.0, attackCooldown:1.55, moveSpeed:92,
+    settler:  { name:'Lodge Settler', hp:52, damage:4, range:1.0, attackCooldown:1.55, moveSpeed:92,
                 aggroRange:0, popCost:1, cost:{food:80,wood:80,gold:40,fish:40}, trainTime:18, radius:10, ageReq:1,
                 researchReq:'settlementCharters', civilian:true, builder:true, hubBuilder:true },
-    militia:  { name:'Guild Guard',  hp:65, damage:8,  range:1.2, attackCooldown:1.3, moveSpeed:95,
+    militia:  { name:'Lodge Guard',  hp:65, damage:8,  range:1.2, attackCooldown:1.3, moveSpeed:95,
                 aggroRange:5.5, popCost:1, cost:{food:60,iron:20},  trainTime:12, radius:11, ageReq:1,
                 researchReq:'militiaDrills' },
-    archer:   { name:'Guild Archer',   hp:42, damage:6,  range:5.0, attackCooldown:1.6, moveSpeed:105,
+    archer:   { name:'Lodge Archer',   hp:42, damage:6,  range:5.0, attackCooldown:1.6, moveSpeed:105,
                 aggroRange:6.5, popCost:1, cost:{wood:40,gold:20,iron:10},  trainTime:14, radius:10, ageReq:1,
                 projectileSpeed:440, researchReq:'fletching' },
-    spearman: { name:'Guild Spearman', hp:56, damage:7, range:1.85, attackCooldown:1.35, moveSpeed:92,
+    spearman: { name:'Lodge Spearman', hp:56, damage:7, range:1.85, attackCooldown:1.35, moveSpeed:92,
                 aggroRange:5.7, popCost:1, cost:{food:45,wood:30,iron:20}, trainTime:13, radius:11, ageReq:1,
                 researchReq:'militiaDrills' },
-    knight:   { name:'Guild Champion', hp:105, damage:13, range:1.25, attackCooldown:1.45, moveSpeed:124,
+    knight:   { name:'Lodge Champion', hp:105, damage:13, range:1.25, attackCooldown:1.45, moveSpeed:124,
                 aggroRange:6.2, popCost:2, cost:{food:90,gold:60,iron:70}, trainTime:20, radius:13, ageReq:2,
                 researchReq:'cavalryTraditions' },
-    mage:     { name:'Will Adept', hp:46, damage:10, range:4.6, attackCooldown:2.05, moveSpeed:92,
+    mage:     { name:'Aether Adept', hp:46, damage:10, range:4.6, attackCooldown:2.05, moveSpeed:92,
                 aggroRange:6.7, popCost:1, cost:{food:35,gold:100,iron:40}, trainTime:22, radius:10, ageReq:2,
                 projectileSpeed:340, magic:true, researchReq:'willStudies', mana:60, spells:['fireball','heal'] },
-    ship:     { name:'Guild Ferry', hp:140, damage:4, range:3.2, attackCooldown:1.8, moveSpeed:118,
+    ship:     { name:'Lodge Ferry', hp:140, damage:4, range:3.2, attackCooldown:1.8, moveSpeed:118,
           aggroRange:4.5, popCost:2, cost:{wood:140,gold:45,fish:30}, trainTime:18, radius:15, ageReq:1,
           projectileSpeed:360, naval:true, capacity:6 },
-    hero:     { name:'Guild Hero', hp:220, damage:16, range:1.3, attackCooldown:1.35, moveSpeed:118,
+    hero:     { name:'Warden', hp:220, damage:16, range:1.3, attackCooldown:1.35, moveSpeed:118,
                 aggroRange:6, popCost:2, cost:{food:120,gold:180}, trainTime:32, radius:13, ageReq:1,
                 hero:true, mana:80, maxLevel:8 },
     ram:      { name:'Battering Ram', hp:340, damage:12, range:1.0, attackCooldown:3.0, moveSpeed:62,
                 aggroRange:0, popCost:3, cost:{wood:180,iron:80}, trainTime:30, radius:15, ageReq:2,
                 researchReq:'siegecraft', bonusVsBuildings:4 },
-    ballista: { name:'Guild Ballista', hp:180, damage:26, range:7.5, attackCooldown:3.6, moveSpeed:70,
+    ballista: { name:'Lodge Ballista', hp:180, damage:26, range:7.5, attackCooldown:3.6, moveSpeed:70,
                 aggroRange:6, popCost:3, cost:{wood:220,iron:120,gold:60}, trainTime:34, radius:14, ageReq:3,
                 researchReq:'siegecraft', projectileSpeed:520, bonusVsBuildings:2.5 },
     acolyte:  { name:'Temple Acolyte', hp:44, damage:2, range:1.0, attackCooldown:2.0, moveSpeed:98,
                 aggroRange:0, popCost:1, cost:{food:60,gold:80}, trainTime:20, radius:10, ageReq:2,
                 researchReq:'templeRites', healer:{ radius:2.5, rate:2.5 } },
-    cavarcher:{ name:'Guild Outrider', hp:70, damage:8, range:4.4, attackCooldown:1.7, moveSpeed:138,
+    cavarcher:{ name:'Lodge Outrider', hp:70, damage:8, range:4.4, attackCooldown:1.7, moveSpeed:138,
                 aggroRange:6.5, popCost:2, cost:{food:70,wood:40,gold:40,iron:30}, trainTime:22, radius:12, ageReq:3,
                 researchReq:'outriderTraining', projectileSpeed:440 },
 
     // Neutral wildlife — hostile to every faction, guard camp bounties. Never trained.
     wolf:      { name:'Forest Wolf', hp:55,  damage:7,  range:1.0, attackCooldown:1.2, moveSpeed:130,
                  aggroRange:4.5, radius:10, popCost:0, cost:{}, trainTime:0, ageReq:0, creep:true, xpValue:18 },
-    hobbeWild: { name:'Wild Hobbe',  hp:80,  damage:9,  range:1.1, attackCooldown:1.4, moveSpeed:100,
+    hobbeWild: { name:'Wild Grubkin',  hp:80,  damage:9,  range:1.1, attackCooldown:1.4, moveSpeed:100,
                  aggroRange:4,   radius:11, popCost:0, cost:{}, trainTime:0, ageReq:0, creep:true, xpValue:26 },
-    balverine: { name:'Balverine',   hp:170, damage:16, range:1.2, attackCooldown:1.3, moveSpeed:140,
+    balverine: { name:'Moorfang',   hp:170, damage:16, range:1.2, attackCooldown:1.3, moveSpeed:140,
                  aggroRange:5,   radius:13, popCost:0, cost:{}, trainTime:0, ageReq:0, creep:true, xpValue:60 },
   },
 
   BUILDINGS: {
     // towncenter.popBonus is the starting population cap (each side begins with one TC).
-    towncenter: { name:'Guild Hall', hp:1600, size:3, cost:{wood:300,stone:120}, buildTime:60,
+    towncenter: { name:'Lodge Hall', hp:1600, size:3, cost:{wood:300,stone:120}, buildTime:60,
                   dropoff:true, popBonus:5, trains:['villager','scout','settler','hero'],
                   researches:['scouting','trailcraft','charterStudies','settlementCharters','renownChronicles','oldKingdomStudies'],
                   ageReq:0, buildable:false, research:true },
-    house:      { name:'Albion Cottage',       hp:300,  size:2, cost:{wood:60},  buildTime:12,
+    house:      { name:'Eldervale Cottage',       hp:300,  size:2, cost:{wood:60},  buildTime:12,
                   popBonus:5, ageReq:0, buildable:true },
-    farm:       { name:'Albion Farm',          hp:220,  size:2, cost:{wood:45}, buildTime:20,
+    farm:       { name:'Eldervale Farm',          hp:220,  size:2, cost:{wood:45}, buildTime:20,
                   ageReq:0, buildable:true, farm:true, builderTypes:['villager'] },
-    storehouse: { name:'Guild Storehouse',  hp:320,  size:2, cost:{wood:80,stone:20},  buildTime:12,
+    storehouse: { name:'Lodge Storehouse',  hp:320,  size:2, cost:{wood:80,stone:20},  buildTime:12,
                   dropoff:true, ageReq:0, buildable:true },
     barracks:   { name:'Training Yard',    hp:700,  size:3, cost:{wood:150,stone:60,iron:30}, buildTime:22,
                   trains:['militia','spearman','archer','knight','mage','ram','ballista','cavarcher'],
                   researches:['militiaDrills','fletching','cavalryTraditions','willStudies','siegecraft','outriderTraining'],
                   ageReq:1, buildable:true, research:true },
-    blacksmith: { name:'Guild Blacksmith',  hp:560,  size:3, cost:{wood:160,stone:80,gold:80,iron:60}, buildTime:24,
+    blacksmith: { name:'Lodge Blacksmith',  hp:560,  size:3, cost:{wood:160,stone:80,gold:80,iron:60}, buildTime:24,
                   researches:['ironworking','armorcraft','mountaineering','masterSmithing'], ageReq:1, buildable:true, research:true },
-    shipyard:   { name:'Albion Dock',       hp:520,  size:3, cost:{wood:180}, buildTime:24,
+    shipyard:   { name:'Eldervale Dock',       hp:520,  size:3, cost:{wood:180}, buildTime:24,
             trains:['ship'], ageReq:1, buildable:true, shore:true },
-    tradehub:   { name:'Bowerstone Trade Hub', hp:980, size:4, cost:{wood:180,stone:100,gold:80}, buildTime:36,
+    tradehub:   { name:'Bridgemere Trade Hub', hp:980, size:4, cost:{wood:180,stone:100,gold:80}, buildTime:36,
                   dropoff:true, popBonus:5, trains:['villager','scout','settler'],
                   researches:['fishingNets','marketLedgers','settlementCharters'],
                   ageReq:1, buildable:true, cityHub:true, research:true, builderTypes:['settler'] },
-    guardhub:   { name:'Knothole Guard Hub', hp:1160, size:4, cost:{wood:160,stone:180,iron:100}, buildTime:40,
+    guardhub:   { name:'Thornhollow Guard Hub', hp:1160, size:4, cost:{wood:160,stone:180,iron:100}, buildTime:40,
                   trains:['militia','spearman','archer','knight','cavarcher'],
                   researches:['militiaDrills','fletching','cavalryTraditions','fortifiedHubs','outriderTraining'],
                   ageReq:1, buildable:true, cityHub:true, research:true, builderTypes:['settler'] },
-    willhub:    { name:'Brightwood Will Hub', hp:900, size:4, cost:{wood:130,stone:120,gold:170,iron:60}, buildTime:44,
+    willhub:    { name:'Sunglade Aether Hub', hp:900, size:4, cost:{wood:130,stone:120,gold:170,iron:60}, buildTime:44,
                   trains:['mage','acolyte'], researches:['willStudies','masterSmithing','templeRites'],
                   ageReq:2, buildable:true, cityHub:true, research:true, builderTypes:['settler'] },
-    guildspire: { name:'Heroes Guild Spire', hp:2200, size:5, cost:{wood:320,stone:420,iron:240,gold:360,fish:180}, buildTime:80,
+    guildspire: { name:'Wardens\' Lodge Spire', hp:2200, size:5, cost:{wood:320,stone:420,iron:240,gold:360,fish:180}, buildTime:80,
                   popBonus:10, ageReq:2, buildable:true, unique:true,
                   bonus:{gatherMult:1.12,dmgMult:1.08,researchTimeMult:0.9} },
-    obelisk:    { name:'Old Kingdom Obelisk', hp:2000, size:5, cost:{stone:520,iron:180,gold:420}, buildTime:78,
+    obelisk:    { name:'Elder Kingdom Obelisk', hp:2000, size:5, cost:{stone:520,iron:180,gold:420}, buildTime:78,
                   ageReq:2, buildable:true, unique:true,
                   bonus:{hpMult:1.08,researchTimeMult:0.78}, revealOnComplete:true },
 
@@ -973,7 +976,7 @@ const CONFIG = {
                   ageReq:1, buildable:true, wall:true, dragBuild:true, upgradesTo:'fortwall' },
     fortwall:   { name:'Fortified Wall', hp:1250, size:1, cost:{stone:24,iron:10}, buildTime:12,
                   ageReq:2, buildable:false, wall:true },
-    gate:       { name:'Guild Gate', hp:520, size:1, cost:{wood:30,stone:20}, buildTime:10,
+    gate:       { name:'Lodge Gate', hp:520, size:1, cost:{wood:30,stone:20}, buildTime:10,
                   ageReq:0, buildable:true, gate:true },
     watchtower: { name:'Watch Tower', hp:480, size:2, cost:{wood:60,stone:80}, buildTime:20,
                   ageReq:1, buildable:true, turret:true, upgradesTo:'guardtower',
@@ -981,7 +984,7 @@ const CONFIG = {
     guardtower: { name:'Guard Tower', hp:820, size:2, cost:{stone:140,iron:60}, buildTime:26,
                   ageReq:2, buildable:false, turret:true,
                   attack:{ damage:12, range:6.2, cooldown:1.8, projectileSpeed:480 } },
-    market:     { name:'Bowerstone Market', hp:640, size:3, cost:{wood:140,gold:60}, buildTime:24,
+    market:     { name:'Bridgemere Market', hp:640, size:3, cost:{wood:140,gold:60}, buildTime:24,
                   ageReq:1, buildable:true, market:true },
   },
 
@@ -989,28 +992,28 @@ const CONFIG = {
     weapons: [
       { name:'Iron Weapons', cost:{food:80,iron:120,gold:80}, dmgBonus:2, ageReq:1, researchReq:'ironworking' },
       { name:'Masterwork Weapons', cost:{food:140,iron:260,gold:180}, dmgBonus:4, ageReq:2, researchReq:'masterSmithing' },
-      { name:'Archon Weapons', cost:{iron:400,gold:300}, dmgBonus:6, ageReq:3 },
+      { name:'Sovereign Weapons', cost:{iron:400,gold:300}, dmgBonus:6, ageReq:3 },
     ],
     armor: [
       { name:'Studded Armor', cost:{wood:80,iron:100,stone:60}, hpBonus:14, ageReq:1, researchReq:'armorcraft' },
       { name:'Plate Armor', cost:{stone:120,iron:240,gold:160}, hpBonus:28, ageReq:2, researchReq:'masterSmithing' },
-      { name:'Archon Armor', cost:{stone:200,iron:300,gold:200}, hpBonus:44, ageReq:3 },
+      { name:'Sovereign Armor', cost:{stone:200,iron:300,gold:200}, hpBonus:44, ageReq:3 },
     ],
   },
 
   RESEARCH: {
     scouting: { name:'Scouting Paths', cost:{food:80,wood:60}, researchTime:18, ageReq:0,
-      blurb:'Unlocks Guild Scouts.' },
+      blurb:'Unlocks Lodge Scouts.' },
     trailcraft: { name:'Trailcraft Kits', cost:{food:70,wood:90,fish:30}, researchTime:22, ageReq:0,
       equipment:['wading'], blurb:'Equips every land unit to cross marsh and shallow water.' },
     charterStudies: { name:'Charter Studies', cost:{food:180,wood:120}, researchTime:30, ageReq:0,
-      blurb:'Required before advancing to the Guild Charter.' },
+      blurb:'Required before advancing to the Lodge Charter.' },
     militiaDrills: { name:'Militia Drills', cost:{food:120,iron:40}, researchTime:24, ageReq:1,
-      blurb:'Unlocks Guild Guards and Guild Spearmen.' },
+      blurb:'Unlocks Lodge Guards and Lodge Spearmen.' },
     fletching: { name:'Fletching', cost:{wood:110,gold:60,iron:30}, researchTime:26, ageReq:1,
-      blurb:'Unlocks Guild Archers.' },
+      blurb:'Unlocks Lodge Archers.' },
     settlementCharters: { name:'Settlement Charters', cost:{wood:160,stone:80,gold:80}, researchTime:34, ageReq:1,
-      blurb:'Unlocks Guild Settlers and themed city hubs.' },
+      blurb:'Unlocks Lodge Settlers and themed city hubs.' },
     fishingNets: { name:'Fishing Nets', cost:{wood:90,fish:80}, researchTime:22, ageReq:1,
       effects:{fishGatherMult:1.25}, blurb:'+25% fish gathering.' },
     marketLedgers: { name:'Market Ledgers', cost:{gold:120,fish:80}, researchTime:28, ageReq:1,
@@ -1022,34 +1025,34 @@ const CONFIG = {
     mountaineering: { name:'Mountaineering Gear', cost:{wood:120,iron:100,fish:60}, researchTime:34, ageReq:1,
       equipment:['climbing','winter'], blurb:'Equips every land unit for cliffs and severe alpine ground.' },
     renownChronicles: { name:'Renown Chronicles', cost:{food:260,gold:180,stone:120}, researchTime:40, ageReq:1,
-      blurb:'Required before advancing to Albion Renown.' },
+      blurb:'Required before advancing to Eldervale Renown.' },
     fortifiedHubs: { name:'Fortified Hubs', cost:{stone:160,iron:120}, researchTime:34, ageReq:1,
       effects:{hpMult:1.04}, blurb:'+4% unit endurance from stronger support networks.' },
     cavalryTraditions: { name:'Champion Traditions', cost:{food:220,iron:130,gold:90}, researchTime:36, ageReq:2,
-      blurb:'Unlocks Guild Champions.' },
-    willStudies: { name:'Will Studies', cost:{gold:180,iron:80,fish:120}, researchTime:38, ageReq:2,
-      blurb:'Unlocks Will Adepts.' },
+      blurb:'Unlocks Lodge Champions.' },
+    willStudies: { name:'Aether Studies', cost:{gold:180,iron:80,fish:120}, researchTime:38, ageReq:2,
+      blurb:'Unlocks Aether Adepts.' },
     masterSmithing: { name:'Master Smithing', cost:{stone:120,iron:220,gold:180}, researchTime:42, ageReq:2,
       blurb:'Unlocks masterwork weapons and plate armor.' },
     siegecraft: { name:'Siegecraft', cost:{wood:200,iron:140}, researchTime:36, ageReq:2,
-      blurb:'Unlocks the Battering Ram and Guild Ballista.' },
+      blurb:'Unlocks the Battering Ram and Lodge Ballista.' },
     templeRites: { name:'Temple Rites', cost:{food:160,gold:140}, researchTime:32, ageReq:2,
       blurb:'Unlocks the Temple Acolyte.' },
     outriderTraining: { name:'Outrider Training', cost:{food:180,iron:120,gold:80}, researchTime:34, ageReq:3,
-      blurb:'Unlocks the Guild Outrider.' },
-    oldKingdomStudies: { name:'Old Kingdom Studies', cost:{gold:260,stone:180,iron:140}, researchTime:48, ageReq:2,
-      blurb:'Required before advancing to the Archon\'s Legacy.' },
+      blurb:'Unlocks the Lodge Outrider.' },
+    oldKingdomStudies: { name:'Elder Kingdom Studies', cost:{gold:260,stone:180,iron:140}, researchTime:48, ageReq:2,
+      blurb:'Required before advancing to the Sovereign\'s Legacy.' },
   },
 
   // Index = age. Multipliers are absolute (not cumulative). hp/dmg apply to military units.
   AGES: [
     { name:'Apprentice Years', cost:null,                  researchTime:0,  hpMult:1,   dmgMult:1,   gatherMult:1,
       blurb:'' },
-    { name:'Guild Charter', cost:{food:500,wood:200},            researchTime:45, hpMult:1,   dmgMult:1,   gatherMult:1.1,
-      researchReq:'charterStudies', blurb:'Unlocks formal Guild construction. +10% gather rate.' },
-    { name:'Albion Renown', cost:{food:800, gold:300, stone:220, iron:160},  researchTime:70, hpMult:1.3, dmgMult:1.3, gatherMult:1.2,
+    { name:'Lodge Charter', cost:{food:500,wood:200},            researchTime:45, hpMult:1,   dmgMult:1,   gatherMult:1.1,
+      researchReq:'charterStudies', blurb:'Unlocks formal Lodge construction. +10% gather rate.' },
+    { name:'Eldervale Renown', cost:{food:800, gold:300, stone:220, iron:160},  researchTime:70, hpMult:1.3, dmgMult:1.3, gatherMult:1.2,
       researchReq:'renownChronicles', blurb:'+30% military HP & damage. +20% gather rate.' },
-    { name:"Archon's Legacy", cost:{food:1200,gold:600,stone:400,iron:300}, researchTime:95, hpMult:1.55, dmgMult:1.55, gatherMult:1.3,
+    { name:"Sovereign's Legacy", cost:{food:1200,gold:600,stone:400,iron:300}, researchTime:95, hpMult:1.55, dmgMult:1.55, gatherMult:1.3,
       researchReq:'oldKingdomStudies', blurb:'+55% military HP & damage. +30% gather rate.' },
   ],
 
@@ -1210,10 +1213,10 @@ const ALBION_ART = {
   resourceColumns: { food:0, wood:1, gold:2, stone:3, iron:4, fish:5 },
   resourceBiomeRows: { temperate:0, forest:1, marsh:2, dry:3, snow:4 }
 };
-ALBION_ART.buildings.src = 'assets/sprites/albion-buildings.png';
-ALBION_ART.units.src = 'assets/sprites/albion-units-animated.png';
-ALBION_ART.resources.src = 'assets/sprites/albion-resources-biomes.png';
-ALBION_ART.meadow.src = 'assets/art/albion-meadow-v2.png';
+ALBION_ART.buildings.src = 'assets/sprites/eldervale-buildings.png';
+ALBION_ART.units.src = 'assets/sprites/eldervale-units-animated.png';
+ALBION_ART.resources.src = 'assets/sprites/eldervale-resources-biomes.png';
+ALBION_ART.meadow.src = 'assets/art/eldervale-meadow-v2.png';
 for (const key in ALBION_ART.terrain) {
   ALBION_ART.terrain[key].src = 'assets/terrain/materials/hex-' + key + '.png';
 }
@@ -1280,61 +1283,65 @@ const THEME = {
     stone: '#8a8170', water: '#2f7c8f', ruin: '#807867',
   },
   RESOURCE_COLORS: { food: '#d84a3f', wood: '#8b5a2b', gold: '#f0c766', stone:'#9a9487', iron:'#8fa1a7', fish:'#4ab7c8' },
-  NODE_NAMES: { food: 'Orchard Bush', wood: 'Greatwood Oak', gold: 'Old Kingdom Ore', stone:'Quarry Stone', iron:'Iron Vein', fish:'Fish Shoal' },
-  AGE_NAMES: ['Apprentice Years', 'Guild Charter', 'Albion Renown', "Archon's Legacy"],
+  NODE_NAMES: { food: 'Orchard Bush', wood: 'Heartwood Oak', gold: 'Elder Kingdom Ore', stone:'Quarry Stone', iron:'Iron Vein', fish:'Fish Shoal' },
+  AGE_NAMES: ['Apprentice Years', 'Lodge Charter', 'Eldervale Renown', "Sovereign's Legacy"],
   FACTIONS: [
-    { name: 'Guild', fill:'#2f6aa3', dark:'#17345a', light:'#8ec5ff', trim:'#f0c766', cloth:'#2f6aa3', wood:'#6e4c2b' },
+    { name: 'Lodge', fill:'#2f6aa3', dark:'#17345a', light:'#8ec5ff', trim:'#f0c766', cloth:'#2f6aa3', wood:'#6e4c2b' },
     { name: 'Bandits', fill:'#a13a2a', dark:'#4d1b16', light:'#f08b65', trim:'#2a1910', cloth:'#8e2f25', wood:'#4a2c18' },
-    { name: 'Hobbe Clan', fill:'#7d6b22', dark:'#352d11', light:'#d6c05a', trim:'#1e180b', cloth:'#6f6020', wood:'#44341b' },
+    { name: 'Grubkin Clan', fill:'#7d6b22', dark:'#352d11', light:'#d6c05a', trim:'#1e180b', cloth:'#6f6020', wood:'#44341b' },
     { name: 'Undead Host', fill:'#6f7890', dark:'#29303b', light:'#c7d4ea', trim:'#171a20', cloth:'#566173', wood:'#36383b' },
-    { name: 'Brightwood', fill:'#2f8a69', dark:'#153f34', light:'#8ee0bf', trim:'#f0c766', cloth:'#2f8a69', wood:'#5f4a2e' },
-    { name: 'Oakvale', fill:'#b66a2f', dark:'#583016', light:'#f4b579', trim:'#2d1c12', cloth:'#9d5728', wood:'#6d3e1f' },
-    { name: 'Knothole', fill:'#7250a8', dark:'#2f214d', light:'#c3a6ff', trim:'#dfc978', cloth:'#65489a', wood:'#4b3322' },
-    { name: 'Bowerstone', fill:'#3f8f9f', dark:'#1c4450', light:'#a5edf4', trim:'#f1d88a', cloth:'#347c8d', wood:'#6b5132' },
+    { name: 'Sunglade', fill:'#2f8a69', dark:'#153f34', light:'#8ee0bf', trim:'#f0c766', cloth:'#2f8a69', wood:'#5f4a2e' },
+    { name: 'Elmshire', fill:'#b66a2f', dark:'#583016', light:'#f4b579', trim:'#2d1c12', cloth:'#9d5728', wood:'#6d3e1f' },
+    { name: 'Thornhollow', fill:'#7250a8', dark:'#2f214d', light:'#c3a6ff', trim:'#dfc978', cloth:'#65489a', wood:'#4b3322' },
+    { name: 'Bridgemere', fill:'#3f8f9f', dark:'#1c4450', light:'#a5edf4', trim:'#f1d88a', cloth:'#347c8d', wood:'#6b5132' },
   ],
   NAMES: {
     units: {
-      villager: ['Guild Apprentice', 'Bandit Forager', 'Hobbe Scavenger', 'Grave Thrall'],
-      scout: ['Guild Scout', 'Bandit Scout', 'Hobbe Sneak', 'Grave Runner'],
-      settler: ['Guild Settler', 'Bandit Pioneer', 'Hobbe Burrower', 'Crypt Founder'],
-      militia: ['Guild Guard', 'Bandit Raider', 'Hobbe Bruiser', 'Hollow Guard'],
-      archer: ['Guild Archer', 'Bandit Archer', 'Hobbe Slinger', 'Bone Archer'],
-      spearman: ['Guild Spearman', 'Bandit Skewer', 'Hobbe Pokestick', 'Crypt Lancer'],
-      knight: ['Guild Champion', 'Bandit Cutthroat', 'Hobbe Warboss', 'Grave Knight'],
-      mage: ['Will Adept', 'Bandit Hexer', 'Hobbe Shaman', 'Wraith Binder'],
-      ship: ['Guild Ferry', 'Bandit Skiff', 'Hobbe Raft', 'Bone Barge'],
-      hero: ['Guild Hero', 'Bandit Warlord', 'Hobbe King', 'Grave Lich'],
-      ram: ['Battering Ram', 'Bandit Ram', 'Hobbe Log Ram', 'Bone Ram'],
-      ballista: ['Guild Ballista', 'Bandit Ballista', 'Hobbe Stone Thrower', 'Wraith Ballista'],
-      acolyte: ['Temple Acolyte', 'Bandit Chirurgeon', 'Hobbe Bonesetter', 'Grave Anointer'],
-      cavarcher: ['Guild Outrider', 'Bandit Raider', 'Hobbe Rider', 'Grave Outrider'],
+      villager: ['Lodge Apprentice', 'Bandit Forager', 'Grubkin Scavenger', 'Grave Thrall'],
+      scout: ['Lodge Scout', 'Bandit Scout', 'Grubkin Sneak', 'Grave Runner'],
+      settler: ['Lodge Settler', 'Bandit Pioneer', 'Grubkin Burrower', 'Crypt Founder'],
+      militia: ['Lodge Guard', 'Bandit Raider', 'Grubkin Bruiser', 'Hollow Guard'],
+      archer: ['Lodge Archer', 'Bandit Archer', 'Grubkin Slinger', 'Bone Archer'],
+      spearman: ['Lodge Spearman', 'Bandit Skewer', 'Grubkin Pokestick', 'Crypt Lancer'],
+      knight: ['Lodge Champion', 'Bandit Cutthroat', 'Grubkin Warboss', 'Grave Knight'],
+      mage: ['Aether Adept', 'Bandit Hexer', 'Grubkin Shaman', 'Wraith Binder'],
+      ship: ['Lodge Ferry', 'Bandit Skiff', 'Grubkin Raft', 'Bone Barge'],
+      hero: ['Warden', 'Bandit Warlord', 'Grubkin King', 'Grave Lich'],
+      ram: ['Battering Ram', 'Bandit Ram', 'Grubkin Log Ram', 'Bone Ram'],
+      ballista: ['Lodge Ballista', 'Bandit Ballista', 'Grubkin Stone Thrower', 'Wraith Ballista'],
+      acolyte: ['Temple Acolyte', 'Bandit Chirurgeon', 'Grubkin Bonesetter', 'Grave Anointer'],
+      cavarcher: ['Lodge Outrider', 'Bandit Raider', 'Grubkin Rider', 'Grave Outrider'],
     },
     buildings: {
-      towncenter: ['Guild Hall', 'Bandit War Camp', 'Hobbe Den', 'Necropolis'],
-      house: ['Albion Cottage', 'Bandit Lodge', 'Hobbe Burrow', 'Crypt'],
-      farm: ['Albion Farm', 'Bandit Crop Patch', 'Hobbe Mushroom Plot', 'Grave Moss Plot'],
-      storehouse: ['Guild Storehouse', 'Supply Cache', 'Loot Pile', 'Bone Cache'],
+      towncenter: ['Lodge Hall', 'Bandit War Camp', 'Grubkin Den', 'Necropolis'],
+      house: ['Eldervale Cottage', 'Bandit Hovel', 'Grubkin Burrow', 'Crypt'],
+      farm: ['Eldervale Farm', 'Bandit Crop Patch', 'Grubkin Mushroom Plot', 'Grave Moss Plot'],
+      storehouse: ['Lodge Storehouse', 'Supply Cache', 'Loot Pile', 'Bone Cache'],
       barracks: ['Training Yard', 'Bandit Drill Camp', 'Brawl Pit', 'Grave Muster'],
-      blacksmith: ['Guild Blacksmith', 'Bandit Forge', 'Hobbe Smithy', 'Bone Furnace'],
-      shipyard: ['Albion Dock', 'Bandit Jetty', 'Hobbe Wharf', 'Bone Quay'],
-      tradehub: ['Bowerstone Trade Hub', 'Bandit Market Camp', 'Hobbe Swap Burrow', 'Crypt Exchange'],
-      guardhub: ['Knothole Guard Hub', 'Bandit Fort Camp', 'Hobbe Guard Warren', 'Grave Bastion'],
-      willhub: ['Brightwood Will Hub', 'Bandit Hex Circle', 'Hobbe Totem Den', 'Wraith Spire'],
-      guildspire: ['Heroes Guild Spire', 'Bandit King Trophy', 'Hobbe Idol Heap', 'Bone Crown Spire'],
-      obelisk: ['Old Kingdom Obelisk', 'Bandit War Monument', 'Hobbe Standing Stone', 'Necromancer Obelisk'],
-      palisade: ['Palisade Wall', 'Bandit Stakewall', 'Hobbe Bramblewall', 'Bone Palisade'],
-      stonewall: ['Stone Wall', 'Bandit Rampart', 'Hobbe Rockwall', 'Grave Rampart'],
-      fortwall: ['Fortified Wall', 'Bandit Bastion Wall', 'Hobbe Warwall', 'Wraith Rampart'],
-      gate: ['Guild Gate', 'Bandit Gate', 'Hobbe Gate', 'Bone Gate'],
-      watchtower: ['Watch Tower', 'Bandit Lookout', 'Hobbe Perch', 'Grave Spire'],
-      guardtower: ['Guard Tower', 'Bandit Bastion', 'Hobbe Stronghold', 'Wraith Tower'],
-      market: ['Bowerstone Market', 'Bandit Fence Stall', 'Hobbe Swap Pile', 'Bone Bazaar'],
+      blacksmith: ['Lodge Blacksmith', 'Bandit Forge', 'Grubkin Smithy', 'Bone Furnace'],
+      shipyard: ['Eldervale Dock', 'Bandit Jetty', 'Grubkin Wharf', 'Bone Quay'],
+      tradehub: ['Bridgemere Trade Hub', 'Bandit Market Camp', 'Grubkin Swap Burrow', 'Crypt Exchange'],
+      guardhub: ['Thornhollow Guard Hub', 'Bandit Fort Camp', 'Grubkin Guard Warren', 'Grave Bastion'],
+      willhub: ['Sunglade Aether Hub', 'Bandit Hex Circle', 'Grubkin Totem Den', 'Wraith Spire'],
+      guildspire: ['Wardens\' Lodge Spire', 'Bandit King Trophy', 'Grubkin Idol Heap', 'Bone Crown Spire'],
+      obelisk: ['Elder Kingdom Obelisk', 'Bandit War Monument', 'Grubkin Standing Stone', 'Necromancer Obelisk'],
+      palisade: ['Palisade Wall', 'Bandit Stakewall', 'Grubkin Bramblewall', 'Bone Palisade'],
+      stonewall: ['Stone Wall', 'Bandit Rampart', 'Grubkin Rockwall', 'Grave Rampart'],
+      fortwall: ['Fortified Wall', 'Bandit Bastion Wall', 'Grubkin Warwall', 'Wraith Rampart'],
+      gate: ['Lodge Gate', 'Bandit Gate', 'Grubkin Gate', 'Bone Gate'],
+      watchtower: ['Watch Tower', 'Bandit Lookout', 'Grubkin Perch', 'Grave Spire'],
+      guardtower: ['Guard Tower', 'Bandit Bastion', 'Grubkin Stronghold', 'Wraith Tower'],
+      market: ['Bridgemere Market', 'Bandit Fence Stall', 'Grubkin Swap Pile', 'Bone Bazaar'],
     },
   },
 };
+// `flavor` is the stable worldgen/render key for a preset's landscape character.
+// Branch on it, never on `name` — `name` is a display string and is free to change.
+// Values: woodland | marsh | downs | vale | alpine.
 const MAP_PRESETS = {
   greatwood: {
-    name: 'Greatwood Crossing',
+    name: 'Heartwood Crossing',
+    flavor: 'woodland',
     colors: ['#4f7f3e', '#5f9148', '#6c9a53', '#3f6e36'],
     terrain: { temperature:.58, moisture:.58, forest:.36, rock:.12, snow:.02 },
     base: { food: 6, wood: 18, gold: 5, stone:4, iron:3 },
@@ -1346,7 +1353,8 @@ const MAP_PRESETS = {
     ],
   },
   darkwood: {
-    name: 'Darkwood Marsh',
+    name: 'Mirkfen Marsh',
+    flavor: 'marsh',
     colors: ['#345b36', '#42633d', '#4f7042', '#293f2d'],
     terrain: { temperature:.5, moisture:.82, forest:.58, rock:.08, snow:.01 },
     base: { food: 5, wood: 24, gold: 4, stone:4, iron:3 },
@@ -1358,7 +1366,8 @@ const MAP_PRESETS = {
     ],
   },
   barrowfields: {
-    name: 'Barrow Fields',
+    name: 'Cairn Fields',
+    flavor: 'downs',
     colors: ['#6d7c47', '#7f8850', '#8d925c', '#526539'],
     terrain: { temperature:.56, moisture:.38, forest:.18, rock:.2, snow:.01 },
     base: { food: 8, wood: 12, gold: 7, stone:5, iron:4 },
@@ -1370,7 +1379,8 @@ const MAP_PRESETS = {
     ],
   },
   brightwood: {
-    name: 'Brightwood Vale',
+    name: 'Sunglade Vale',
+    flavor: 'vale',
     colors: ['#557a3f', '#6f8d4d', '#7d9659', '#3e663c'],
     terrain: { temperature:.66, moisture:.64, forest:.43, rock:.1, snow:0 },
     base: { food: 7, wood: 20, gold: 5, stone:5, iron:4 },
@@ -1382,7 +1392,8 @@ const MAP_PRESETS = {
     ],
   },
   snowspire: {
-    name: 'Snowspire Pass',
+    name: 'Frostcrag Pass',
+    flavor: 'alpine',
     colors: ['#6f7f74', '#889486', '#98a191', '#56685f'],
     terrain: { temperature:.16, moisture:.5, forest:.24, rock:.34, snow:.58 },
     base: { food: 5, wood: 14, gold: 8, stone:8, iron:6 },
@@ -1484,28 +1495,28 @@ const RESOURCE_PRESETS = {
   rich:     { label:'Rich',     nodes:1.85,amount:1.55,wilds:1.7, decor:1.35 },
 };
 const START_PRESETS = {
-  standard: { label:'Standard Guild party' },
-  refugees: { label:'Oakvale refugees', food:120, wood:80, villagers:2 },
+  standard: { label:'Standard Lodge party' },
+  refugees: { label:'Elmshire refugees', food:120, wood:80, villagers:2 },
   patron: { label:'Trader patronage', wood:140, gold:220, reveal:true },
-  patrol: { label:'Guild patrol', food:90, gold:90, guards:2 },
+  patrol: { label:'Lodge patrol', food:90, gold:90, guards:2 },
 };
 const SITE_BLUEPRINTS = [
-  { type:'demonDoor', name:'Rose Cottage Demon Door', tx:13, ty:17,
+  { type:'demonDoor', name:'Thistle Cottage Riddle Gate', tx:13, ty:17,
     quest:'A heartbroken stone face asks for a simple gift before it opens.', cost:{food:60}, reward:{wood:160,gold:70}, rewardText:'hidden cottage stores' },
-  { type:'demonDoor', name:'Knothole Glade Demon Door', tx:36, ty:33,
+  { type:'demonDoor', name:'Thornhollow Glade Riddle Gate', tx:36, ty:33,
     quest:'The bearded stone face wants proof that your archers can strike true.', requires:{unit:'archer'}, reward:{forge:'weapons', gold:110}, rewardText:'a sealed weapon cache' },
-  { type:'demonDoor', name:'Guild Door of Bright Paths', tx:21, ty:9,
-    quest:'The old Guild face will open once your settlement earns a formal charter.', requires:{age:1}, reward:{reveal:true, food:120, wood:120}, rewardText:'old Guild route markers' },
+  { type:'demonDoor', name:'Riddle Gate of Bright Paths', tx:21, ty:9,
+    quest:'The old Lodge face will open once your settlement earns a formal charter.', requires:{age:1}, reward:{reveal:true, food:120, wood:120}, rewardText:'old Lodge route markers' },
   { type:'traderCamp', name:'Lost Trader Camp', tx:29, ty:21,
     quest:'A moustached trader caravan is pinned down and needs an escort patrol nearby.', requires:{fighters:2}, reward:{food:120,gold:130}, rewardText:'trader gratitude' },
   { type:'oldForge', name:'Abandoned Blacksmith', tx:9, ty:30,
-    quest:'A cold forge still holds a readable Albion pattern plate.', requires:{age:1}, reward:{forge:'armor', wood:120}, rewardText:'salvaged armor plans' },
-  { type:'schoolhouse', name:'Bowerstone School Shed', tx:18, ty:37,
+    quest:'A cold forge still holds a readable Eldervale pattern plate.', requires:{age:1}, reward:{forge:'armor', wood:120}, rewardText:'salvaged armor plans' },
+  { type:'schoolhouse', name:'Bridgemere School Shed', tx:18, ty:37,
     quest:'A poor shed-school needs lumber and food before the children scatter.', cost:{wood:70,food:40}, reward:{popCap:5,gold:80}, rewardText:'volunteer families' },
   { type:'tavern', name:'Old Tavern Cellar', tx:39, ty:13,
     quest:'A boarded tavern cellar has supplies, chickens, and a locked strongbox.', reward:{food:140,gold:90}, rewardText:'cellar provisions' },
-  { type:'ruinShrine', name:'Old Kingdom Shrine', tx:25, ty:40,
-    quest:'A cracked shrine reacts to a nearby Guild party and releases stored Will-light.', requires:{fighters:1}, reward:{wood:90,gold:160,reveal:true}, rewardText:'Old Kingdom tribute' },
+  { type:'ruinShrine', name:'Elder Kingdom Shrine', tx:25, ty:40,
+    quest:'A cracked shrine reacts to a nearby Lodge party and releases stored Aether-light.', requires:{fighters:1}, reward:{wood:90,gold:160,reveal:true}, rewardText:'Elder Kingdom tribute' },
 ];
 const NODE_NAMES = THEME.NODE_NAMES;
 const FACTION = THEME.FACTIONS;
@@ -1902,7 +1913,7 @@ function makePlayer(id) {
     lossLog: [],                // timestamps of buildings lost — feeds diplomacy heuristics
     fallenHero: null,           // {level, xp} while the hero is dead and awaiting revival
     research: {},                // techId -> true once completed
-    will: 0, willCooldowns: {},  // global Will power pool, fed by Will Hubs
+    will: 0, willCooldowns: {},  // global Aether power pool, fed by Aether Hubs
     societyPriority: 'balanced',
     resourceBias: { food:1, wood:1, gold:1, stone:1, iron:1, fish:1 },
     tally: {
@@ -2019,7 +2030,7 @@ function newGame(options, fixedDimensions) {
     relations, diplo, diploVersion: 0, diplomacyOpen: false,
     spellTarget: null,                   // {casterId, spellId} or {playerCast, powerId} while aiming
     creepCamps: [],
-    zones: [],                           // ticking ground-effect areas (Will powers)
+    zones: [],                           // ticking ground-effect areas (Aether powers)
     camera: { x: 0, y: 0, zoom: defaultWorldZoom(), targetZoom: defaultWorldZoom(), panVX: 0, panVY: 0, zoomAnchor: null },
     selection: [], selectionVersion: 0,
     controlGroups: {},
@@ -2107,8 +2118,8 @@ function terrainVisualFamilyAt(tx, ty) {
   else if (moisture < .34 || (climate.moisture || 1) < .43) regional = 'dry';
   else if ((climate.forest || 0) >= .3 || moisture > .58) regional = 'forest';
 
-  // Extreme regional climate changes the vegetation itself: a Snowspire forest
-  // is snow-laden, and a Darkwood forest is the sparse marsh variant. Explicit
+  // Extreme regional climate changes the vegetation itself: a Frostcrag forest
+  // is snow-laden, and a Mirkfen forest is the sparse marsh variant. Explicit
   // snow/marsh/sand tiles still win when they form a local pocket elsewhere.
   if (direct === 'snow' || direct === 'marsh' || direct === 'dry') return direct;
   if (regional === 'snow' || regional === 'marsh') return regional;
@@ -2607,9 +2618,9 @@ function placeProceduralCluster(c, i, reserved) {
 
 function placeProceduralWilds(preset, reserved) {
   const extras = Math.round((5 + game.options.enemyFactions * 2) * currentResourceTuning().wilds);
-  const weights = preset.name.indexOf('Marsh') >= 0
+  const weights = preset.flavor === 'marsh'
     ? ['wood', 'wood', 'food', 'gold', 'stone']
-    : preset.name.indexOf('Barrow') >= 0
+    : preset.flavor === 'downs'
       ? ['food', 'gold', 'gold', 'wood', 'iron']
       : ['wood', 'food', 'wood', 'gold', 'stone', 'iron'];
   for (let i = 0; i < extras; i++) {
@@ -2782,19 +2793,19 @@ function makeMapDecor(tcs, preset) {
   ], 9));
 
   const streamTune = streamDensityForOptions(game.options);
-  const streamCount = Math.max(0, Math.round((preset.name.indexOf('Marsh') >= 0 ? 2 : 1) * streamTune.mult * Math.sqrt(areaScale)));
+  const streamCount = Math.max(0, Math.round((preset.flavor === 'marsh' ? 2 : 1) * streamTune.mult * Math.sqrt(areaScale)));
   for (let i = 0; i < streamCount; i++) {
     const stream = makeWavyPath([
       { x: T * scaleMapX(3 + hash01(seed, i, 83) * 4), y: T * scaleMapY(11 + hash01(seed, i, 89) * 22) },
       { x: T * scaleMapX(22 + hash01(seed, i, 97) * 5), y: T * scaleMapY(16 + hash01(seed, i, 101) * 18) },
       { x: T * scaleMapX(41 + hash01(seed, i, 103) * 4), y: T * scaleMapY(12 + hash01(seed, i, 107) * 22) },
     ], 20 + i);
-    stream.width = T * (preset.name.indexOf('Marsh') >= 0 ? 0.82 : 0.68) * (i === 0 ? 1.08 : 0.92) * clamp(0.8 + streamTune.mult * 0.2, 0.88, 1.38);
+    stream.width = T * (preset.flavor === 'marsh' ? 0.82 : 0.68) * (i === 0 ? 1.08 : 0.92) * clamp(0.8 + streamTune.mult * 0.2, 0.88, 1.38);
     decor.streams.push(stream);
   }
   const lakeTune = lakePrevalenceForOptions(game.options);
   const lakeSize = lakeSizeForOptions(game.options);
-  const pondCount = Math.max(1, Math.round((preset.name.indexOf('Marsh') >= 0 ? 5 : 2 + game.options.enemyFactions) * resTune.decor * lakeTune.mult * areaScale));
+  const pondCount = Math.max(1, Math.round((preset.flavor === 'marsh' ? 5 : 2 + game.options.enemyFactions) * resTune.decor * lakeTune.mult * areaScale));
   const largePondCount = Math.max(1, Math.round(pondCount * (lakeTune.largeShare || .34)));
   for (let i = 0; i < pondCount; i++) {
     const large = i < largePondCount;
@@ -3728,7 +3739,7 @@ function destroyEntity(e) {
     game.effects.push({ type: 'fade', x: e.x, y: e.y, r: e.radius + 4, t: 0, ttl: 0.7, owner: e.owner });
     if (CONFIG.UNITS[e.type].hero && game.players[e.owner]) {
       game.players[e.owner].fallenHero = { level: e.level, xp: e.xp };
-      if (e.owner === 0) notify('Your Hero has fallen! Revive at the Guild Hall.', 'bad');
+      if (e.owner === 0) notify('Your Warden has fallen! Revive at the Lodge Hall.', 'bad');
     }
   } else if (e.kind === 'building') {
     if (game.players[e.owner] && game.players[e.owner].tally) game.players[e.owner].tally.buildingsLost++;
@@ -4221,7 +4232,7 @@ function updateRegen(dt) {
   }
 }
 
-// Will pool only exists once a player has a complete Will Hub; scales with hub count.
+// Aether pool only exists once a player has a complete Aether Hub; scales with hub count.
 function updateWill(dt) {
   const W = CONFIG.WILL;
   for (let owner = 0; owner < game.players.length; owner++) {
@@ -4233,7 +4244,7 @@ function updateWill(dt) {
     p.will = Math.min(maxWill, p.will + regen * dt);
   }
 }
-// Ticking ground-effect areas spawned by global Will powers.
+// Ticking ground-effect areas spawned by global Aether powers.
 function updateZones(dt) {
   for (let i = game.zones.length - 1; i >= 0; i--) {
     const z = game.zones[i];
@@ -4262,11 +4273,11 @@ function canCastWillPower(owner, powerId) {
   const p = game.players[owner];
   if (!def) return { ok: false, reason: 'Unknown power' };
   if (!game.buildings.some(b => !b.dead && b.complete && b.owner === owner && b.type === 'willhub')) {
-    return { ok: false, reason: 'Requires a complete Will Hub' };
+    return { ok: false, reason: 'Requires a complete Aether Hub' };
   }
   const cdEnd = p.willCooldowns[powerId] || 0;
   if (game.time < cdEnd) return { ok: false, reason: 'Recharging (' + Math.ceil(cdEnd - game.time) + 's)' };
-  if (p.will < def.will) return { ok: false, reason: 'Not enough Will' };
+  if (p.will < def.will) return { ok: false, reason: 'Not enough Aether' };
   return { ok: true };
 }
 function castWillPower(owner, powerId, x, y) {
@@ -4955,7 +4966,7 @@ function scaledCost(cost, fraction) {
 }
 function demolishBuilding(b) {
   if (!b || b.dead || b.kind !== 'building' || b.owner !== 0) return { ok:false, reason:'Select one of your buildings' };
-  if (b.type === 'towncenter' && b.complete) return { ok:false, reason:'The Guild Hall cannot be demolished' };
+  if (b.type === 'towncenter' && b.complete) return { ok:false, reason:'The Lodge Hall cannot be demolished' };
   const def = CONFIG.BUILDINGS[b.type];
   const refund = b.complete ? scaledCost(def.cost, 0.3) : scaledCost(def.cost, 1);
   refundCost(game.players[b.owner], refund);
@@ -5649,7 +5660,7 @@ function resourceNeedOrder(owner) {
 
 function autoAssignColonyNeeds(villagers) {
   villagers = villagers.filter(v => v && !v.dead && v.owner === 0 && v.type === 'villager');
-  if (!villagers.length) return { ok: false, reason: 'Select Guild Apprentices first' };
+  if (!villagers.length) return { ok: false, reason: 'Select Lodge Apprentices first' };
   const p = game.players[0];
   let free = villagers.slice();
   const incomplete = findNearestIncompleteBuilding(0, free[0].x, free[0].y);
@@ -6573,13 +6584,13 @@ function siteNeedText(site) {
   if (req.age != null) parts.push('Reach ' + ageDisplayName(req.age));
   if (req.unit) parts.push('Bring a ' + unitDisplayName(req.unit, 0));
   if (req.fighters) parts.push('Bring ' + req.fighters + ' fighter' + (req.fighters === 1 ? '' : 's'));
-  return parts.join(' · ') || 'Bring any Guild unit nearby';
+  return parts.join(' · ') || 'Bring any Lodge unit nearby';
 }
 
 function canCompleteSite(site) {
   if (!site || site.completed) return { ok:false, reason:'This side quest is complete' };
   const nearby = nearbyFriendlyUnitsForSite(site);
-  if (!nearby.length) return { ok:false, reason:'Move a Guild unit to the site first' };
+  if (!nearby.length) return { ok:false, reason:'Move a Lodge unit to the site first' };
   const p = game.players[0];
   const lack = lackText(p, site.cost);
   if (lack) return { ok:false, reason:lack };
@@ -7649,7 +7660,7 @@ function buildTerrainBackdrop() {
       c.lineWidth = 3 * s;
       c.beginPath(); c.moveTo(x, y + T * 0.22 * s); c.lineTo(x + T * 0.03 * s, y - T * 0.12 * s); c.stroke();
       if (biome === 'snow') {
-        // Snowspire groves become layered evergreens with readable snow caps.
+        // Frostcrag groves become layered evergreens with readable snow caps.
         for (let layer = 0; layer < 3; layer++) {
           const cy = y - T * (.12 + layer * .1) * s;
           const half = T * (.25 - layer * .045) * s;
@@ -7658,7 +7669,7 @@ function buildTerrainBackdrop() {
           c.beginPath(); c.moveTo(x-half*.78,cy+T*.07*s); c.quadraticCurveTo(x,cy+T*.13*s,x+half*.78,cy+T*.07*s); c.stroke();
         }
       } else if (biome === 'dry' || biome === 'marsh') {
-        // Barrow Fields and Darkwood use sparse, crooked silhouettes instead of
+        // Cairn Fields and Mirkfen use sparse, crooked silhouettes instead of
         // conspicuous summer-green canopies.
         c.strokeStyle = biome === 'marsh' ? 'rgba(45,49,34,.82)' : 'rgba(101,72,38,.82)';
         c.lineWidth = Math.max(1.2, 2.1*s);
@@ -10546,7 +10557,7 @@ function buildSingleSelection(e) {
   });
   if (e.kind === 'unit' && e.maxMana) {
     const manaEl = $('sel-mana');
-    uiUpdaters.push(() => { if (!e.dead) manaEl.textContent = 'Will ' + Math.floor(e.mana) + ' / ' + e.maxMana; });
+    uiUpdaters.push(() => { if (!e.dead) manaEl.textContent = 'Aether ' + Math.floor(e.mana) + ' / ' + e.maxMana; });
   }
   if (e.kind === 'unit' && e.type === 'villager') {
     const carryEl = $('sel-carry');
@@ -10590,7 +10601,7 @@ function buildSingleSelection(e) {
       if (e.dead) return;
       const p = game.players[e.owner];
       const maxWill = W.BASE_MAX + W.PER_HUB_MAX * hubs();
-      willEl.textContent = 'Will ' + Math.floor(p.will) + ' / ' + maxWill;
+      willEl.textContent = 'Aether ' + Math.floor(p.will) + ' / ' + maxWill;
     });
   }
   if (e.kind === 'building' && isOwn) {
@@ -10615,7 +10626,7 @@ function buildSiteSelection(site) {
   const nearby = nearbyFriendlyUnitsForSite(site).length;
   DOM.selPanel.innerHTML =
     '<div class="sel-name">' + site.name + '</div>' +
-    '<div class="statline"><b>' + status + '</b> · Nearby Guild units <b id="sel-site-nearby">' + nearby + '</b></div>' +
+    '<div class="statline"><b>' + status + '</b> · Nearby Lodge units <b id="sel-site-nearby">' + nearby + '</b></div>' +
     '<div class="statline">' + site.quest + '</div>' +
     '<div class="statline">Need: <b>' + siteNeedText(site) + '</b></div>' +
     '<div class="statline">Reward: <b>' + siteRewardText(site) + '</b></div>';
@@ -10625,7 +10636,7 @@ function buildSiteSelection(site) {
 }
 
 function buildSiteButtons(site) {
-  makeBtn(site.completed ? 'Quest Complete' : (site.type === 'demonDoor' ? 'Open Door' : 'Resolve Quest'), site.cost,
+  makeBtn(site.completed ? 'Quest Complete' : (site.type === 'demonDoor' ? 'Open Gate' : 'Resolve Quest'), site.cost,
     () => canCompleteSite(site),
     () => completeSite(site));
 }
@@ -10747,7 +10758,7 @@ function unitActionDescription(type, owner) {
   if (type === 'villager') traits.push('Gathers resources and constructs buildings');
   else if (u.healer) traits.push('Heals nearby friendly units');
   else if (u.bonusVsBuildings) traits.push(u.bonusVsBuildings + 'x damage against buildings');
-  else if (u.magic) traits.push('Ranged Will user with spells');
+  else if (u.magic) traits.push('Ranged Aether user with spells');
   else if (u.naval) traits.push('Water transport with capacity ' + (u.capacity || 0));
   else if (u.range > 2) traits.push('Ranged combat unit');
   else traits.push('Close-combat unit');
@@ -11049,7 +11060,7 @@ function buildBuildingButtons(b) {
 function buildWillhubButtons(b) {
   for (const powerId in CONFIG.WILL.POWERS) {
     const def = CONFIG.WILL.POWERS[powerId];
-    makeBtn('Cast ' + def.name + ' · ' + def.will + ' Will', null,
+    makeBtn('Cast ' + def.name + ' · ' + def.will + ' Aether', null,
       () => canCastWillPower(b.owner, powerId),
       () => { enterWillTargeting(powerId); });
   }
@@ -11103,7 +11114,7 @@ function buildVillagerButtons() {
   makeBtn(allAuto ? 'Stop Auto Needs' : 'Auto Needs', null,
     () => {
       const vills = game.selection.map(getAlive).filter(e => e && e.kind === 'unit' && e.owner === 0 && e.type === 'villager');
-      return vills.length ? { ok: true } : { ok: false, reason: 'Select Guild Apprentices first' };
+      return vills.length ? { ok: true } : { ok: false, reason: 'Select Lodge Apprentices first' };
     },
     () => {
       const vills = game.selection.map(getAlive).filter(e => e && e.kind === 'unit' && e.owner === 0 && e.type === 'villager');
@@ -11136,11 +11147,11 @@ function buildVillagerButtons() {
 function buildCasterButtons(u) {
   for (const spellId of u.knownSpells) {
     const def = CONFIG.SPELLS[spellId];
-    makeBtn('Cast ' + def.name + ' · ' + def.mana + ' Will', null,
+    makeBtn('Cast ' + def.name + ' · ' + def.mana + ' Aether', null,
       () => {
         const cdLeft = (u.spellCooldowns[spellId] || 0) - game.time;
         if (cdLeft > 0) return { ok: false, reason: 'Recharging (' + Math.ceil(cdLeft) + 's)' };
-        if (u.mana < def.mana) return { ok: false, reason: 'Not enough Will' };
+        if (u.mana < def.mana) return { ok: false, reason: 'Not enough Aether' };
         return { ok: true };
       },
       () => { enterSpellTargeting(u.id, spellId); });
@@ -11149,54 +11160,54 @@ function buildCasterButtons(u) {
 
 function buildMilitaryButtons() {
   makeBtn('Hold Position', null,
-    () => selectedMilitaryUnits().length ? { ok: true } : { ok: false, reason: 'Select Guild fighters first' },
+    () => selectedMilitaryUnits().length ? { ok: true } : { ok: false, reason: 'Select Lodge fighters first' },
     () => {
       const units = selectedMilitaryUnits();
       const changed = setHoldFor(units);
       if (changed) notify('Hold position set for ' + changed + ' fighter' + (changed === 1 ? '' : 's'), 'good');
     });
   makeBtn('Guard', null,
-    () => selectedMilitaryUnits().length ? { ok: true } : { ok: false, reason: 'Select Guild fighters first' },
+    () => selectedMilitaryUnits().length ? { ok: true } : { ok: false, reason: 'Select Lodge fighters first' },
     () => {
       const units = selectedMilitaryUnits();
       const changed = setGuardFor(units);
       if (changed) notify('Guard post set for ' + changed + ' fighter' + (changed === 1 ? '' : 's'), 'good');
     });
   makeBtn('Patrol', null,
-    () => selectedMilitaryUnits().length ? { ok: true } : { ok: false, reason: 'Select Guild fighters first' },
+    () => selectedMilitaryUnits().length ? { ok: true } : { ok: false, reason: 'Select Lodge fighters first' },
     () => {
       const units = selectedMilitaryUnits();
       const changed = setPatrolFor(units);
       if (changed) notify('Patrol route set for ' + changed + ' fighter' + (changed === 1 ? '' : 's'), 'good');
     });
   makeBtn('Auto Patrol', null,
-    () => selectedMilitaryUnits().length ? { ok: true } : { ok: false, reason: 'Select Guild fighters first' },
+    () => selectedMilitaryUnits().length ? { ok: true } : { ok: false, reason: 'Select Lodge fighters first' },
     () => {
       const units = selectedMilitaryUnits();
       const changed = setAutoPatrolFor(units);
       if (changed) notify('Auto patrol set for ' + changed + ' fighter' + (changed === 1 ? '' : 's'), 'good');
     });
   makeBtn('Hunt', null,
-    () => selectedMilitaryUnits().length ? { ok: true } : { ok: false, reason: 'Select Guild fighters first' },
+    () => selectedMilitaryUnits().length ? { ok: true } : { ok: false, reason: 'Select Lodge fighters first' },
     () => {
       const units = selectedMilitaryUnits();
       const changed = setHuntFor(units);
       if (changed) notify('Hunt behavior set for ' + changed + ' fighter' + (changed === 1 ? '' : 's'), 'good');
     });
   makeBtn('Focus Weakest', null,
-    () => selectedMilitaryUnits().length ? { ok: true } : { ok: false, reason: 'Select Guild fighters first' },
+    () => selectedMilitaryUnits().length ? { ok: true } : { ok: false, reason: 'Select Lodge fighters first' },
     () => {
       const changed = focusWeakestFor(selectedMilitaryUnits());
       notify(changed ? 'Focused fire on weakest nearby enemy' : 'No nearby enemy to focus', changed ? 'good' : 'warn');
     });
   makeBtn('Fall Back', null,
-    () => selectedMilitaryUnits().length ? { ok: true } : { ok: false, reason: 'Select Guild fighters first' },
+    () => selectedMilitaryUnits().length ? { ok: true } : { ok: false, reason: 'Select Lodge fighters first' },
     () => {
       const changed = fallBackFor(selectedMilitaryUnits());
       notify(changed ? 'Fighters falling back' : 'No safe fallback point found', changed ? 'info' : 'warn');
     });
   makeBtn('Stand Down', null,
-    () => selectedMilitaryUnits().length ? { ok: true } : { ok: false, reason: 'Select Guild fighters first' },
+    () => selectedMilitaryUnits().length ? { ok: true } : { ok: false, reason: 'Select Lodge fighters first' },
     () => {
       const changed = setPassiveFor(selectedMilitaryUnits());
       if (changed) notify('Stand Down set for ' + changed + ' fighter' + (changed === 1 ? '' : 's'), 'info');
@@ -11749,8 +11760,8 @@ function endGame(result) {
     : 0;
   DOM.endSub.textContent = result === 'victory'
     ? 'The hostile strongholds have fallen after ' + formatTime(game.time) + '.'
-      + (allyCount ? ' ' + allyCount + ' allied faction' + (allyCount === 1 ? '' : 's') + ' stand with Albion.' : ' Albion holds the field.')
-    : 'The Guild Hall was destroyed after ' + formatTime(game.time) + '. Rebuild and try again!';
+      + (allyCount ? ' ' + allyCount + ' allied faction' + (allyCount === 1 ? '' : 's') + ' stand with Eldervale.' : ' Eldervale holds the field.')
+    : 'The Lodge Hall was destroyed after ' + formatTime(game.time) + '. Rebuild and try again!';
   DOM.screenEnd.classList.remove('hidden');
 }
 

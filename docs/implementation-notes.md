@@ -9,7 +9,7 @@ This pass extends the single-file RTS across building lifecycle controls, water 
 - Own buildings expose cancel/demolish controls with armed confirmation; foundations refund full cost, completed buildings refund 30%.
 - Same-type building selections can batch upgrade, and completed wall segments can convert in place to gates or compact watch towers while preserving HP fraction.
 - Farms are regular buildings with linked renewable food nodes, so villager gathering, carrying, drop-off, stats, and auto-needs all reuse the existing resource pipeline.
-- Guild Hall priority presets now drive player `resourceNeedOrder`, with per-resource low/normal/high bias chips.
+- Lodge Hall priority presets now drive player `resourceNeedOrder`, with per-resource low/normal/high bias chips.
 
 ### Map, Rendering, And Controls
 - Pond placement is deterministic rejection sampling that avoids roads, town-center clearings, and tiny one-tile lakes.
@@ -52,7 +52,7 @@ Eight-phase pass adding fortifications, diplomacy, progression, magic, and a dee
 - Units gain XP from kills and level up (Heroes to 8, everyone else to 5) with a multiplicative HP/damage bonus, rank-pip rendering, and out-of-combat regen (faster near a friendly building, or from a Temple Acolyte's aura even mid-fight).
 - Villagers repair damaged complete buildings through the existing build state machine, paying a fraction of build cost.
 - Research was pure config before this pass — nothing tracked or enforced it. It's now a real per-player system with its own production-queue kind. **Barracks trains militia/spearman/archer/knight/mage but their unlock research previously only existed on guardhub/willhub**, buildings the AI never constructs; barracks now carries its own copy of every unlock it needs.
-- A 4th Age (Archon's Legacy) and four new units (Battering Ram, Guild Ballista, Temple Acolyte, Guild Outrider) round out the tech tree, gated by new research entries.
+- A 4th Age (Sovereign's Legacy) and four new units (Battering Ram, Lodge Ballista, Temple Acolyte, Lodge Outrider) round out the tech tree, gated by new research entries.
 
 ### Diplomacy
 - A per-pair relations matrix (war/peace/ally) starts everyone at war, matching prior behavior exactly until a relation changes.
@@ -63,7 +63,7 @@ Eight-phase pass adding fortifications, diplomacy, progression, magic, and a dee
 ### Magic
 - Casters get a mana pool with passive regen; spells are cast via the same click-to-target flow as building placement (`game.spellTarget`).
 - Fireball is a point-targeted, non-homing projectile — the projectile pipeline was extended to deal area damage on arrival even without a primary unit target.
-- The Will Hub grants a per-player Will pool (scales with hub count) for global, map-anywhere powers (Firestorm, Guild Blessing), resolved through a new ticking `game.zones` list.
+- The Aether Hub grants a per-player Aether pool (scales with hub count) for global, map-anywhere powers (Firestorm, Lodge Blessing), resolved through a new ticking `game.zones` list.
 
 ### Sentinel-Owner Safety (Neutral Creeps)
 - Wildlife camps use a sentinel owner outside the real player range. `unitMaxHp`/`unitDamageValue` and every `FACTION[owner]` rendering/color lookup now guard against a missing player or faction-palette entry (`factionStyle()` falls back to a dedicated `CREEP_STYLE`).
@@ -101,7 +101,7 @@ This checkpoint added framework support, gameplay systems, screenshots, and docu
 
 ## NPC Equipment
 
-- Guild Apprentices use a white/gray hooded robe silhouette with blue accents and brown boots.
+- Lodge Apprentices use a white/gray hooded robe silhouette with blue accents and brown boots.
 - The Blacksmith unlocks weapon and armor forging.
 - Weapon upgrades increase military damage.
 - Armor upgrades increase military max HP and update existing units.

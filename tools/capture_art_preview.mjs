@@ -6,7 +6,7 @@ import { pathToFileURL } from 'node:url';
 const root = path.resolve(import.meta.dirname, '..');
 const edge = 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe';
 const profile = path.join(root, '.edge-art-preview');
-const output = path.join(root, 'docs', 'screenshots', 'fable-biome-animation-preview.png');
+const output = path.join(root, 'docs', 'screenshots', 'eldervale-biome-animation-preview.png');
 const port = 9237;
 
 fs.mkdirSync(profile, { recursive: true });

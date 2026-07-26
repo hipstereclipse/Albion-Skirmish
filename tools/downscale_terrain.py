@@ -171,7 +171,7 @@ def targets() -> list[tuple[Path, int, int]]:
         (path, MATERIAL_SIZE, MATERIAL_BUDGET)
         for path in sorted(MATERIALS.glob("hex-*.png"))
     ]
-    plan.append((ART / "albion-meadow-v2.png", MATERIAL_SIZE, MATERIAL_BUDGET))
+    plan.append((ART / "eldervale-meadow-v2.png", MATERIAL_SIZE, MATERIAL_BUDGET))
     plan += [
         (path, TRANSITION_SIZE, TRANSITION_BUDGET)
         for path in sorted(TRANSITIONS.glob("*.png"))

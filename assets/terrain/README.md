@@ -1,6 +1,6 @@
 # Hex Terrain Textures
 
-This directory contains high-resolution terrain sources for the procedural map renderer. Every PNG is 1254 x 1254 pixels and is intended to be sampled at varying offsets and rotations, then clipped by the runtime into overlapping hexagonal cells.
+This directory contains the terrain sources for the procedural map renderer. Materials are 384 x 384 pixels and transitions are 512 x 512 (re-exported from the 1254 x 1254 originals by `tools/downscale_terrain.py`). Each is intended to be sampled at varying offsets and rotations, then clipped by the runtime into overlapping hexagonal cells.
 
 ## Materials
 
@@ -37,4 +37,4 @@ The hexes are a rendering tessellation, not a replacement for the simulation gri
 
 ## Provenance
 
-These terrain assets were generated with the built-in image-generation workflow, using the existing Albion meadow artwork as the visual style reference. They are project-local generated assets rather than third-party texture files.
+These terrain assets were generated with the built-in image-generation workflow, using this project's own meadow artwork as the visual style reference. They are project-local generated assets rather than third-party texture files.

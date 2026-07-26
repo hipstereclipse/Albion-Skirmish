@@ -1,6 +1,6 @@
-# Albion Skirmish
+# Eldervale Skirmish
 
-Albion Skirmish is a browser-playable RTS prototype inspired by Fable: The Lost Chapters flavor and Age of Empires-style controls. Gather resources, build a fortified Guild settlement, research your way through four Ages, train a roster of fighters and a leveling Hero, cast Will magic, manage war/peace/alliance with up to three rival factions, and destroy or outlast every hostile stronghold.
+Eldervale Skirmish is a browser-playable, original fantasy RTS prototype with classic RTS controls. Gather resources, build a fortified Lodge settlement, research your way through four Ages, train a roster of fighters and a leveling Warden, cast Aether magic, manage war/peace/alliance with up to three rival factions, and destroy or outlast every hostile stronghold.
 
 ![Start menu](docs/screenshots/start-menu.png)
 
@@ -25,7 +25,7 @@ Open [index.html](index.html) in a modern browser. The game is self-contained an
 - Expanded pause menu with settings, statistics, diplomacy, and four local save/load slots.
 - Canvas-native water and atmosphere effects with no CDN dependency — the game runs entirely offline from a static directory.
 - Larger 72 x 72 tile battlefield with generated streams, constrained ponds, span-rendered bridges, fish shoals, and water-aware pathfinding.
-- Land units cannot cross deep water except at bridges; larger bodies of water require ferries from an Albion Dock.
+- Land units cannot cross deep water except at bridges; larger bodies of water require ferries from an Eldervale Dock.
 - Production buildings show compact square queue tiles with progress and click-to-cancel refunds.
 - Touch controls support select-mode marquee, command-mode pan, and two-finger pan/pinch zoom.
 - Bleed-safe painted NPC atlases give every gameplay unit real idle, two-phase walk, and action frames; world sites also host animated traders, blacksmiths, and barkeeps.
@@ -34,7 +34,7 @@ Open [index.html](index.html) in a modern browser. The game is self-contained an
 ### Fortifications
 - Palisade, Stone, and Fortified walls — drag-build a whole line in one click-drag, upgrade a tier in place without losing HP%.
 - Buildings can be box-selected, canceled for a full foundation refund, demolished for a partial refund, batch-upgraded, and walls can convert into gates or compact watch towers.
-- Guild Gates let friendly units (and allies) pass through while blocking hostiles; lockable, with an animated door swing.
+- Lodge Gates let friendly units (and allies) pass through while blocking hostiles; lockable, with an animated door swing.
 - Watch Towers and Guard Towers fire arrows at hostiles automatically.
 
 ### Procedural terrain
@@ -44,28 +44,29 @@ Open [index.html](index.html) in a modern browser. The game is self-contained an
 - Trailcraft Kits unlock wading routes, while Mountaineering Gear unlocks cliff and harsh winter crossings. Weighted A* accounts for the same terrain costs used by movement.
 - Advanced launch controls cover landform, biome diversity, forest cover, terrain gates, road density, and start fairness in addition to water and map-size settings.
 - Building foundations respect terrain buildability and slope, while resources and completed structures visibly adapt to temperate, evergreen, marsh, dry/coastal, or frozen ground; the minimap and terrain readout expose the same live tile properties.
+- Each map preset carries a stable `flavor` key (woodland / marsh / downs / vale / alpine) that drives world generation, so a preset's display name can change without altering a single generated tile.
 
 ### Progression
-- Units gain XP from kills and level up (Heroes to 8, everyone else to 5), with rank-pip indicators, out-of-combat HP regen, and Temple Acolytes who heal allies even mid-fight.
+- Units gain XP from kills and level up (Wardens to 8, everyone else to 5), with rank-pip indicators, out-of-combat HP regen, and Temple Acolytes who heal allies even mid-fight.
 - A real research tree gates units, forge tiers, and Age advancement — blacksmith forging upgrades weapons/armor with visible equipment overlays.
-- Four Ages, from Apprentice Years to Archon's Legacy, each unlocking new units: Battering Rams and Ballistae (bonus damage vs. buildings), Guild Outriders (mounted archers).
-- A trainable Guild Hero levels independently, auto-learns Will magic (Fireball, Heal Life, Slow Time) at levels 2/3/5, and revives at the Guild Hall for gold instead of being retrained.
+- Four Ages, from Apprentice Years to Sovereign's Legacy, each unlocking new units: Battering Rams and Ballistae (bonus damage vs. buildings), Lodge Outriders (mounted archers).
+- A trainable Warden levels independently, auto-learns Aether magic (Fireball, Heal Life, Slow Time) at levels 2/3/5, and revives at the Lodge Hall for gold instead of being retrained.
 - Villagers can repair damaged buildings, not just construct new ones.
 
 ### Diplomacy & economy
 - War / peace / alliance relations with every AI faction, managed from a Diplomacy panel (top-bar button or `P`) — offer peace, propose alliance, declare war, or send tribute.
 - AI factions can make peace, ally, or betray a peace based on relative strength — and will raid each other, not just the player.
 - Victory requires every surviving faction to be allied, not just the player's own survival.
-- A Bowerstone Market buys and sells every resource at a fixed spread.
-- Albion Farms provide renewable food plots through the normal gather/drop-off pipeline.
-- Guild Hall priority presets and per-resource bias chips steer Auto Needs worker assignment.
+- A Bridgemere Market buys and sells every resource at a fixed spread.
+- Eldervale Farms provide renewable food plots through the normal gather/drop-off pipeline.
+- Lodge Hall priority presets and per-resource bias chips steer Auto Needs worker assignment.
 - Fighter Auto Patrol assigns patrol routes around active apprentice work clusters.
 - The start menu supports per-faction difficulty, color, and initial relation setup.
 
 ### Magic & threats
-- Mages and Heroes cast targeted spells (Fireball AoE, Heal Life, Slow Time) with mana pools and cooldowns, via the same click-to-target flow as building placement.
-- A Will Hub lets the player cast global powers (Firestorm, Guild Blessing) anywhere on the map once built, fed by a Will pool.
-- Neutral wildlife camps (wolves, wild hobbes, balverines) guard the map and pay a resource bounty when cleared.
+- Mages and Wardens cast targeted spells (Fireball AoE, Heal Life, Slow Time) with mana pools and cooldowns, via the same click-to-target flow as building placement.
+- An Aether Hub lets the player cast global powers (Firestorm, Lodge Blessing) anywhere on the map once built, fed by an Aether pool.
+- Neutral wildlife camps (wolves, wild grubkin, moorfangs) guard the map and pay a resource bounty when cleared.
 - Enemy AI is deliberately less relentless than earlier builds — slower first wave, smaller escalation, and it now needs research to unlock its own units and Ages just like the player.
 
 ## Screenshots
@@ -82,3 +83,9 @@ Screenshots are generated from the current local build and stored in [docs/scree
 ## Notes
 
 This is still a single-file prototype. The next sensible step is to split renderer, simulation, UI, and content config into modules before adding heavier art assets or more framework-specific rendering.
+
+Internal identifiers and `localStorage` keys deliberately still carry pre-rebrand names (`albion.settings`, `albion.save.N`, and entity type ids such as `hobbeWild`, `balverine`, `demonDoor`, `willhub`, `guildspire`). Saves store entity `type` and `role` strings verbatim, so renaming them would break every existing save file. They are never shown to players.
+
+## Disclaimer
+
+An original fan-made game. Not affiliated with, endorsed by, or connected to Microsoft, Lionhead, or the Fable franchise.
