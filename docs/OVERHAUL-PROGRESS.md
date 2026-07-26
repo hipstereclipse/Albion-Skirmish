@@ -24,7 +24,7 @@ if the push fails, mark the row `done (push pending)` and say so in the log.
 | 2 | Fix dark/low-contrast terrain (brightness normalization, softer washes/outlines, painterly relayer) | **done, pushed** | Overhaul phase 2: brighten terrain and restore painterly character | 2026-07-25 |
 | 3 | Asset weight: `tools/downscale_terrain.py`, 384²/512² re-export, delete 2 dead PNGs | **done, pushed** | Overhaul phase 3: shrink terrain asset payload | 2026-07-25 |
 | 4a | Pre-baked owner-tinted unit atlases (half-res, no per-unit `ctx.filter`) | **done, pushed** | Overhaul phase 4a: pre-bake owner-tinted unit atlases | 2026-07-25 |
-| 4b | Pre-baked biome building atlases + baked resource-variant atlases | pending | | |
+| 4b | Pre-baked biome building atlases + baked resource-variant atlases | **done, pushed** | Overhaul phase 4b: pre-bake biome building and resource atlases | 2026-07-25 |
 | 4c | Aura sprites, `shadowBlur` purge | pending | | |
 | 4d | Minimap 10 Hz entity cache, cached atmosphere, `MAX_DPR` 1.5, `ents` hoist | pending | | |
 | 4e | Remove PixiJS, canvas-native shore shimmer from precomputed `game.shoreTiles` | pending | | |
@@ -547,6 +547,105 @@ is the same result read a second way. Neither run was rAF-throttled (the harness
    run. `--disable-backgrounding-occluded-windows --disable-renderer-backgrounding
    --disable-background-timer-throttling` are required, and the harness now fails a run whose
    sample count implies throttling.
+
+### Phase 4b — done 2026-07-25
+
+Plan item 4.2 (biome building atlases) **plus an unplanned third bake family**: the per-node
+`ctx.filter` in `drawAuthoredResource`, which Phase 4a's measurement identified as the actual idle
+bottleneck. See the deviation note below.
+
+**What changed** (`index.html` only)
+
+- `bakeBiomeBuildingAtlases()` bakes the buildings atlas once per biome (`default`, `snow`,
+  `forest`, `marsh`, `dry`) at **full resolution**, keyed by `buildingVisualBiome(b)`.
+  `drawAuthoredBuilding` now selects the baked atlas instead of the caller setting `ctx.filter`.
+- `bakeResourceVariantAtlases()` bakes the resources atlas into `RESOURCE_VARIANT_STEPS = 4`
+  quantised variants at **0.75 scale** (cell 192). `drawAuthoredResource` picks the bucket from the
+  node's existing hash and no longer sets `ctx.filter`.
+- `drawAtlasCell` accepts an offscreen canvas (`naturalWidth || width`), since the bakes are
+  canvases rather than `<img>`s.
+- Contact shadows replacing the dropped `drop-shadow(0px 2px 2px …)` on nodes: a ground ellipse at
+  `.3` for land nodes, and a lighter `.16` drifting one for fish, which sit on open water where a
+  full-strength ellipse would read as a submerged rock.
+- `RESOURCE_SIZE_BY_TYPE` hoisted to module scope — it was an object literal allocated per node per
+  frame, ~324 allocations a frame on a standard map.
+- The two remaining `ctx.filter` call sites are deliberate and documented in place: the
+  construction-scaffold path and the procedural `drawBuildingBody` fallback have no atlas to bake a
+  tint into.
+
+**Measured — same harness, same seed as 4a**
+
+| Scenario | b1b39d6 | after 4a | after 4b | 4b step | vs baseline |
+|---|---|---|---|---|---|
+| Idle pan, avg | 69.73 ms (14.34 fps) | 53.90 ms (18.55 fps) | **35.55 ms (28.13 fps)** | 1.52x | **1.96x** |
+| Idle pan, p95 | 133.3 ms | 100.1 ms | **66.6 ms** | −33% | −50% |
+| Battle (229 units), avg | 439.77 ms (2.27 fps) | 110.61 ms (9.04 fps) | **41.22 ms (24.26 fps)** | 2.68x | **10.67x** |
+| Battle, p95 | 549.9 ms | 116.9 ms | **66.6 ms** | −43% | −88% |
+
+Idle `renderMs` is now 1.23 ms avg and whole-`frame()` main-thread work 1.89 ms, so essentially all
+remaining frame interval is raster and compositing rather than JS. Both idle and battle now sit on
+clean vsync multiples (33.3 / 66.6 ms), i.e. the loop is missing a 60 Hz deadline rather than
+grinding — that is what 4c/4d/4e have to close.
+
+**Deviation from the plan, deliberate — a third bake family the plan does not list.**
+The plan's Phase 4 list has exactly two pre-baked atlas items, units and buildings. Phase 4a's
+measurement showed why that is not enough: the idle scene has 26 units but **324 resource nodes**,
+and `drawAuthoredResource` set a *per-node* `ctx.filter`. After 4a it was the largest remaining
+filter cost in the game, and idle had moved only 1.29x. Baking it is the same technique the plan
+already sanctions twice, applied to the call site the plan missed; without it, "remove the per-entity
+`ctx.filter`" would have been left three-quarters done. The one wrinkle is that the resource filter
+is a *continuous* per-node hash rather than a fixed per-owner or per-biome tint, so it is quantised
+into 4 buckets — adjacent buckets differ by 0.03 saturation and 0.02 brightness.
+
+**Verification**
+
+- Bake audit in a live page, 0 page errors:
+  - **Units** — 5 bakes, 512×2560, cell 128, ~25 MB (unchanged from 4a).
+  - **Buildings** — 5 bakes, **1448×1086, confirmed byte-for-byte full resolution**, ~30 MB. Each
+    matches a reference render through the same filter to within 1/255 per channel, and all five
+    biome means are distinct, so no two biomes collapsed onto the same tint.
+  - **Resources** — 4 bakes, 1152×960, cell 192, ~16.9 MB. Each matches its bucket-centre reference
+    render to within 1/255. Bucket coverage probed at 0, .24, .25, .49, .5, .74, .75 and .99 — every
+    variant a node can hash to resolves to a bake.
+  - Total baked atlas memory **~72 MB**, replacing a per-entity filter on every frame.
+- Seeded art preview re-run: **0 page errors**, 8 material factors and 5 visual biomes unchanged.
+  Gallery diff versus the 4a capture: **RMS 1.27, PSNR 46.03 dB, 2.2% of pixels**, and amplified 16×
+  the difference is confined to the 5 buildings and the 15 resource nodes — **units are bit-identical
+  black**, as are terrain, HUD and minimap.
+- **The capture is bit-for-bit deterministic**: two consecutive runs of the unchanged tree produced
+  0 differing pixels and the same SHA-256. That is what let the faint water-region marks in the first
+  4a→4b diff be pinned down as a real regression — fish had lost their drop-shadow and got no
+  replacement — rather than dismissed as capture noise. Fixed by giving fish their own lighter
+  ellipse; the fix moves 169 pixels with a max channel delta of 7.
+- **New art-preview reference hash:** SHA-256
+  `51D4B982F610914D428B988213E963060F4F18FCA46259515472F7F8D6FE0379`.
+- Phase 2 contrast checklist re-inspected on the new capture: no hex lattice, meadow reads green,
+  snow and sand keep grain, soft-light dapple visible. Unchanged — no terrain code was touched.
+- **Max-zoom sharpness check** (new; this is the worst case for a downscaled bake). Captured the
+  same seed at `CONFIG.CAMERA.ZOOM_MAX` = 2.25 from `b1b39d6` and from this commit:
+  - **Buildings: identical**, as expected from a full-resolution bake.
+  - **Resource nodes: indistinguishable at 6× magnification.** The 0.75 rule holds — a node covers
+    at most 107 CSS px at max zoom, so cell 192 is never upscaled below dpr 1.8.
+  - **Units: marginally softer.** Under a 4× magnified A/B, hair strands and belt detail on a
+    villager are slightly less crisp than the full-resolution filtered draw. It is not visible at
+    1:1. This is the plan's own accepted trade (25 MB versus ~105 MB) and it is recorded here as
+    measured rather than assumed — the plan's "units render at ≤64 px" holds at zoom 1 (~58 CSS px),
+    not at `ZOOM_MAX` on a hi-DPI panel. The two code comments were corrected to say so.
+- Save/load round trip through a full page reload: identical fingerprint, 0 differing keys.
+- Inline script `node --check`: clean. `git diff --check`: clean.
+
+**Findings worth carrying forward**
+
+1. **`ctx.filter` is now gone from every per-entity path.** Only three assignments remain, all
+   documented in place: the construction scaffold, the procedural `drawBuildingBody` fallback (walls
+   and the obelisk — the types with no atlas cell), and the placement ghost's fallback. Walls are the
+   one type a player can build in quantity that still pays a filter; if a wall-heavy base ever
+   profiles badly, a per-(type, biome, owner, size) render cache is the fix.
+2. **The remaining frame cost is no longer JS.** 1.23 ms of `renderMs` against a 35.55 ms frame
+   interval means 4c-4e are fighting raster and compositing: minimap redraw, atmosphere gradients,
+   `shadowBlur`, the second WebGL context, and pixel fill from `MAX_DPR`.
+3. **The seeded gallery is a genuine regression test, not just a screenshot.** It is bit-for-bit
+   reproducible, so any unexplained pixel in a diff is a real change and worth chasing.
 
 ---
 

@@ -1233,6 +1233,8 @@ const albionArtImages = [
 ];
 Promise.allSettled(albionArtImages.map(image => image.decode())).then(() => {
   bakeTintedUnitAtlases();
+  bakeBiomeBuildingAtlases();
+  bakeResourceVariantAtlases();
   artReady = true;
   terrainReady = false;
 });
@@ -7736,9 +7738,11 @@ function drawTerrain(cam) {
  * single largest render cost in the game (~14x at idle, ~13x in battle). The tint only depends on
  * the owner, so it is applied once per owner into an offscreen atlas here instead.
  *
- * Baked at half the source cell (128 px, from 256 px): units render at at most ~64 px on screen,
- * so the copies are still 2x oversampled, and five half-resolution atlases cost roughly 26 MB
- * where five full-resolution copies would cost ~105 MB.
+ * Baked at half the source cell (128 px, from 256 px). Five half-resolution atlases cost ~25 MB
+ * where five full-resolution copies would cost ~105 MB. A unit covers ~58 CSS px at zoom 1, so the
+ * bake is comfortably oversampled at ordinary zoom; at `ZOOM_MAX` 2.25 on a hi-DPI panel it is
+ * mildly upscaled and measurably — though only just — softer than a full-resolution filtered draw.
+ * That trade is deliberate: see the Phase 4a and 4b notes in docs/OVERHAUL-PROGRESS.md.
  *
  * Every filter string below is the original minus its `drop-shadow(...)` term. A drop-shadow baked
  * into the atlas would be clipped by the 24 px cell gutter and would not follow the per-frame
@@ -7778,6 +7782,82 @@ function bakeTintedUnitAtlases() {
 // same thing players already see while the art decodes, so no untinted frame can slip through.
 function unitAtlasFor(owner) {
   return unitAtlasBakes.get(owner) || unitAtlasBakes.get(0) || null;
+}
+
+/* Pre-baked biome building atlases.
+ *
+ * `buildingBiomeFilter()` never returns an empty string, so every building on screen used to pay a
+ * `ctx.filter` every frame. A building's biome is fixed when it is placed, so the tint is baked
+ * once per biome here. Baked at FULL resolution on purpose: a size-4 building already draws wider
+ * than its 362 px atlas cell at high zoom, so shrinking the bake would cost visible sharpness
+ * rather than buy free headroom. */
+const BUILDING_BIOME_KEYS = ['default', 'snow', 'forest', 'marsh', 'dry'];
+const buildingAtlasBakes = new Map();   // biome key -> canvas
+
+function bakeBiomeBuildingAtlases() {
+  buildingAtlasBakes.clear();
+  const source = ALBION_ART.buildings;
+  if (!source.complete || !source.naturalWidth) return;
+  for (const biome of BUILDING_BIOME_KEYS) {
+    const bake = document.createElement('canvas');
+    bake.width = source.naturalWidth;
+    bake.height = source.naturalHeight;
+    const bakeCtx = bake.getContext('2d');
+    bakeCtx.filter = buildingBiomeFilter(biome);
+    bakeCtx.drawImage(source, 0, 0);
+    buildingAtlasBakes.set(biome, bake);
+  }
+}
+
+function buildingAtlasFor(biome) {
+  return buildingAtlasBakes.get(biome) || buildingAtlasBakes.get('default') || null;
+}
+
+/* Pre-baked resource variant atlases.
+ *
+ * `drawAuthoredResource` set a per-node `ctx.filter` whose saturate and brightness terms come from
+ * a per-node hash. A standard map carries ~324 resource nodes, which made this the largest
+ * remaining filter cost at idle once 4a had baked the unit tint. The hash is quantised into
+ * `RESOURCE_VARIANT_STEPS` buckets and each bucket is baked once; adjacent buckets differ by 0.03
+ * saturation and 0.02 brightness, which is below the visible threshold.
+ *
+ * Baked at 0.75 scale (cell 192). The largest node draws `T * 1.24 * 0.96` = 47.6 world px, so at
+ * `ZOOM_MAX` 2.25 it covers 107 CSS px; cell 192 therefore still renders it 1:1 or better at every
+ * device pixel ratio up to 1.8, and it stays visually identical to the unbaked draw. */
+const RESOURCE_VARIANT_STEPS = 4;
+const RESOURCE_ATLAS_BAKE_SCALE = .75;
+const resourceAtlasBakes = [];          // bucket index -> { image, cell }
+
+function resourceVariantFilter(variant) {
+  return 'saturate(' + (.9 + variant * .12).toFixed(2) + ') brightness(' +
+    (.98 + variant * .08).toFixed(2) + ')';
+}
+
+function bakeResourceVariantAtlases() {
+  resourceAtlasBakes.length = 0;
+  const source = ALBION_ART.resources;
+  if (!source.complete || !source.naturalWidth) return;
+  const cell = Math.round(ALBION_ART.resourceCellSize * RESOURCE_ATLAS_BAKE_SCALE);
+  const w = Math.round(source.naturalWidth * RESOURCE_ATLAS_BAKE_SCALE);
+  const h = Math.round(source.naturalHeight * RESOURCE_ATLAS_BAKE_SCALE);
+  for (let i = 0; i < RESOURCE_VARIANT_STEPS; i++) {
+    const bake = document.createElement('canvas');
+    bake.width = w;
+    bake.height = h;
+    const bakeCtx = bake.getContext('2d');
+    bakeCtx.imageSmoothingEnabled = true;
+    bakeCtx.imageSmoothingQuality = 'high';
+    // Bucket centre, so the baked tint is the midpoint of the range it stands in for.
+    bakeCtx.filter = resourceVariantFilter((i + .5) / RESOURCE_VARIANT_STEPS);
+    bakeCtx.drawImage(source, 0, 0, w, h);
+    resourceAtlasBakes.push({ image:bake, cell });
+  }
+}
+
+function resourceAtlasFor(variant) {
+  if (!resourceAtlasBakes.length) return null;
+  const bucket = Math.min(RESOURCE_VARIANT_STEPS - 1, Math.floor(variant * RESOURCE_VARIANT_STEPS));
+  return resourceAtlasBakes[bucket];
 }
 
 function drawAnimatedAtlasFrame(image, cell, row, frame, x, y, size, mirror, bob, scaleX, scaleY, lean, offsetX, offsetY) {
@@ -7989,19 +8069,24 @@ function drawRallyPoints() {
   ctx.restore();
 }
 
+const RESOURCE_SIZE_BY_TYPE = { wood:1.24, food:1.02, gold:1.04, stone:1.02, iron:1.02, fish:1.08 };
+
 function drawAuthoredResource(n, x, y, frac) {
   const column = ALBION_ART.resourceColumns[n.type];
   const biome = n.visualBiome || terrainVisualFamilyAt(n.tx, n.ty);
   const row = ALBION_ART.resourceBiomeRows[biome] ?? ALBION_ART.resourceBiomeRows.temperate;
-  const image = ALBION_ART.resources;
-  if (column == null || !image.complete || !image.naturalWidth) return false;
-  const sw = ALBION_ART.resourceCellSize, sh = ALBION_ART.resourceCellSize;
   const variant = hash01(n.id, n.tx, n.ty + 947);
+  const atlas = resourceAtlasFor(variant);
+  if (column == null || !atlas) return false;
+  const cell = atlas.cell;
   const visualScale = (0.8 + frac * 0.16) * (0.94 + variant * 0.1);
-  const sizeByType = { wood:1.24, food:1.02, gold:1.04, stone:1.02, iron:1.02, fish:1.08 };
-  const size = T * (sizeByType[n.type] || 1) * visualScale;
+  const size = T * (RESOURCE_SIZE_BY_TYPE[n.type] || 1) * visualScale;
   const cx = x + T / 2, groundY = y + T * (n.type === 'fish' ? .63 : .82);
   const drift = n.type === 'fish' ? Math.sin(game.time * 1.35 + (n.phase || 0)) * 1.2 : 0;
+  // Replaces the drop-shadow term the variant bake drops. Fish get a lighter, drifting version:
+  // they sit on open water, where a full-strength ground ellipse would read as a submerged rock.
+  if (n.type === 'fish') drawShadow(cx, groundY + drift * .5, size * .26, size * .09, .16);
+  else drawShadow(cx, groundY, size * .3, size * .11, .3);
   ctx.save();
   ctx.translate(cx, groundY + drift);
   ctx.rotate((variant - .5) * (n.type === 'fish' ? .035 : .07));
@@ -8009,9 +8094,7 @@ function drawAuthoredResource(n, x, y, frac) {
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
   ctx.globalAlpha = .84 + frac * .16;
-  ctx.filter = 'saturate(' + (.9 + variant * .12).toFixed(2) + ') brightness(' +
-    (.98 + variant * .08).toFixed(2) + ') drop-shadow(0px 2px 2px rgba(18,12,7,.34))';
-  ctx.drawImage(image, column * sw, row * sh, sw, sh, -size / 2, -size, size, size);
+  ctx.drawImage(atlas.image, column * cell, row * cell, cell, cell, -size / 2, -size, size, size);
   ctx.restore();
   return true;
 }
@@ -8247,8 +8330,10 @@ function drawBanner(x, y, w, h, color) {
 }
 
 function drawAtlasCell(image, cell, dx, dy, dw, dh, mirror, tint, slice) {
-  if (!image.complete || !image.naturalWidth || !cell) return false;
-  const sw = image.naturalWidth / 4, sh = image.naturalHeight / 3;
+  // `image` may be an <img> or a pre-baked offscreen canvas, which has no naturalWidth.
+  const imageW = image.naturalWidth || image.width, imageH = image.naturalHeight || image.height;
+  if (!imageW || !cell) return false;
+  const sw = imageW / 4, sh = imageH / 3;
   const sourceLeft = slice?.left || 0;
   const sourceRight = slice?.right || 0;
   const sourceTop = slice?.top || 0;
@@ -8399,8 +8484,10 @@ function drawBuildingBiomeDetails(b, x, y, w, biome) {
 
 function drawAuthoredBuilding(b, x, y, w, fac) {
   const cell = ALBION_ART.buildingCells[b.type];
-  if (!cell || !ALBION_ART.buildings.complete || !ALBION_ART.buildings.naturalWidth) return false;
-  const image = ALBION_ART.buildings;
+  // The biome tint lives in the atlas now, so this picks the pre-baked variant instead of the
+  // caller setting ctx.filter.
+  const image = buildingAtlasFor(buildingVisualBiome(b));
+  if (!cell || !image) return false;
   const { dw, dh, dx, dy } = buildingSpriteRect(b, x, y, w);
   drawShadow(x + w*.5, y + w*.82, w*.52, w*.18, .34);
   return drawAtlasCell(image, cell, dx, dy, dw, dh, false, b.owner ? fac.fill : null, ALBION_ART.buildingSlices[b.type]);
@@ -8548,10 +8635,15 @@ function drawBuilding(b) {
     ctx.restore();
     drawBar(x + 3, y - 8, w - 6, 5, prog, '#e8c534');
   } else {
-    ctx.save();
-    ctx.filter = buildingBiomeFilter(biome);
-    if (!drawAuthoredBuilding(b, x, y, w, fac)) drawBuildingBody(b, x, y, w, fac);
-    ctx.restore();
+    if (!drawAuthoredBuilding(b, x, y, w, fac)) {
+      // Only the few types without an atlas cell (walls and the obelisk) reach the procedural
+      // fallback. It has no atlas to bake a biome tint into, so it is the one building path that
+      // still pays a per-frame filter.
+      ctx.save();
+      ctx.filter = buildingBiomeFilter(biome);
+      drawBuildingBody(b, x, y, w, fac);
+      ctx.restore();
+    }
     drawBuildingBiomeDetails(b, x, y, w, biome);
   }
   if (b.flash > 0) {
@@ -9685,8 +9777,10 @@ function drawGhost() {
     visualBiome:terrainVisualFamilyForFootprint(pl.tx, pl.ty, def.size) };
   ctx.save();
   ctx.globalAlpha = 0.45;
-  ctx.filter = buildingBiomeFilter(ghost.visualBiome);
-  if (!drawAuthoredBuilding(ghost, x, y, w, factionStyle(0))) drawBuildingBody(ghost, x, y, w, factionStyle(0));
+  if (!drawAuthoredBuilding(ghost, x, y, w, factionStyle(0))) {
+    ctx.filter = buildingBiomeFilter(ghost.visualBiome);
+    drawBuildingBody(ghost, x, y, w, factionStyle(0));
+  }
   ctx.restore();
   ctx.save(); ctx.globalAlpha = .35;
   drawBuildingBiomeDetails(ghost, x, y, w, ghost.visualBiome);
