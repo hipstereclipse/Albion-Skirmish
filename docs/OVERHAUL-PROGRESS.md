@@ -22,7 +22,7 @@ if the push fails, mark the row `done (push pending)` and say so in the log.
 | 0 | Instrumentation: frame timing ring buffer + `?perf` HUD, capture BEFORE numbers | **done, pushed** | `a0dd101` Overhaul phase 0: add frame timing instrumentation and perf HUD | 2026-07-25 |
 | 1 | Kill the three-state terrain pop-in (single preload gate, all-or-nothing material gate) | **done, pushed** | Overhaul phase 1: single art preload gate, one terrain rebuild | 2026-07-25 |
 | 2 | Fix dark/low-contrast terrain (brightness normalization, softer washes/outlines, painterly relayer) | **done, pushed** | Overhaul phase 2: brighten terrain and restore painterly character | 2026-07-25 |
-| 3 | Asset weight: `tools/downscale_terrain.py`, 384²/512² re-export, delete 2 dead PNGs | pending | | |
+| 3 | Asset weight: `tools/downscale_terrain.py`, 384²/512² re-export, delete 2 dead PNGs | **done, pushed** | Overhaul phase 3: shrink terrain asset payload | 2026-07-25 |
 | 4 | Render hot path: pre-baked tinted atlases, aura/glow sprites, `shadowBlur` purge, minimap 10 Hz, cached atmosphere, `MAX_DPR` 1.5, remove PixiJS | pending | | |
 | 5 | Sim hot path: spatial hash for `applySeparation`, allocation-free A\* costs | pending | | |
 | 6 | Clean IP rebrand: decouple preset-name regexes, rename display strings + asset files, disclaimer, grep gate | pending | | |
@@ -50,6 +50,10 @@ Direct3D11)`), Edge windowed 1600×900, canvas 1578×625 CSS at `dpr` 1.5. Map: 
 | `buildTerrainBackdrop` calls per load | **7** (32 Mbps cold HTTP, game started immediately) | 1 |
 | Total page payload, cache disabled | **49.5 MB over 20 requests** (`assets/` on disk is 68 MB) | ~15 MB |
 | Visible terrain states during load | 3 (by inspection — not visually re-verified in Phase 0) | 2 |
+
+Two rows above have since been met and are no longer current: the rebuild count was fixed in Phase 1
+(now 1) and the payload in Phase 3 (**now 12.34 MiB over 20 requests**, `assets/` 25.62 MB on disk).
+The frame-time and `applySeparation` rows are still accurate — no phase has touched render or sim code.
 
 **Read `frameMs` and `renderMs` with care.** Canvas rasterization happens off the JS timeline, so
 main-thread work per frame measures 5-8 ms at idle while the actual frame interval is 255 ms. Worse,
@@ -300,6 +304,162 @@ Object.defineProperty(CanvasRenderingContext2D.prototype,'filter',
   `docs/screenshots/fable-biome-animation-preview.png`. No terrain PNG dimensions, deployed asset
   files, internal ids, or localStorage keys changed in this phase.
 
+### Phase 3 — done 2026-07-25
+
+**What changed** (assets and one new tool only; `index.html` was not touched in this phase)
+
+- Added `tools/downscale_terrain.py` (Pillow, structured like `build_sprite_atlases.py`): module
+  docstring, `ROOT`-relative paths, uppercase config constants, typed helpers, a `main()` that prints
+  what it wrote, and `ValueError` on any validation failure.
+- Re-exported the 8 `hex-*.png` materials and `albion-meadow-v2.png` at **384×384**, and the 3
+  transitions at **512×512**, written in place with `optimize=True`. Relative paths unchanged.
+- Deleted the two grep-confirmed dead deployed assets. Kept `albion-resources-v2.png` (build input).
+
+**Tool command**
+
+```
+python tools/downscale_terrain.py
+```
+
+**Deviation from the plan, deliberate — palette reduction on the terrain sources.** The plan
+specifies `optimize=True` with targets of ≤150 KB per material and ≤250 KB per transition. Truecolor
+at the target dimensions lands at **291–301 KB per material and 543 KB per transition** — roughly 2×
+over both budgets — so `optimize=True` alone cannot reach the stated targets, and the plan's own
+"terrain payload ~43 MB → ~2 MB" headline is only reachable with a colour reduction (truecolor gives
+~4.3 MB). A 256-colour median-cut + Floyd–Steinberg pass hits every stated number almost exactly.
+`optimize=True` is still the write flag; it applies to palette PNGs equally, so this satisfies the
+plan's method while also satisfying its budgets. The plan's "optional palette pass" bullet is scoped
+to the *sprite atlases*, where alpha and gutter contracts make it risky; the terrain sources are
+opaque RGB, which is the safe case. **Quality was gated, not assumed:** the tool measures PSNR
+against the truecolor downscale both at authored exposure and under the runtime's own
+`brightness(1.4)` lift (where banding would be amplified), and refuses to write below a 34 dB floor.
+Every file cleared it. If the owner ever prefers truecolor over the budget, delete the palette ladder
+and raise `MATERIAL_BUDGET` / `TRANSITION_BUDGET` to 320 KB / 560 KB.
+
+Two robustness properties were added because this tool overwrites its own inputs: it **encodes and
+validates every file before writing any of them** (an aborted run cannot leave a half-converted
+tree), and it **skips sources already at the target size** (a second run cannot re-quantize an
+existing reduction and lose a little more each time). Both were found the hard way — the first run
+aborted on `meadow-mud.png` at 254.2 KB, 4 KB over budget, after nine files had already been written;
+that is what motivated the two-phase write and the descending palette ladder.
+
+**Before → after, per file** (bytes as written on disk)
+
+| File | Dimensions | Before | After | Encoding | PSNR |
+|---|---|---:|---:|---|---:|
+| `assets/terrain/materials/hex-forest.png` | 1254² → 384² | 3,400,688 B | 147,958 B | palette256 | 40.4 dB |
+| `assets/terrain/materials/hex-meadow.png` | 1254² → 384² | 3,309,683 B | 148,117 B | palette256 | 41.5 dB |
+| `assets/terrain/materials/hex-mud.png` | 1254² → 384² | 3,538,874 B | 147,877 B | palette256 | 41.2 dB |
+| `assets/terrain/materials/hex-road.png` | 1254² → 384² | 3,301,977 B | 148,241 B | palette256 | 44.8 dB |
+| `assets/terrain/materials/hex-rock.png` | 1254² → 384² | 3,615,206 B | 148,123 B | palette256 | 42.1 dB |
+| `assets/terrain/materials/hex-sand.png` | 1254² → 384² | 3,675,524 B | 148,391 B | palette256 | 47.9 dB |
+| `assets/terrain/materials/hex-snow.png` | 1254² → 384² | 3,394,784 B | 147,927 B | palette256 | 48.1 dB |
+| `assets/terrain/materials/hex-water.png` | 1254² → 384² | 3,095,697 B | 147,665 B | palette256 | 38.3 dB |
+| `assets/art/albion-meadow-v2.png` | 1254² → 384² | 3,432,371 B | 147,825 B | palette256 | 38.6 dB |
+| `assets/terrain/transitions/meadow-mud.png` | 1254² → 512² | 3,425,772 B | 253,626 B | palette224 | 39.2 dB |
+| `assets/terrain/transitions/meadow-rock.png` | 1254² → 512² | 3,426,153 B | 250,775 B | palette224 | 37.2 dB |
+| `assets/terrain/transitions/sand-water.png` | 1254² → 512² | 3,442,855 B | 253,221 B | palette256 | 36.6 dB |
+
+Every material is **144.2–144.9 KB (target ≤150 KB)** and every transition **244.9–247.7 KB (target
+≤250 KB)**. Terrain sources: **39.16 MB → 1.99 MB (94.9% smaller)**. Dimensions were re-verified
+independently with PIL after the run, and again from the running page: `naturalWidth` is 384 for all
+eight materials and the meadow, and 512 for all three transitions.
+
+**Deletion verification**
+
+| Deleted file | Dimensions | Bytes |
+|---|---|---:|
+| `assets/art/albion-meadow.png` | 1254×1254 | 3,296,679 B |
+| `assets/sprites/albion-units.png` | 1448×1086 | 1,408,974 B |
+
+Removed with `git rm`. A repo-wide grep for `albion-meadow\.png|albion-units\.png` (which cannot
+match `albion-meadow-v2.png` or `albion-units-animated.png`) returns **no matches** outside the two
+overhaul planning docs, and both paths are absent from the working tree. `albion-resources-v2.png` was
+kept and is still referenced by `tools/build_sprite_atlases.py:55`.
+
+**No sprite atlas was resized.** Re-verified after the run: `albion-units-animated.png` 1024×5120,
+`albion-buildings.png` 1448×1086, `albion-resources-biomes.png` 1536×1280, and all
+`assets/sprites/sources/*` unchanged. The live page audit still reports `unitAtlas [1024, 5120]` and
+`resourceAtlas [1536, 1280]`, so `buildingSlices`, `unitCellSize: 256`, and `atlas-manifest.json`
+remain valid. The optional lossless/palette pass on the sprite atlases was **not** taken — it was
+optional and would not have helped the terrain payload goal.
+
+**Payload — deployed vs. on-disk (recorded distinctly)**
+
+| Measure | Before | After | Change |
+|---|---:|---:|---|
+| Cache-disabled HTTP payload | **51,909,473 B / 49.50 MiB over 20 requests** | **12,939,974 B / 12.34 MiB over 20 requests** | **−75.1%** |
+| `assets/` on disk (working tree) | 70,538,554 B / 67.27 MB | 26,863,063 B / 25.62 MB | −61.9% |
+
+The before run reproduces the Phase 0 baseline exactly (49.50 MiB / 20 requests), so the two runs are
+directly comparable. Both were measured the same way: `python -m http.server` over the working tree,
+Edge via CDP with `Network.setCacheDisabled` and service-worker bypass, summing `encodedDataLength`
+from every `Network.loadingFinished`, waited out to `artReady === true`. The harness was throwaway and
+is not committed. **Request count is unchanged at 20** — the two deleted PNGs were already dead, so
+they were never requested; the deletion is a repo-size win, not a payload win. Payload is now under
+the plan's ~15 MB target; the remaining bulk is the three sprite atlases plus the title vista
+(9.7 MB of the 12.34 MB), which is Phase 4/6 territory.
+
+**Post-resize brightness factors — unchanged from Phase 2**
+
+| Material | `k` | Material | `k` |
+|---|---:|---|---:|
+| meadow | 1.4 | rock | 1.4 |
+| forest | 1.4 | snow | 0.95 |
+| mud | 1.4 | water | 1.4 |
+| sand | 0.95 | road | 1.4 |
+
+All eight are byte-identical to the Phase 2 values, which is the strongest available evidence that
+the downscale preserved each material's mean luminance: the runtime re-measures luminance from a 64²
+thumbnail on every load and independently arrived at the same clamps.
+
+**Verification**
+
+- Inline `index.html` script extracted and compiled with Node: **clean** (1 block, 10,745 lines).
+  `node --check tools/capture_art_preview.mjs`: clean. `python -m py_compile` on both
+  `tools/downscale_terrain.py` and `tools/build_sprite_atlases.py`: clean. `git diff --check`: clean.
+- Seeded preview (`overhaul-art-preview-v1`) re-run twice; both captures hashed SHA-256
+  `91A8C69D5E47266F5A738283C587A40F082F000E6D25082D0A77EFB1EDA7718C`, so the gallery is still
+  repeatable. Audit covers all **8 material factors** and all **5 visual biomes**
+  (`dry, forest, marsh, snow, temperate`) plus all 5 resource biomes, with **0 page errors**.
+  The Phase 2 reference hashed `A18190155AF45B994...C84542`; the new hash is the Phase 3 reference.
+- Screenshot checklist at the harness's default `.78` gallery zoom, re-inspected against Phase 2:
+  - **Pass — no visible hex lattice:** uniform fields show no repeated honeycomb; only the intended
+    stepped boundaries between different material bands remain.
+  - **Pass — meadow reads green:** unchanged from Phase 2, still green rather than olive-black.
+  - **Pass — snow and sand retain detail:** inspected at 2× on the two `k = .95` clamped materials,
+    the worst case for banding. Snow keeps crystalline grain and blue-grey shading; sand keeps grain
+    and track marks. No posterization, contouring, or flat-white clipping from the palette pass.
+  - **Pass — soft-light dapple remains visible:** mottling and the half-alpha ellipse/stroke accents
+    still read over the material textures.
+- **Whole-frame diff against the Phase 2 reference: RMS 2.91, PSNR 38.86 dB.** Amplified 16×, the
+  difference is uniform high-frequency dither noise with **no structure** — no tiling seams, no
+  banding contours, no hex lattice. Sprites, buildings, units, roads and the HUD are pure black
+  (bit-identical), independently confirming that only the terrain sources changed.
+- Tool re-run on the converted tree: reports all 12 sources `unchanged` and leaves every byte
+  untouched (verified via `git status --porcelain`), so the conversion is idempotent.
+- One page error appears in **both** the before and after HTTP payload runs: a `favicon.ico` 404.
+  It is pre-existing, unrelated to Phase 3, and does not appear in the `file://` art preview.
+
+**Findings worth carrying forward**
+
+1. **The plan's Phase 3 size targets implied a colour reduction.** `optimize=True` on truecolor
+   cannot reach ≤150 KB / ≤250 KB at 384²/512²; the gap is ~2×. Recorded above with the quality gate
+   used to justify the palette pass. If Phase 7's art check ever regresses, this is the knob.
+2. **Phase 3 changed no rendering code and is not expected to move fps.** The Phase 0 baseline stands
+   unchanged: idle pan 255.1 ms avg / 399.8 ms p95 (3.9 fps), battle 1006.9 ms avg (1.0 fps).
+   `ctx.filter` remains the whole render problem and Phase 4.1/4.2 still carry the win.
+3. **The remaining payload is sprite atlases, not terrain.** After this phase the three atlases plus
+   the title vista are 9.7 MB of the 12.34 MB. Phase 4.1 bakes unit atlases at half resolution and
+   Phase 6 renames the art files; a size pass on them belongs there, not here.
+4. **Transition strips are now upsampled on the width axis.** The crop keeps 24% of the source width
+   (512 → ~123 px) and redraws it into a fixed 192 px-wide canvas, so that axis went from a 0.64×
+   downscale to a 1.56× upscale. At the authored `.48`/`.16` stroke alphas this is not visible in the
+   seeded preview, but 512 is the floor for transitions — do not reduce them further.
+5. **The meadow soft-light overlay now repeats ~7.5× across the 2880 px map instead of ~2.3×**, since
+   its pattern is created at natural size. The seeded diff shows no resulting structure, but this is
+   the first thing to check if a repeat ever becomes visible (plan risk #7 — bump to 512²).
+
 ---
 
 ## Continuation prompt
@@ -310,58 +470,88 @@ Copy this verbatim into a fresh agent/session to continue the work.
 Continue the Albion Skirmish overhaul in c:\Users\Eclipse\.claude\Workspaces\Age Of Empires.
 
 Read docs/OVERHAUL-PLAN.md (the full frozen spec) and docs/OVERHAUL-PROGRESS.md (status, baseline
-numbers, phase log) before touching anything. Bootstrap and Phases 0–2 are complete and pushed.
-Phase 2 now normalizes all eight terrain materials through a 384x384 runtime bake, restores the
-painterly overlays above authored textures, softens elevation/outline/transition darkness, and
-halves the atmosphere vignette. Its repeatable art seed is `overhaul-art-preview-v1`.
+numbers, phase log) before touching anything. Bootstrap and Phases 0–3 are complete and pushed.
+Phase 3 shrank the terrain sources to 384x384 (materials + meadow) and 512x512 (transitions) via the
+new `tools/downscale_terrain.py`, deleted the two dead PNGs, and cut the cache-disabled payload from
+49.50 MiB to 12.34 MiB over the same 20 requests. No render code changed, so the fps baseline stands.
 
-Execute **Phase 3 — Asset weight** exactly as specified in the frozen plan:
-  - Add `tools/downscale_terrain.py` using Pillow, mirroring the structure/style of
-    `tools/build_sprite_atlases.py`.
-  - Resize every `assets/terrain/materials/hex-*.png` and
-    `assets/art/albion-meadow-v2.png` to exactly 384x384. Resize
-    `assets/terrain/transitions/*.png` to exactly 512x512. Write optimized PNGs in place with
-    `optimize=True`; keep all relative paths unchanged. Target <=150 KB per material and <=250 KB
-    per transition.
-  - Do NOT resize any sprite atlas. `buildingSlices`, `unitCellSize:256`, and
-    `assets/sprites/atlas-manifest.json` depend on the current atlas dimensions.
-  - Delete only the two grep-confirmed dead deployed assets:
-    `assets/art/albion-meadow.png` and `assets/sprites/albion-units.png`. Keep
-    `assets/sprites/albion-resources-v2.png`, which is an input to `build_sprite_atlases.py`.
-  - A lossless/palette reduction pass on remaining sprite atlases is optional; do not let it expand
-    scope or change atlas dimensions.
+Execute **Phase 4 — Render hot path**, the biggest FPS win in the whole overhaul. Work in the plan's
+impact order. Phase 4 is large: land it as sub-commits (`Overhaul phase 4a: …`, `4b`, …), and update
+this doc + push after each one.
 
-Run the new tool and verify every output's dimensions and byte size. Re-run
-`tools/capture_art_preview.mjs`; inspect the same Phase 2 checklist, confirm its audit still covers
-all 8 materials/5 visual biomes with 0 page errors, and record the post-resize brightness factors.
-Measure the cache-disabled HTTP payload after resizing and record actual request/byte totals against
-the current 49.5 MB baseline. Syntax-check the inline script and Python tool, run `git diff --check`,
-and grep once more to prove the two deleted assets are unreferenced. Do not begin Phase 4 render work.
+  1. Pre-baked owner-tinted unit atlases. This is the single most important change in the overhaul.
+     After the Phase 1 preloader resolves, bake five offscreen canvases (owners 0-3 plus CREEP_OWNER)
+     at HALF resolution (cell 128 — units render at <=64 px, so still 2x oversampled; five half-res
+     copies ~26 MB versus ~105 MB at full res). Apply the owner filter string MINUS its `drop-shadow`
+     term once per bake. `drawAnimatedAtlasFrame` (currently line 7732; it hardcodes
+     `ALBION_ART.units` and `ALBION_ART.unitCellSize` at 7733) must take `image` and `cell`
+     parameters and must no longer set `ctx.filter`. Restore the lost shadow with the existing cheap
+     `drawShadow()` ellipse (line 6872) before the sprite blit.
+  2. Pre-baked biome building atlases. `buildingBiomeFilter` (line 8227) never returns an empty
+     string, so every building pays a filter today. Bake five variants (snow/forest/marsh/dry/default)
+     of the buildings atlas at FULL resolution, remove the per-building `ctx.filter`, and select the
+     atlas by `b.visualBiome`.
+  3. Building aura: pre-render two 64x64 radial-gradient sprites (blue, red) once; per building
+     `drawImage` them scaled to the ellipse rect with `globalAlpha`.
+  4. `shadowBlur` purge: replace each with a second lower-alpha stroke (rings/rects) or a
+     pre-rendered glow sprite (projectiles/effects). Real but small — Phase 0 measured it at under
+     1.5x, so do not expect it to move the headline number.
+  5. Minimap (`renderMinimap`, line 9711): keep the `mmTerrain` cache, add an `mmEntities` offscreen
+     canvas rebuilt at 10 Hz or on `mmDirty`; per frame composite terrain + entities + pings + camera
+     rect only.
+  6. `drawAtmosphere` (line 7701): render both gradients once into a `viewW x viewH` offscreen canvas
+     rebuilt only in `sizeCanvas()`; per frame do one `drawImage`.
+  7. `MAX_DPR` 2.5 -> 1.5 (line 1272, `THEME.RENDER.MAX_DPR`; consumed at 6723 and 1912).
+  8. Remove PixiJS: `PIXI_CDN` (1888) and `AlbionFramework` (1889-…) plus call sites (6741, 11525,
+     11537), the `#pixi-layer` div and its CSS. Replace the shore shimmer with a canvas-native pass
+     after `drawTerrain`, driven by a PRECOMPUTED `game.shoreTiles` list built at world-gen, in
+     `deserializeGame`, and on bridge changes (carry over the existing bridge exclusions) — the
+     per-frame 4-neighbour water scan is the cost, not the strokes. Grep for stray `PIXI` /
+     `AlbionFramework` before deleting.
+  9. Cheap: hoist the per-frame `ents` array (line 7654) to module scope and use `ents.length = 0`.
+     Note there is an unrelated `ents` at 10118 — do not touch it.
 
-Baseline to beat (full detail in the progress doc): idle pan 255.1 ms avg / 399.8 ms p95 (3.9 fps) on
-a 4-player Greatwood map; ~100v100 battle 1006.9 ms avg (1.0 fps); applySeparation 2.49 ms of a
-3.05 ms sim tick; cache-disabled page payload 49.5 MB over 20 requests. Phase 3 is an asset/payload
-phase, so no fps movement is expected.
+Measure with the Phase 0 `?perf` HUD on the SAME map and seed as the baseline (Greatwood Crossing,
+4 players) and report fps, not `renderMs` — see the "Read frameMs and renderMs with care" note in the
+progress doc. Re-run `tools/capture_art_preview.mjs` and confirm the seeded gallery still matches the
+Phase 2 checklist with 0 page errors. Syntax-check the inline script, run `git diff --check`, and
+verify a save/load round trip still works.
+
+Baseline to beat (Phase 0, still current — Phase 3 changed no render code): idle pan 255.1 ms avg /
+399.8 ms p95 (3.9 fps) on a 4-player Greatwood map; ~100v100 battle 1006.9 ms avg (1.0 fps);
+applySeparation 2.49 ms of a 3.05 ms sim tick. Targets: <16.7 ms avg idle, <25 ms p95 and battle.
+Phase 0 measured that neutralising `ctx.filter` alone is worth ~14x at idle and ~13x in battle, so
+items 1 and 2 carry nearly all of the win — do them first and measure before continuing.
 
 Carry-overs:
-  - The baseline commit `dd3e70a` permanently retains the full-size originals in git history, so the
-    Phase 3 tool should overwrite the working-tree asset paths in place.
-  - The Phase 2 runtime already downsamples each material to 384x384 before measuring/building its
-    pattern. The Phase 3 source export uses the same target, so the visual result should remain close;
-    use the seeded preview to catch resampling or tiling regressions.
-  - Current Phase 2 factors are meadow/forest/mud/rock/water/road = 1.4 and sand/snow = .95. The
-    preview harness prints them, its seed, and page errors.
-  - `tools/capture_art_preview.mjs` loads `file://` and now launches Edge with
-    `--allow-file-access-from-files` because the required `getImageData()` luminance audit otherwise
+  - Payload is now 12,939,974 B (12.34 MiB) over 20 requests, cache disabled; `assets/` on disk is
+    25.62 MB. Record deployed payload and working-tree size distinctly. The remaining bulk is the
+    three sprite atlases plus the title vista (9.7 MB of 12.34 MB) — the Phase 4.1 half-res bake is
+    a runtime-memory win, not a payload win.
+  - Do NOT resize any sprite atlas file. `buildingSlices`, `unitCellSize: 256` (line 1201), and
+    `assets/sprites/atlas-manifest.json` are all in atlas pixels. Phase 4.1 bakes at half resolution
+    at RUNTIME; the files on disk stay as they are.
+  - `ctx.filter` on a bake canvas is a no-op on very old Safari, so sprites would render untinted
+    there — no worse than today, since per-frame `ctx.filter` is equally unsupported.
+  - Terrain sources are now palette PNGs (256/224 colours) at 384²/512². This is a deliberate Phase 3
+    deviation, documented with a PSNR gate in the Phase 3 log. Do not "fix" it back to truecolor
+    without also raising the size budgets in `tools/downscale_terrain.py`.
+  - `tools/downscale_terrain.py` is idempotent and skips sources already at target size; re-running it
+    is safe and will report `unchanged` for all 12.
+  - `tools/capture_art_preview.mjs` loads `file://` and launches Edge with
+    `--allow-file-access-from-files` because the Phase 2 `getImageData()` luminance audit otherwise
     taints the canvas. Do not remove that flag while Phase 2 normalization remains runtime code.
-  - Payload baseline is 49.5 MB, not the repo's 68 MB on-disk asset total; record both deployed
-    payload and working-tree size distinctly.
-  - Do NOT rename internal ids or localStorage keys (breaks saves).
-  - Do NOT start the `ctx.filter`, `shadowBlur`, minimap, DPR, or Pixi work; all of that is Phase 4.
+    Its seed is `overhaul-art-preview-v1`; the Phase 3 reference capture hashes SHA-256
+    91A8C69D5E47266F5A738283C587A40F082F000E6D25082D0A77EFB1EDA7718C.
+  - A `favicon.ico` 404 appears on every HTTP load. It is pre-existing and not yours to chase.
+  - Line anchors above are current as of the Phase 3 commit and WILL drift as 4a/4b land. Re-resolve
+    them by reading the surrounding code; `git show dd3e70a:index.html` still resolves plan anchors.
+  - Do NOT rename internal ids or localStorage keys (breaks saves) — `serializeGame` stores entity
+    `type`/`role` strings whole.
+  - Do NOT start the rebrand (Phase 6) or the sim work (Phase 5, spatial hash + allocation-free A*).
 
-When Phase 3 is done: log exact before/after file sizes, cache-disabled payload, dimensions, deletion
-verification, screenshot checklist, brightness factors, syntax/page-error results, and tool command
-in docs/OVERHAUL-PROGRESS.md; flip the Phase 3 row to done; regenerate this continuation prompt for
-Phase 4; commit as "Overhaul phase 3: shrink terrain asset payload"; and push to origin main. Do not
-begin Phase 4 until the doc is updated and pushed.
+When each Phase 4 sub-phase is done: log the before/after fps for that change, the verification
+results, and any deviation in docs/OVERHAUL-PROGRESS.md; update the status table; commit as
+"Overhaul phase 4<letter>: <description>"; and push to origin main. Regenerate this continuation
+prompt when Phase 4 is fully complete.
 ```
