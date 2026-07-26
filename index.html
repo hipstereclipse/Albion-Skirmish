@@ -1232,6 +1232,7 @@ const albionArtImages = [
   ...Object.values(ALBION_ART.transitions),
 ];
 Promise.allSettled(albionArtImages.map(image => image.decode())).then(() => {
+  bakeTintedUnitAtlases();
   artReady = true;
   terrainReady = false;
 });
@@ -7729,9 +7730,58 @@ function drawTerrain(cam) {
   }
 }
 
-function drawAnimatedAtlasFrame(row, frame, x, y, size, mirror, filter, bob, scaleX, scaleY, lean, offsetX, offsetY) {
-  const image = ALBION_ART.units, cell = ALBION_ART.unitCellSize;
-  if (row == null || !image.complete || !image.naturalWidth) return false;
+/* Pre-baked owner-tinted unit atlases.
+ *
+ * The owner tint used to be a per-unit, per-frame `ctx.filter`, which Phase 0 measured as the
+ * single largest render cost in the game (~14x at idle, ~13x in battle). The tint only depends on
+ * the owner, so it is applied once per owner into an offscreen atlas here instead.
+ *
+ * Baked at half the source cell (128 px, from 256 px): units render at at most ~64 px on screen,
+ * so the copies are still 2x oversampled, and five half-resolution atlases cost roughly 26 MB
+ * where five full-resolution copies would cost ~105 MB.
+ *
+ * Every filter string below is the original minus its `drop-shadow(...)` term. A drop-shadow baked
+ * into the atlas would be clipped by the 24 px cell gutter and would not follow the per-frame
+ * squash, lean and mirror applied at blit time; the cheap `drawShadow()` ground ellipse that
+ * already runs before each sprite is strengthened instead. */
+const UNIT_TINT_FILTERS = {
+  0: 'brightness(1.03) saturate(1.04)',
+  1: 'sepia(.16) saturate(1.16) hue-rotate(-16deg)',
+  2: 'sepia(.24) saturate(.88) hue-rotate(24deg) brightness(.96)',
+  3: 'saturate(.68) hue-rotate(138deg) brightness(.88)',
+  [CREEP_OWNER]: 'brightness(.94) saturate(.9) contrast(1.06)',
+};
+const UNIT_ATLAS_BAKE_SCALE = .5;
+const unitAtlasBakes = new Map();   // owner -> { image, cell }
+
+function bakeTintedUnitAtlases() {
+  unitAtlasBakes.clear();
+  const source = ALBION_ART.units;
+  if (!source.complete || !source.naturalWidth) return;
+  const cell = Math.round(ALBION_ART.unitCellSize * UNIT_ATLAS_BAKE_SCALE);
+  const w = Math.round(source.naturalWidth * UNIT_ATLAS_BAKE_SCALE);
+  const h = Math.round(source.naturalHeight * UNIT_ATLAS_BAKE_SCALE);
+  for (const key in UNIT_TINT_FILTERS) {
+    const bake = document.createElement('canvas');
+    bake.width = w;
+    bake.height = h;
+    const bakeCtx = bake.getContext('2d');
+    bakeCtx.imageSmoothingEnabled = true;
+    bakeCtx.imageSmoothingQuality = 'high';
+    bakeCtx.filter = UNIT_TINT_FILTERS[key];
+    bakeCtx.drawImage(source, 0, 0, w, h);
+    unitAtlasBakes.set(Number(key), { image:bake, cell });
+  }
+}
+
+// Null until the preloader has baked. Callers fall back to their procedural sprite, which is the
+// same thing players already see while the art decodes, so no untinted frame can slip through.
+function unitAtlasFor(owner) {
+  return unitAtlasBakes.get(owner) || unitAtlasBakes.get(0) || null;
+}
+
+function drawAnimatedAtlasFrame(image, cell, row, frame, x, y, size, mirror, bob, scaleX, scaleY, lean, offsetX, offsetY) {
+  if (row == null || !image) return false;
   const dir = mirror ? -1 : 1;
   ctx.save();
   ctx.translate(x + (offsetX || 0) * dir, y + (bob || 0) + (offsetY || 0));
@@ -7739,7 +7789,6 @@ function drawAnimatedAtlasFrame(row, frame, x, y, size, mirror, filter, bob, sca
   ctx.scale(dir * (scaleX == null ? 1 : scaleX), scaleY == null ? 1 : scaleY);
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
-  if (filter) ctx.filter = filter;
   ctx.drawImage(image, frame * cell, row * cell, cell, cell, -size * .5, -size * .82, size, size);
   ctx.restore();
   return true;
@@ -7747,6 +7796,11 @@ function drawAnimatedAtlasFrame(row, frame, x, y, size, mirror, filter, bob, sca
 
 function drawAmbientWorldNpc(a, x, y) {
   const row = ALBION_ART.unitRows[a.role];
+  // World NPCs share the owner-0 bake. Their old filter differed from owner 0 only in
+  // brightness (1.04 versus 1.03), which is below the visible threshold and not worth a
+  // sixth ~5 MB atlas.
+  const atlas = unitAtlasFor(0);
+  if (row == null || !atlas) return false;
   const period = a.role === 'blacksmithNpc' ? 4.8 : a.role === 'barkeep' ? 6.4 : 7.2;
   const actionLength = a.role === 'blacksmithNpc' ? 1.22 : 1.48;
   const beat = (game.time + a.phase * .71) % period;
@@ -7780,10 +7834,11 @@ function drawAmbientWorldNpc(a, x, y) {
       lean += (shiftT < .5 ? .01 : -.01) * weight;
     }
   }
-  drawShadow(x, y + 7, 12 * (1 - gesture * .08), 4 * (1 + gesture * .1), .22);
+  // .28 rather than .22: the tint bake dropped the sprite's drop-shadow term, and this ellipse is
+  // the cheap replacement for the contact shadow it used to provide.
+  drawShadow(x, y + 7, 12 * (1 - gesture * .08), 4 * (1 + gesture * .1), .28);
   const drew = drawAnimatedAtlasFrame(
-    row, frame, x, y, T * 1.72, mirror,
-    'brightness(1.04) saturate(1.04) drop-shadow(0px 2px 1px rgba(15,9,5,.4))',
+    atlas.image, atlas.cell, row, frame, x, y, T * 1.72, mirror,
     bob, scaleX, scaleY, lean, offsetX, 0
   );
   if (drew && acting && gesture > .28) {
@@ -8353,7 +8408,8 @@ function drawAuthoredBuilding(b, x, y, w, fac) {
 
 function drawAuthoredUnit(u, r, fac, angle, phase, moving, working, actionActive, actionT) {
   const row = ALBION_ART.unitRows[u.type];
-  if (row == null || !ALBION_ART.units.complete || !ALBION_ART.units.naturalWidth) return false;
+  const atlas = unitAtlasFor(u.owner);
+  if (row == null || !atlas) return false;
   const mounted = u.type === 'cavarcher';
   const beast = u.type === 'balverine' || u.type === 'hobbeWild';
   const siege = u.type === 'ram' || u.type === 'ballista' || u.type === 'ship';
@@ -8440,12 +8496,8 @@ function drawAuthoredUnit(u, r, fac, angle, phase, moving, working, actionActive
       }
     }
   }
-  let filter = 'brightness(1.03) saturate(1.04) drop-shadow(0px 2px 1px rgba(15,9,5,.4))';
-  if (u.owner === CREEP_OWNER) filter = 'brightness(.94) saturate(.9) contrast(1.06) drop-shadow(0px 2px 1px rgba(15,9,5,.48))';
-  else if (u.owner === 1) filter = 'sepia(.16) saturate(1.16) hue-rotate(-16deg) drop-shadow(0px 2px 1px rgba(15,9,5,.42))';
-  else if (u.owner === 2) filter = 'sepia(.24) saturate(.88) hue-rotate(24deg) brightness(.96) drop-shadow(0px 2px 1px rgba(15,9,5,.44))';
-  else if (u.owner === 3) filter = 'saturate(.68) hue-rotate(138deg) brightness(.88) drop-shadow(0px 2px 1px rgba(15,9,5,.5))';
-  return drawAnimatedAtlasFrame(row, frame, u.x, u.y, h, mirror, filter, bob, scaleX, scaleY, lean, offsetX, offsetY);
+  return drawAnimatedAtlasFrame(atlas.image, atlas.cell, row, frame, u.x, u.y, h, mirror,
+    bob, scaleX, scaleY, lean, offsetX, offsetY);
 }
 
 function drawBuilding(b) {
@@ -8950,7 +9002,9 @@ function drawUnit(u) {
   const swing = u.state === 'attack' ? Math.sin(attackT * Math.PI) : stride;
   const face = Math.cos(angle) < 0 ? -1 : 1;
   const stepLift = moving ? Math.abs(Math.sin(phase)) : 0;
-  drawShadow(u.x, u.y + r * 0.75, r * (1.05 - stepLift * .055), r * (.38 + stepLift * .035), 0.32 - stepLift * .035);
+  // .38 rather than .32: the owner tint is baked into the atlas now, so the sprite no longer
+  // carries a drop-shadow filter term and this ellipse is the whole contact shadow.
+  drawShadow(u.x, u.y + r * 0.75, r * (1.05 - stepLift * .055), r * (.38 + stepLift * .035), 0.38 - stepLift * .04);
   ctx.save();
   ctx.globalAlpha = u.owner === 0 ? 0.22 : 0.18;
   ctx.strokeStyle = fac.light;

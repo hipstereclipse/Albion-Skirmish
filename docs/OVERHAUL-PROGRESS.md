@@ -23,7 +23,11 @@ if the push fails, mark the row `done (push pending)` and say so in the log.
 | 1 | Kill the three-state terrain pop-in (single preload gate, all-or-nothing material gate) | **done, pushed** | Overhaul phase 1: single art preload gate, one terrain rebuild | 2026-07-25 |
 | 2 | Fix dark/low-contrast terrain (brightness normalization, softer washes/outlines, painterly relayer) | **done, pushed** | Overhaul phase 2: brighten terrain and restore painterly character | 2026-07-25 |
 | 3 | Asset weight: `tools/downscale_terrain.py`, 384²/512² re-export, delete 2 dead PNGs | **done, pushed** | Overhaul phase 3: shrink terrain asset payload | 2026-07-25 |
-| 4 | Render hot path: pre-baked tinted atlases, aura/glow sprites, `shadowBlur` purge, minimap 10 Hz, cached atmosphere, `MAX_DPR` 1.5, remove PixiJS | pending | | |
+| 4a | Pre-baked owner-tinted unit atlases (half-res, no per-unit `ctx.filter`) | **done, pushed** | Overhaul phase 4a: pre-bake owner-tinted unit atlases | 2026-07-25 |
+| 4b | Pre-baked biome building atlases + baked resource-variant atlases | pending | | |
+| 4c | Aura sprites, `shadowBlur` purge | pending | | |
+| 4d | Minimap 10 Hz entity cache, cached atmosphere, `MAX_DPR` 1.5, `ents` hoist | pending | | |
+| 4e | Remove PixiJS, canvas-native shore shimmer from precomputed `game.shoreTiles` | pending | | |
 | 5 | Sim hot path: spatial hash for `applySeparation`, allocation-free A\* costs | pending | | |
 | 6 | Clean IP rebrand: decouple preset-name regexes, rename display strings + asset files, disclaimer, grep gate | pending | | |
 | 7 | End-to-end verification: perf A/B, load payload, art screenshots, save compat, offline | pending | | |
@@ -459,6 +463,90 @@ thumbnail on every load and independently arrived at the same clamps.
 5. **The meadow soft-light overlay now repeats ~7.5× across the 2880 px map instead of ~2.3×**, since
    its pattern is created at natural size. The seeded diff shows no resulting structure, but this is
    the first thing to check if a repeat ever becomes visible (plan risk #7 — bump to 512²).
+
+### Phase 4a — done 2026-07-25
+
+**What changed** (`index.html` only; items 2-9 of the plan's Phase 4 list are untouched)
+
+- New pre-baked owner-tinted unit atlas section above `drawAnimatedAtlasFrame`: `UNIT_TINT_FILTERS`
+  (five owner keys — 0-3 plus `CREEP_OWNER`), `UNIT_ATLAS_BAKE_SCALE = .5`, the `unitAtlasBakes`
+  map, `bakeTintedUnitAtlases()` and `unitAtlasFor(owner)`. The Phase 1 preloader calls
+  `bakeTintedUnitAtlases()` immediately before setting `artReady`.
+- `drawAnimatedAtlasFrame` now takes `image` and `cell` as its first two parameters instead of
+  hardcoding `ALBION_ART.units` / `ALBION_ART.unitCellSize`, and **no longer sets `ctx.filter`**.
+  The `filter` parameter is gone.
+- `drawAuthoredUnit` resolves `unitAtlasFor(u.owner)` and returns `false` when no bake exists; the
+  five-branch per-unit filter string construction is deleted.
+- `drawAmbientWorldNpc` resolves `unitAtlasFor(0)` and returns `false` when no bake exists.
+- Contact shadows: the unit ellipse in `drawUnit` went `0.32 - stepLift*.035` →
+  `0.38 - stepLift*.04`, and the world-NPC ellipse `.22` → `.28`, replacing the
+  `drop-shadow(0px 2px 1px …)` term that the bake deliberately drops.
+
+**Measured — same harness, same seed, both sides**
+
+The Phase 0 headline baseline was captured on a 1578×625 canvas; this harness runs 1275×490, so its
+absolute numbers are not comparable to the Phase 0 table. Both sides below were therefore re-measured
+with the *same* harness: the "before" column is a `git worktree` checkout of the Phase 3 commit
+`b1b39d6`, the "after" column is this commit, seed `overhaul-perf-v1`, Greatwood Crossing, 3 enemy
+factions, 26 starting units, `dpr` 1.5, 60 s of continuous panning and 30 s of a 229-unit battle.
+
+| Scenario | Before (b1b39d6) | After (4a) | Change |
+|---|---|---|---|
+| Idle pan, avg frame interval | 69.73 ms (**14.34 fps**) | 53.90 ms (**18.55 fps**) | **1.29x** |
+| Idle pan, p95 | 133.3 ms | 100.1 ms | −25% |
+| Battle (229 units), avg | 439.77 ms (**2.27 fps**) | 110.61 ms (**9.04 fps**) | **3.98x** |
+| Battle, p95 | 549.9 ms | 116.9 ms | −79% |
+
+Sample counts were 871 → 1124 (idle) and 70 → 278 (battle) over identical wall-clock windows, which
+is the same result read a second way. Neither run was rAF-throttled (the harness now asserts this).
+
+**Deviations from the plan, both deliberate**
+
+1. **World NPCs share the owner-0 bake** rather than getting a sixth atlas. Their filter differed
+   from owner 0 only by `brightness(1.04)` versus `brightness(1.03)`; a sixth ~5 MB atlas is not
+   worth a difference of 0.01 in brightness.
+2. **The lost drop-shadow is compensated by strengthening the *existing* `drawShadow()` ellipse**
+   rather than adding a second one. Both call sites already drew a ground ellipse immediately before
+   the sprite, so the plan's "restore it with `drawShadow()` before the blit" is satisfied by raising
+   those two alphas — one fill instead of two.
+
+**Verification**
+
+- Bake audit in a live page: all five bakes are **512×2560 with cell 128** (source atlas 1024×5120,
+  cell 256), **~25 MB** total. For every owner the baked pixels match a reference render of the
+  source through the same filter string to within 1/255 per channel, and every bake differs from an
+  untinted downscale — so the tint is provably applied and provably per-owner. 0 page errors.
+- Seeded art preview (`overhaul-art-preview-v1`) re-run: **0 page errors**, all 8 material factors
+  and all 5 visual biomes still reported, terrain factors byte-identical to Phase 2/3.
+- Whole-frame diff of the seeded gallery against the same capture from `b1b39d6`: **RMS 0.90,
+  PSNR 49.05 dB, 0.99% of pixels changed**, and every changed pixel lies between rows 212 and 620.
+  Amplified 16×, the difference is *only* unit silhouettes and their ground ellipses — terrain,
+  buildings, resource nodes, HUD and minimap are bit-identical black. At 5× magnification the
+  half-resolution bake is visually indistinguishable from the full-resolution filtered draw.
+- **New art-preview reference hash:** SHA-256
+  `DA4CB1949E2EA363E41D585285125BD372715D5B615667DC0AC051BF7F2DE5A7`. The Phase 3 hash
+  `91A8C69D5E4…` is superseded — unit rendering legitimately changed.
+- Save/load round trip: started a seeded game, ran 400 sim ticks, added a building, saved to slot 3,
+  **reloaded the page**, loaded the slot back. Fingerprint over 25 units, 8 buildings, 8 sites,
+  31 ambient entities, age, resources, map id, seed and clock: **identical, 0 differing keys**,
+  0 page errors. Slot cleaned up afterwards.
+- Inline script extracted and `node --check`ed: clean (1 block). `git diff --check`: clean.
+
+**Findings worth carrying forward**
+
+1. **Battle got the predicted win; idle did not.** 3.98x in battle is in line with Phase 0's ~13x
+   ceiling for all filter removal. Idle only moved 1.29x because the idle scene has 26 units but
+   **324 resource nodes**, and `drawAuthoredResource` sets a *per-node* `ctx.filter` with its own
+   `drop-shadow` term. That call site is **not in the plan's Phase 4 list** — it is the next-largest
+   filter offender and now the idle bottleneck. Phase 4b picks it up alongside the buildings.
+2. **`drawAuthoredUnit`'s readiness gate moved** from "the source image decoded" to "a bake exists".
+   That is intentional: it makes an untinted frame impossible, and the fallback is the procedural
+   sprite players already see while art decodes.
+3. **Measure with an occlusion-proof browser.** A backgrounded Edge window stops firing rAF
+   entirely, which shows up as a run that collects ~7% of the expected samples rather than as a slow
+   run. `--disable-backgrounding-occluded-windows --disable-renderer-backgrounding
+   --disable-background-timer-throttling` are required, and the harness now fails a run whose
+   sample count implies throttling.
 
 ---
 
